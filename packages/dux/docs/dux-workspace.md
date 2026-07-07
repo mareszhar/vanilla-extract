@@ -106,6 +106,8 @@ The output plane is this project's addition to the house methodology: **the emit
 
 Tests collocate beside the code they exercise; Prism fixtures live once in `vane-dux/src/test-support/` with the larger app-shaped scenarios in `sandbox/fixtures/`. Fewer tests, higher confidence: assert contracts, never implementation details.
 
+> **Known trap.** Vitest's typecheck runs `tsc --incremental` against a shared `tsconfig.tmp.tsbuildinfo` inside `vitest/dist/`. If the type plane reports errors that plain `tsc --noEmit` doesn't, delete that file — a stale cache replays against old declarations. Relatedly, tsc's incremental mode mis-resolves *self-intersecting recursive type aliases*; recursive public types are written as named interfaces (`VaneRefs`/`VaneRef`) for exactly this reason.
+
 ---
 
 ## 6. Changes outside dux
