@@ -3,20 +3,20 @@ status: spec — contracts settled, implementation pending
 
 # vane-dux — spec: preset
 
-The thin opinionated convenience layer: a hospitable starting point that takes away ceremony for most users without locking the foundation it's built on. Phase 6 of the roadmap.
+The thin opinionated convenience layer: a hospitable starting point that takes away ceremony for most users without locking the foundation it's built on. The preset ships in two waves: the **foundations** (§1–2) land as phase 5 because the quickstart runs through them ([dux-spec-css.md §1.1](./dux-spec-css.md#11-the-happy-path-one-file)); the **conveniences** (§3–6) follow as phase 7.
 
 The preset's law: **opinions live where they're deletable.** Everything here consumes only the public core surface — a user can replace any piece (or all of it) with their own, and the core never knows the difference. Starting from nothing is too much ceremony; starting from someone else's totalizing philosophy is moving into their house. The preset is a furnished room with the receipts attached.
 
 ## Implementation status
 
-| # | Contract | Status |
-| --- | --- | --- |
-| 1 | Preset tokens | ☐ |
-| 2 | Preset conditions | ☐ |
-| 3 | `atoms` | ☐ |
-| 4 | A11y helpers | ☐ |
-| 5 | Motion opinions | ☐ |
-| 6 | Layout patterns | ☐ |
+| # | Contract | Phase | Status |
+| --- | --- | --- | --- |
+| 1 | Preset tokens | 5 | ☐ |
+| 2 | Preset conditions | 5 | ☐ |
+| 3 | `atoms` | 7 | ☐ |
+| 4 | A11y helpers | 7 | ☐ |
+| 5 | Motion opinions | 7 | ☐ |
+| 6 | Layout patterns | 7 | ☐ |
 
 ---
 
@@ -37,24 +37,35 @@ export const t = defineTokens({
 
 **Contract details.**
 
-- OKLCH-derived brand ramp from one seed color; elevation-driven surfaces/borders/inks ([dux-spec-tokens.md §4](./dux-spec-tokens.md#4-elevation)) so both schemes fall out automatically; `contrast()` pairings prewired.
+- OKLCH-derived brand ramp from one seed color; elevation-driven surfaces/borders/inks ([dux-spec-tokens.md §4](./dux-spec-tokens.md#4-elevation)) so both schemes fall out automatically; `legibleOn()` pairings prewired.
 - Spacing (linear ×4), type scale with composite `text.*` styles, radii, shadows, z-index scale, durations and easings.
 - The seed options (`radius`, `density`, `contrast`) are hail-styl-style **controls**: one knob retunes a family of tokens without editing them individually.
-- The output is a plain token subtree — inspectable, spreadable, partially adoptable.
+- The output is a plain token subtree — inspectable, spreadable, partially adoptable. The merge semantics are ordinary object spread and therefore already understood: later keys win, so preset tokens are *defaults you extend or override*, with no hidden merge logic. `createSystem({ tokens: presetTokens({ brand }) })` (the quickstart) and the `defineTokens` spread above are the same operation in two positions.
 
 ---
 
 ## 2. Preset conditions
 
-**Why.** The condition set is where accumulated platform knowledge lives; nobody should have to remember the forced-colors media query.
+**Why.** The condition set is where accumulated platform knowledge lives; nobody should have to remember the forced-colors media query. And because this import sits in the one file every user writes first, its exact name and merge shape are part of the contract — the quickstart must be copy-pasteable, never inferred.
 
-**Contract details.** One import provides the working set, mergeable with user conditions in `createSystem`:
+**Usage.**
 
-- interaction: `hover` (`:hover, :focus-visible`), `down`, `focusVisible`, `disabled`
+```TS
+import { presetConditions } from '@mszr/vane-dux/preset'
+
+createSystem({
+  tokens: t,
+  conditions: presetConditions(), // or { ...presetConditions(), cardWide: container('card', '…') }
+})
+```
+
+**Contract details.** `presetConditions()` returns a plain conditions map — spread it to extend, omit keys by destructuring, or pass it whole. It *adds to* the core base set ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)), contributing the opinionated names:
+
 - breakpoints `sm…2xl`; container sizes; orientation
-- preference: `dark`, `light`, `motionOk`, `motionReduce`, `contrastMore`, `forcedColors`
-- direction: `ltr`, `rtl`
+- preference: `contrastMore`, `forcedColors`
 - headless states: `open`, `closed`, `checked`, `selected`, `highlighted`, `invalid` (the Zag/Reka `data-state`/`data-*` contract)
+
+The interaction and preference basics (`hover`, `hoverFocus`, `down`, `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`) are core, not preset — they're platform facts, not opinions. Note the naming law at work: `hover` is `&:hover` and nothing more; the hover-plus-keyboard-focus affordance pair is **`hoverFocus`**, so a condition never claims less than it does. Preset helpers and patterns use `hoverFocus` for interactive affordances and the docs recommend it — by name, not by stealth.
 
 ---
 

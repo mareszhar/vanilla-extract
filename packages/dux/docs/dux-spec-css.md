@@ -25,9 +25,9 @@ Contracts here lean on the cross-cutting law: evaluation ([dux-patterns.md §1](
 
 ## 1. `createSystem` — bind once, typed everywhere
 
-**Why.** Panda-grade typing without Panda's generated artifact directory: a factory that closes over tokens, conditions, and layers returns authoring functions whose types are *inferred*, so a new condition or token is available everywhere the instant it's defined — no codegen lag, no stale artifacts, no diff noise.
+**Why.** Panda-grade typing without Panda's generated artifact directory: a factory that closes over tokens, conditions, and layers returns authoring functions whose types are *inferred*, so a new condition or token is available everywhere the instant it's defined — no codegen lag, no stale artifacts, no diff noise. And because this is the one file every user must write on day one, its floor is engineered: tokens can be defined inline, `t` comes back out, layers default, and a universal base condition set is already there — the happy path is **one file, one call** ([§1.1](#11-the-happy-path-one-file)).
 
-**Usage.**
+**Usage — the full form.**
 
 ```TS
 // design/system.style.ts
@@ -38,13 +38,9 @@ export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = creat
   tokens: t,
   prefix: 'prism',
   conditions: {
-    hover: '&:hover, &:focus-visible',
-    down: '&:active',
     open: '&[data-state="open"]',
     md: media('(min-width: 768px)'),
     lg: media('(min-width: 1024px)'),
-    dark: schemeIs('dark'),
-    motionOk: media('(prefers-reduced-motion: no-preference)'),
     cardWide: container('card', '(min-width: 400px)'),
   },
   layers: ['reset', 'tokens', 'recipes', 'utilities', 'overrides'],
@@ -54,11 +50,31 @@ export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = creat
 **Contract details.**
 
 - One system per design system; the destructured functions are the app's whole authoring import surface.
+- **`tokens` accepts a raw graph or a `defineTokens` result, and `t` is always returned** beside the authoring functions — one import line serves every style file. The separate tokens file remains the library-authoring form ([dux-spec-tokens.md §1](./dux-spec-tokens.md#1-definetokens--the-graph-in-plain-ts)); nothing requires it.
+- **`layers` is optional**, defaulting to `['reset', 'tokens', 'recipes', 'utilities', 'overrides']`. Nobody needs to know what a cascade layer is to hello-world; declaring `layers` is how you take control when you do.
+- **A base condition set is built in** — the platform-universal names, no opinions: `hover` (`&:hover` — exactly what it says), `hoverFocus` (`&:hover, &:focus-visible` — the interactive-affordance pair, named for what it does), `down` (`&:active`), `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`. User conditions merge over it; a same-named user condition overrides; `baseConditions: false` opts out entirely. Breakpoints, container sizes, and headless states are opinions and live in the preset ([dux-spec-preset.md §2](./dux-spec-preset.md#2-preset-conditions)).
 - A condition name colliding with a CSS property is refused **at the definition key** (`DUXERR_SYSTEM_CONDITION_COLLISION`).
 - Condition values are plain selector strings or the typed helpers (`media`, `container`, `schemeIs`, `data`, `aria`); helpers exist for readability, strings are never second-class.
 - `createSystem` is itself evaluated build-time code; its returns are inert typed functions ([dux-patterns.md §1](./dux-patterns.md#1-evaluate-dont-extract-compile-dont-run)).
 
 **Proposed approach.** A generic factory whose type parameters flow from the literal config (`const`-inferred), compiling each authoring call down to substrate primitives. No emitted `.d.ts` artifacts: inference is the codegen.
+
+### 1.1 The happy path: one file
+
+The canonical quickstart — the exact file the README, the Nuxt module docs, and `sandbox/demo-minimal` share:
+
+```TS
+// design/system.style.ts
+import { createSystem } from '@mszr/vane-dux'
+import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
+
+export const { t, css, recipe, anatomy, port, theme } = createSystem({
+  tokens: presetTokens({ brand: '#635bff' }),
+  conditions: presetConditions(), // adds breakpoints, container sizes, headless states
+})
+```
+
+One file, two imports, zero layer literacy, dark mode already working. Every capability remains reachable from here by *adding* keys — never by restructuring (principle 10).
 
 ---
 
@@ -92,8 +108,9 @@ export const card = css({
 **Contract details.**
 
 - Returns a class string; the rules compile away entirely.
-- Properties are csstype-typed camelCase; values accept tokens, ports, plain CSS values, and template interpolations of both.
-- Numbers take the property's canonical unit where one exists (`padding: 8` → `8px`; unitless properties stay unitless); ambiguous cases are a type error asking for a unit.
+- Properties are csstype-typed camelCase; values accept tokens, ports, plain CSS values, color-helper expressions (`alpha(t.color.ink, 0.42)` — [dux-spec-tokens.md §2](./dux-spec-tokens.md#2-liveness-compilation)), and template interpolations of any of them.
+- **`css()` is open-valued: any valid CSS value is legal with no escape wrapper.** The token map guides; it never gates. (`unsafe.value` exists only in `atoms`, whose property sets are deliberately closed — [dux-spec-preset.md §3](./dux-spec-preset.md#3-atoms). A utility-CSS refugee looking for "arbitrary value syntax" here should find this sentence: there isn't one, because everything is already allowed and still parsed.)
+- Numbers take the property's canonical unit where one exists (`padding: 8` → `8px`; unitless properties like `lineHeight`, `opacity`, `zIndex`, `flexGrow` stay unitless); ambiguous cases are a type error asking for a unit. The number→unit table follows the substrate's proven behavior, ships in the manifest, and is locked by the output test plane — it must never be a guess.
 - Nesting depth is unlimited; every non-property key is either a known condition, a selector, or an at-rule — anything else errors at the key.
 
 ---
@@ -102,7 +119,7 @@ export const card = css({
 
 The behavior contract lives in [dux-patterns.md §5](./dux-patterns.md#5-conditions); this entry owns the authoring specifics.
 
-- **Bare keys, both directions.** `hover: { … }` and `color: { base, hover }` compile identically; mixing directions in one rule is legal.
+- **Bare keys, both directions.** `hover: { … }` and `color: { base, hover }` compile identically; mixing directions in one rule is legal. House style so teams don't relitigate it per PR: group a state's declarations selector-first; reach for property-first when one property varies across three or more states.
 - **Conditions compose by nesting:** `open: { motionOk: { animation: … } }` emits the intersection.
 - **`base`** is the unconditioned arm of a property-first map; omitting it means "no unconditioned declaration".
 - **Container conditions** reference containers declared via `containerName`/`containerType` declarations or the `container()` helper's named handle.
@@ -129,17 +146,14 @@ export const toolbar = css({
   display: 'flex',
   gap: t.space.xs,
   [`${button} + ${button}`]: { marginInlineStart: 0 },  // typed class reference
-})
-
-export const toolbarTweaks = within(toolbar, {
-  [button]: { borderRadius: 0 },                        // parent-scoped child rule
+  [`& ${button}`]: { borderRadius: 0 },                  // parent-scoped child rule
 })
 ```
 
 **Contract details.**
 
-- A style handle interpolated into a selector resolves to its generated class; renaming the export renames the relationship.
-- `within(parent, rules)` is sugar for parent-scoped child selectors with typed keys — the deliberate boundary-crossing form. For *theming* a child, prefer its ports ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)); `within` is for true structural selectors on children you own.
+- A style handle interpolated into a selector resolves to its generated class; recipe and anatomy-part handles interpolate the same way. Renaming the export renames the relationship.
+- Interpolation is the *only* boundary-crossing form — deliberately. It looks like what it is (a selector reaching into a child), which keeps the honest hierarchy visible: theme a child's *values* through its ports ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)); select into a child's *structure* only when you own it, and the interpolated class says so in plain sight. A friendlier `within()` sugar was considered and deferred — a comfortable wrapper here would hand every `:deep()` refugee a crutch that delays learning ports ([dux-vision.md §8](./dux-vision.md#8-deferred-intentions)).
 - All selectors — helper-built or raw — go through the same build-time parser (§9).
 
 ---
@@ -178,7 +192,7 @@ export const content = css({
 })
 ```
 
-**Contract details.** Steps are ordinary vane rule objects (tokens and ports legal inside); the handle interpolates as the generated name. `fontFace(descriptor)` follows the same shape. `@starting-style` and `transition-behavior` need no wrapper — they're plain keys (§2).
+**Contract details.** Steps are declaration-only rule objects: tokens, ports, and color helpers are legal inside, but condition and selector keys are **type errors at the key** — a `hover:` inside a keyframe step is semantically meaningless, so the grammar refuses it rather than silently ignoring it. The handle interpolates as the generated name. `fontFace(descriptor)` follows the same shape. `@starting-style` and `transition-behavior` need no wrapper — they're plain keys (§2).
 
 ---
 
@@ -227,5 +241,6 @@ export const prose = css.raw`
 - Every declaration — object, raw, global, keyframe step — is parsed; an invalid value is a build diagnostic with file:line, the offending property, and the reason (`DUXERR_CSS_INVALID_VALUE`).
 - Unknown properties pass through only under an explicit vendor/experimental marker; otherwise they error (the silent-failure ban is absolute).
 - Diagnostics land within the HMR loop — save, and the overlay names the line; never later than the reload.
+- **Setup failures are diagnosed too.** Importing a `*.style.ts` module without the `/vite` plugin registered produces one friendly error naming the missing plugin and the config line to add (`DUXERR_VITE_PLUGIN_MISSING`) — never a raw Node evaluation stack. The bounce point of a misconfigured first install gets the same message quality as a typo'd property.
 
 **Proposed approach.** lightningcss parses the assembled rules during evaluation in the `/vite` plugin, mapping positions back through the emitter's source map to the `.style.ts` expression.

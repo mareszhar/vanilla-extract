@@ -107,12 +107,12 @@ The canon. When two pull against each other, the earlier one wins.
 
 ```
 @mszr/vane-dux           the contract + compiled planes: defineTokens, createSystem
-                         (→ css, recipe, anatomy, keyframes, globalCss, port, theme),
+                         (→ t, css, recipe, anatomy, keyframes, globalCss, port, theme),
                          checks, the Vane* types
 @mszr/vane-dux/runtime   the live plane's ~300-byte helpers: applyTheme, port glue
 @mszr/vane-dux/vite      the build plane: Vite plugin wiring the vanilla-extract
                          compiler to *.style.ts, debug names, manifest emission
-@mszr/vane-dux/vue       the Vue overlay: usePorts + SFC-era helpers   (peer vue)
+@mszr/vane-dux/vue       the Vue overlay: usePorts, useAnatomy         (peer vue)
 @mszr/vane-dux/nuxt      the Nuxt module: auto-imports, /vite wiring, SSR polish,
                          DevTools                                      (peer nuxt)
 @mszr/vane-dux/preset    the opinionated layer: default tokens/conditions, atoms,
@@ -192,6 +192,7 @@ Principles are for ranking; moments are for feeling. Every surface is walked thr
 9. **Delete styles that are no longer used.** Dead exports, flagged by the language server; unused tokens, flagged by the audit.
 10. **Trace why an element is 12px.** From devtools class → `.style.ts` line → token → scale decision.
 11. **Point an agent at the repo and ask for a new card variant in house style.** It reads the manifest and the types; its wrong guesses die in `tsc`, not in review.
+12. **Copy-paste the quickstart into a fresh Nuxt app.** One system file, one component — a button that looks good in *both* schemes, inside five minutes, with every import line real ([dux-spec-css.md §1.1](./dux-spec-css.md#11-the-happy-path-one-file)).
 
 ---
 
@@ -213,6 +214,8 @@ No open questions — deferred items are decided intentions with explicit trigge
 | Intention | Decision | Trigger |
 | --- | --- | --- |
 | `<style lang="ts">` SFC block | sidecar `*.style.ts` is the contract; the block compiles to a virtual style module later — same evaluation model, zero new semantics | Volar-plugin cost justified by real adoption |
+| `within()` selector sugar | typed class interpolation is the structural boundary-crossing form — visibly a selector, honest on its face; a comfy wrapper would hand `:deep()` refugees a crutch that delays learning ports | interpolated parent→child selectors proving genuinely noisy in real apps |
+| Agent-context prose generator (manifest → oriented markdown) | the manifest *is* the agent interface; diagnostics are the correction loop | a real agent consumer whose needs the raw manifest demonstrably doesn't meet |
 | Metadata-aware deterministic `cx` merging (StyleX-style write keys) | non-atomic + layers keeps conflicts trivially CSS-ordered for v1 | measured conflict pain in the demo/real apps |
 | Editor plugin channeling parser diagnostics into squiggles | build-time diagnostics at HMR speed are the floor | post-1.0; TS language-service plugins are fragile territory |
 | Atomic output mode | non-atomic, layered output is the semantics | measured CSS-size pain at scale |
@@ -231,16 +234,17 @@ Sequenced so each phase is independently useful and nothing depends on a surface
 | Phase | Deliverable | Spec | Status |
 | --- | --- | --- | --- |
 | 0. Scaffold | orchestrator workspace, package skeleton, `/vite` wiring, boundary lint, docs | [workspace](./dux-workspace.md) | ☐ |
-| 1. Tokens | the graph, liveness, schemes, elevation, contrast checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☐ |
-| 2. Authoring core | `createSystem`, `css`, conditions, layers, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ☐ |
+| 1. Tokens | the graph, liveness, schemes, elevation, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☐ |
+| 2. Authoring core | `createSystem` (inline tokens, default layers, base conditions), `css`, conditions, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ☐ |
 | 3. Ports | `port`, setters, `/runtime` | [ports](./dux-spec-ports.md) | ☐ |
-| 4. Recipes | `recipe`, toggles, compound variants, `anatomy` | [recipes](./dux-spec-recipes.md) | ☐ |
-| 5. Vue + Nuxt | `usePorts`, the Nuxt module, SSR/HMR polish, the Prism demo app | [vue](./dux-spec-vue.md) | ☐ |
-| 6. Preset | default tokens/conditions, `atoms`, a11y/motion helpers, patterns | [preset](./dux-spec-preset.md) | ☐ |
-| 7. Introspection | manifest, audits, agent context | [introspection](./dux-spec-introspection.md) | ☐ |
-| 8. Demo + lock | comparison sandbox complete, publish pipeline, gauntlet green | [workspace](./dux-workspace.md) | ☐ |
+| 4. Recipes | `recipe`, toggles, compound variants, published ports, `anatomy` | [recipes](./dux-spec-recipes.md) | ☐ |
+| 5. Preset foundations | `presetTokens`, `presetConditions` — the quickstart becomes real | [preset](./dux-spec-preset.md) | ☐ |
+| 6. Vue + Nuxt | `usePorts`, `useAnatomy`, the Nuxt module, SSR/HMR polish, `demo-minimal` + the Prism demo app | [vue](./dux-spec-vue.md) | ☐ |
+| 7. Preset conveniences | `atoms`, a11y/motion helpers, patterns | [preset](./dux-spec-preset.md) | ☐ |
+| 8. Introspection | manifest, audits | [introspection](./dux-spec-introspection.md) | ☐ |
+| 9. Demo + lock | comparison sandbox complete, publish pipeline, gauntlet green | [workspace](./dux-workspace.md) | ☐ |
 
-Phase 1 validates the most novel bet first. The flagship demo for phase 5 is gauntlet moment 3 live: a user picks a brand color and the whole scheme follows, both modes, zero runtime JS beyond `applyTheme`.
+Phase 1 validates the most novel bet first; phase 5 sits before the framework overlays because the on-ramp *is* a deliverable — gauntlet moment 12 must be real the day anyone can install this. The flagship demo for phase 6 is gauntlet moment 3 live: a user picks a brand color and the whole scheme follows, both modes, zero runtime JS beyond `applyTheme`.
 
 ---
 

@@ -3,7 +3,7 @@ status: spec — contracts settled, implementation pending
 
 # vane-dux — spec: introspection
 
-The system explains itself: provenance from pixels back to decisions, a machine-readable manifest, and audits that keep the system honest. Phase 7 of the roadmap. The rationale is [dux-patterns.md §11](./dux-patterns.md#11-agent-legibility): agents and 11pm-you want the same thing.
+The system explains itself: provenance from pixels back to decisions, a machine-readable manifest, and audits that keep the system honest. Phase 8 of the roadmap. The rationale is [dux-patterns.md §11](./dux-patterns.md#11-agent-legibility): agents and 11pm-you want the same thing.
 
 ## Implementation status
 
@@ -12,7 +12,7 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 | 1 | Provenance | ☐ |
 | 2 | The manifest | ☐ |
 | 3 | Audits | ☐ |
-| 4 | Agent context | ☐ |
+| 4 | Agent context | manifest-first; generator deferred |
 
 ---
 
@@ -82,10 +82,9 @@ Audits run as part of `bun run validate` and print grouped, deep-linked findings
 
 ## 4. Agent context
 
-**Why.** An agent asked for "a new card variant matching house style" should succeed without reading the docs site (gauntlet moment 11). Conventions must be explicit and generated, not tribal.
+**Why.** An agent asked for "a new card variant matching house style" should succeed without reading the docs site (gauntlet moment 11). Conventions must be explicit and queryable, not tribal.
 
 **Contract details.**
 
-- A generator projects the manifest into an agent-context file (tokens and semantic roles, variant spaces, port surfaces, escape policy, naming conventions, "don't" guidance derived from *audit findings*, not generic style advice).
-- The generated context is data → prose; it never drifts from the system because it is built from the same manifest the build emits.
-- Diagnostics remain the primary agent interface — the context file orients; `tsc` and the build referee ([dux-patterns.md §11](./dux-patterns.md#11-agent-legibility)).
+- **The manifest is the agent interface** (§2): stable, versioned, machine-readable, and always current because the build emits it. An agent that reads it plus the types has everything the delight gauntlet demands; diagnostics remain the correction loop — `tsc` and the build referee ([dux-patterns.md §11](./dux-patterns.md#11-agent-legibility)).
+- A prose **agent-context generator** (manifest → oriented markdown with escape policy and audit-derived "don't" guidance) is a deferred intention with a named trigger — a real agent consumer whose needs the raw manifest demonstrably doesn't meet ([dux-vision.md §8](./dux-vision.md#8-deferred-intentions)). Building prose nobody consumes would spend implementation budget the call sites need more.

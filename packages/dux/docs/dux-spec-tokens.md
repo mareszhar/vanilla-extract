@@ -33,7 +33,7 @@ Snippets use the Prism fixture design system ([dux-workspace.md §2](./dux-works
 
 ```TS
 // design/tokens.style.ts
-import { alpha, contrast, defineTokens, elevation, oklch, scale, scheme } from '@mszr/vane-dux'
+import { alpha, defineTokens, elevation, legibleOn, oklch, scale, scheme } from '@mszr/vane-dux'
 
 export const t = defineTokens({
   color: {
@@ -42,7 +42,7 @@ export const t = defineTokens({
     ink: elevation(0.94),
     brandSoft: ({ color }) => alpha(color.brand, 0.12),  // derivation — a graph edge
     brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: contrast(({ color }) => color.brand),       // guaranteed-legible pairing
+    onBrand: legibleOn(({ color }) => color.brand),      // guaranteed-legible pairing
     canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
   },
   space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
@@ -57,6 +57,7 @@ export const t = defineTokens({
 - Derivations receive the typed graph and return values or further expressions; cycles are a build diagnostic naming the loop.
 - Plain strings/numbers are valid leaves — the graph machinery is opt-in per token (principle 10).
 - `scale.*` generators (`linear`, `modular`, …) are ordinary functions producing token subtrees; nothing about them is special-cased.
+- The dedicated tokens file is the *library-authoring* form. An app that wants one design file passes the same graph to `createSystem({ tokens: { … } })` and receives `t` back bound ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)) — the split is available, never required.
 
 **Proposed approach.** `defineTokens` walks the object, resolves derivation thunks against a lazy proxy of the graph, classifies liveness (§2), and registers one global-theme emission via the vanilla-extract substrate (`createGlobalThemeContract` + `createGlobalTheme` internally; never re-exported). The returned `t` is a proxy of typed token handles: each carries its `var(--…)` reference for interpolation, its resolved value(s) for hovers/checks, and its metadata.
 
@@ -85,6 +86,7 @@ brandHover: ({ color }) => color.brand.lighten(0.06),
 **Contract details.**
 
 - Classification per [dux-patterns.md §3](./dux-patterns.md#3-liveness): all-static inputs fold at build; any live input compiles the derivation to relative color syntax, `color-mix()`, `calc()`, or `light-dark()`.
+- **The color-handle surface is finite and documented.** Color handles carry: `alpha`, `lighten`, `darken`, `saturate`, `desaturate`, `rotate` (hue), and `mix(other, amount)`; each exists both as a method (`color.brand.lighten(0.06)`) and a standalone helper (`alpha(color.brand, 0.12)`). Every one has a defined live-CSS serialization, which is what bounds the set — a proposed helper that cannot compile to CSS under liveness doesn't ship. Helpers are equally legal in style rules (`background: alpha(t.color.ink, 0.42)` inside `css()`), where they follow the same static-fold/live-serialize classification.
 - Build-time color math and emitted CSS color math must agree to the rounding digit, or static and live ramps diverge subtly. This is a locked test fixture, not a hope.
 - A derivation the compiler cannot express as CSS (e.g. arbitrary string manipulation over a live input) is a build diagnostic at the derivation, naming the unexpressible step and the two exits: make the input static, or accept a build-folded approximation explicitly.
 
@@ -111,7 +113,7 @@ surface: elevation(0.03), // elevation is scheme-aware by construction
 **Contract details.**
 
 - Scheme-dependent tokens are live by definition (§2 applies downstream).
-- Forcing a scheme (user toggle) is standard CSS: the system emits `[data-scheme='light']`/`[data-scheme='dark']` scopes that pin `color-scheme`; `/runtime` ships a two-line `setScheme(el, scheme)` and the Nuxt module documents the SSR cookie dance ([dux-spec-vue.md §4](./dux-spec-vue.md#4-ssr-and-hmr)) — no zero-runtime system escapes it, so we ship the recipe instead of pretending.
+- Forcing a scheme (user toggle) is standard CSS: the system emits `[data-scheme='light']`/`[data-scheme='dark']` scopes that pin `color-scheme`; `/runtime` ships a two-line `setScheme(el, scheme)` and the Nuxt module documents the SSR cookie dance ([dux-spec-vue.md §5](./dux-spec-vue.md#5-ssr-and-hmr)) — no zero-runtime system escapes it, so we ship the recipe instead of pretending.
 - Custom scheme axes beyond light/dark (high-contrast brand modes) are themes ([§7](#7-themes-theme-and-applytheme)), not schemes — the scheme axis is the one the platform natively pairs.
 
 ---
@@ -140,24 +142,24 @@ ink: elevation(0.94),
 
 ## 5. Contrast and checks
 
-**Why.** Accessibility pairings are usually an audit nobody re-runs. The graph knows both endpoints of every pairing — including both scheme values — so legibility becomes a build diagnostic with a fix-it (principle 7).
+**Why.** Accessibility pairings are usually an audit nobody re-runs. The graph knows both endpoints of every pairing — including both scheme values — so legibility becomes a build diagnostic with a fix-it (principle 7). The derivation is named for what it *produces* — a color legible on its target — not for the check it happens to carry; `onBrand: legibleOn(…brand)` reads as the relationship it is.
 
 **Usage.**
 
 ```TS
-onBrand: contrast(({ color }) => color.brand),
+onBrand: legibleOn(({ color }) => color.brand),
 ```
 
 ```text
 ✖ DUXERR_TOKENS_CONTRAST  color.onBrand / color.brand fails APCA Lc 60 in scheme "dark"
     brand (dark) → oklch(0.68 0.2 285); best pairing white = Lc 47.2
     at design/tokens.style.ts:9
-  fix: darken brand in dark scheme, or accept explicitly: contrast(…, { minLc: 45 })
+  fix: darken brand in dark scheme, or accept explicitly: legibleOn(…, { minLc: 45 })
 ```
 
 **Contract details.**
 
-- `contrast(fn)` yields the legible pairing for a target token, checked at build against both schemes (APCA by default; WCAG2 selectable per system).
+- `legibleOn(fn)` yields the legible pairing for a target token, checked at build against both schemes (APCA by default; WCAG2 selectable per system).
 - Over a **live** target the guarantee cannot be total: the emitted value uses `contrast-color()` where supported plus a computed fallback, and the handle types as `LiveContrast`, not `CheckedContrast` — honest limits, stated in types ([dux-patterns.md §3](./dux-patterns.md#3-liveness)). `applyTheme` can optionally clamp live inputs to a legible range.
 - Standalone assertions cover pairings the graph doesn't own: `checks: [check.textContrast(t.color.ink, t.color.canvas).aa()]` in `defineTokens` options.
 - Checks are diagnostics with fix-its, never hard gates you can't consciously accept — an explicit threshold override is always available and shows up in the audit ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)).

@@ -89,7 +89,7 @@ Build-time styling and runtime values live on opposite sides of a wall. In vane-
 
 ```TS
 // Progress.style.ts
-export const fraction = port<number>('fraction', { default: 0 })
+export const fraction = port(0) // typed by its default; named by its export
 
 export const fill = css({
   inlineSize: `calc(${fraction} * 100%)`, // ports interpolate as var(--…)
@@ -109,9 +109,10 @@ One primitive unifies four mechanisms that are elsewhere four separate features:
 
 Rules of the boundary:
 
-- **Ports are exports.** Findable, renameable, deprecable — the module graph sees every crossing.
+- **Ports are exports.** Findable, renameable, deprecable — the module graph sees every crossing, and the emitted debug label follows the export name, so rename-symbol renames everything.
 - **Setting a port writes a value, never a rule.** No new CSS exists at runtime; SSR serializes port values as inline style and hydration stays boring.
-- **Every port has a default**, so a style is complete without its runtime half.
+- **Every port has a default**, so a style is complete without its runtime half — and the default is also what types the port.
+- **Components publish their ports on their recipe** (`button.ports.gap`) so classes and style API travel as one import ([dux-spec-recipes.md §2](./dux-spec-recipes.md#2-published-ports-the-ports-key)).
 - **Nothing else crosses.** A "dynamic style" that isn't a finite variant choice and isn't a port is a design smell the diagnostics name: *use a variant for finite choices, a port for live values.*
 
 ---
@@ -150,10 +151,11 @@ Every rule vane-dux emits belongs to a named CSS `@layer`, in the order the syst
 
 Most class names were never ideas — just addresses. Recipes keep the industry's settled answer (Stitches' variants model) and vane-dux does not re-invent it: `base` + `variants` + `toggles` + `compound` + `defaults`, resolved to precompiled classes by a plain function whose props are inferred.
 
-The two rules that keep the model honest at scale:
+The three rules that keep the model honest at scale:
 
 - **Finite runtime choice only.** A recipe call site chooses among precompiled classes; it never synthesizes CSS. A value that isn't finite belongs to a port ([§4](#4-the-runtime-boundary-is-a-port)).
-- **Anatomy is the recipe pattern applied to parts.** Multi-part components (dialog, select, tabs) are styled as one unit with named parts; variants apply across parts; the call returns a typed record of part classes. One mental model from a Button to a DataTable ([dux-spec-recipes.md §2](./dux-spec-recipes.md#2-anatomy--parts-styled-as-one-unit)).
+- **Anatomy is the recipe pattern applied to parts.** Multi-part components (dialog, select, tabs) are styled as one unit with named parts; variants apply across parts; the call returns a typed record of part classes. One mental model from a Button to a DataTable ([dux-spec-recipes.md §3](./dux-spec-recipes.md#3-anatomy--parts-styled-as-one-unit)).
+- **The call site is strict on literals, permissive on props.** `button({ intnet: 'brand' })` dies at the cursor; `button(props)` with a component's wider props object just works, unknown keys ignored. The most-executed line in the SDK carries zero ceremony ([dux-spec-recipes.md §4](./dux-spec-recipes.md#4-the-call-site-props-in-classes-out)).
 
 Headless-library states (`data-state="open"`) are plain typed conditions, so styling Reka UI / Ark anatomy is the happy path, not an adapter.
 
@@ -165,7 +167,7 @@ When you step off the happy path, ergonomics degrade gracefully — never off a 
 
 - **Any selector, any at-rule, anywhere.** Unknown-to-the-DSL CSS is still just CSS: plain selector keys and at-rule keys are parsed, validated, scoped, and emitted. A new platform feature is never blocked on the library (principle 6).
 - **`css.raw` for blob CSS.** A validated template literal — markdown prose styling, third-party widget overrides — scoped under the generated class, tokens interpolating as typed values, deliberately allowed to target descendants.
-- **Cross-file relationships are imports.** Selector references to other styles are typed interpolations (`` [`${button} ~ &`] ``) or `within()` — in the module graph, visible to rename and find-references.
+- **Cross-file relationships are imports.** Selector references to other styles are typed interpolations (`` [`${button} ~ &`] ``) — in the module graph, visible to rename and find-references, and honest on their face about crossing a boundary.
 - **Escapes carry intent.** `unsafe.value('37ch', 'editorial measure')` and `overrides`-layer rules are enumerated by the audit ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)): exceptional CSS is sometimes correct, and it should be findable, reviewable, and removable.
 
 ---

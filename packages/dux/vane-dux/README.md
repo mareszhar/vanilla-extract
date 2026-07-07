@@ -6,73 +6,35 @@ vane-dux replaces the CSS-preprocessor stack with the tooling code has had for a
 
 > **Status:** pre-release. The design is settled and specced ([docs](#docs)); implementation is underway. The API below is the contract the specs drive toward.
 
-## Highlights
+## Start here
 
-🕸️ **Tokens are a graph, not a bag of strings** — derive a token from another (`brandSoft: ({ color }) => alpha(color.brand, 0.12)`) and the relationship survives to the browser as live CSS (`oklch(from var(--vane-color-brand) …)`). Rename a token and forty files follow; delete one and every usage turns red.
-
-🌗 **Schemes fall out, not pile up** — light/dark is a value pair inside a token (`light-dark()`), and elevation-based surfaces derive both modes from one number. Adding dark mode touches token definitions only — zero component edits.
-
-🎨 **User theming with zero recomputation** — mark a token `.live()`, call `applyTheme(el, { color: { brand: picked } })`, and every surface, hover, tint, and text pairing re-derives in the browser's cascade. No JS color math at runtime.
-
-⚓ **Ports: the runtime boundary, typed** — a port is a declared, defaulted CSS variable a style exposes as its public runtime interface. One primitive covers reactive component styling (`v-bind()` done right), parent→child theming (`:deep()` retired), consumer theming of shipped libraries, and dynamic utility values.
-
-🧬 **Variants and anatomy** — Stitches-shaped `recipe()` with toggles and compound variants, and `anatomy()` for multi-part components (parts, not "slots" — that word belongs to Vue). Variant props are inferred: `VaneProps<typeof button>` *is* your component's style contract.
-
-📌 **Errors at the cursor, not the browser** — token paths, variant values, and condition names fail as type errors at the offending key; value grammar (`'8pxx'`) fails as a build diagnostic naming the file and line. A typo'd style can never silently do nothing.
-
-♿ **Guarantees, not guidelines** — contrast pairings are checked at build (APCA), removed focus outlines without replacement are flagged, and preset motion respects `prefers-reduced-motion` by default.
-
-🫗 **100% of CSS, no cliffs** — `:has()`, container queries, `@starting-style`, cascade layers: plain keys, validated, never blocked on the library. The escape hatch is CSS itself (`css.raw`), still scoped, still parsed, still auditable.
-
-🍃 **Boring CSS out the back** — classes, custom properties, `@layer`s, `data-*` selectors. Zero runtime by default; devtools rules trace back to the `.style.ts` line and the token that decided each value.
-
-💚 **Vue and Nuxt, first-class** — `usePorts` for reactive values, a Nuxt module with auto-imports and DevTools, SSR with no style pipeline at all. One component can adopt vane-dux inside an existing app; nothing demands a migration.
-
-🤖 **Built for agents too** — a machine-readable manifest of tokens, recipes, and ports, plus diagnostics precise enough that a code-generating agent self-corrects before a human ever looks at pixels.
-
-## Install
-
-```bash
-npm install @mszr/vane-dux
-```
-
-`vue`, `nuxt`, and `vite` are optional peers — add only what your entrypoints use.
-
-## The shape
-
-One package, a framework-agnostic core, thin overlays on top.
-
-| Entrypoint | What it is |
-| --- | --- |
-| `@mszr/vane-dux` | `defineTokens`, `createSystem` → `css`, `recipe`, `anatomy`, `keyframes`, `globalCss`, `port`, `theme` |
-| `@mszr/vane-dux/runtime` | the ~300-byte live plane: `applyTheme`, port helpers |
-| `@mszr/vane-dux/vite` | the Vite plugin: evaluates `*.style.ts`, emits CSS + the manifest |
-| `@mszr/vane-dux/vue` | `usePorts` and the Vue helpers |
-| `@mszr/vane-dux/nuxt` | the Nuxt module: auto-imports, SSR polish, DevTools |
-| `@mszr/vane-dux/preset` | the deletable opinions: default tokens/conditions, `atoms`, a11y + motion helpers, layout patterns |
-
-## A taste
+Two files and a config line to a button that looks good in **both schemes** — dark mode included, no second palette. (Runnable copy: `sandbox/demo-minimal`.)
 
 ```TS
-// design/tokens.style.ts
-export const t = defineTokens({
-  color: {
-    brand: oklch(0.58, 0.2, 285).live(),
-    surface: elevation(0.03),
-    ink: elevation(0.94),
-    brandSoft: ({ color }) => alpha(color.brand, 0.12),
-    brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: contrast(({ color }) => color.brand),
-  },
-  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
-  radius: { sm: '4px', md: '8px', pill: '999px' },
+// nuxt.config.ts — or add the /vite plugin in vite.config.ts
+export default defineNuxtConfig({
+  modules: ['@mszr/vane-dux/nuxt'],
+  vane: { system: '~/design/system.style.ts' },
 })
 ```
 
 ```TS
-// components/Button.style.ts
+// design/system.style.ts — your whole design system, one call
+import { createSystem } from '@mszr/vane-dux'
+import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
+
+export const { t, css, recipe, anatomy, port, theme } = createSystem({
+  tokens: presetTokens({ brand: '#635bff' }),
+  conditions: presetConditions(), // adds breakpoints, container sizes, headless states
+})
+```
+
+```TS
+// components/AppButton.style.ts
+import { recipe, t } from '~/design/system.style'
+
 export const button = recipe({
-  base: { display: 'inline-flex', gap: t.space.xs, borderRadius: t.radius.sm },
+  base: { ...t.text.body, display: 'inline-flex', gap: t.space.xs, borderRadius: t.radius.sm },
   variants: {
     intent: {
       brand: { background: t.color.brand, color: t.color.onBrand, hover: { background: t.color.brandHover } },
@@ -90,21 +52,105 @@ export const button = recipe({
 ```vue
 <!-- components/AppButton.vue -->
 <script setup lang="ts">
-import { button } from './Button.style'
+import { button } from './AppButton.style'
 import type { VaneProps } from '@mszr/vane-dux'
 
-const props = defineProps<VaneProps<typeof button>>()
+const props = defineProps<VaneProps<typeof button> & { disabled?: boolean }>()
 </script>
 
 <template>
-  <button :class="button(props)">
+  <button :class="button(props)" :disabled="disabled">
     <slot />
   </button>
 </template>
 ```
 
+That's it. `button(props)` takes your component's whole props object — unknown keys are ignored, inline typos still die at the cursor, and `VaneProps` means your prop types can never drift from your variants. Everything below is reachable from here by *adding* keys, never by restructuring: hand-rolled tokens, cascade layers, your own conditions, whole custom presets.
+
+## Highlights
+
+🕸️ **Tokens are a graph, not a bag of strings** — derive a token from another (`brandSoft: ({ color }) => alpha(color.brand, 0.12)`) and the relationship survives to the browser as live CSS (`oklch(from var(--vane-color-brand) …)`). Rename a token and forty files follow; delete one and every usage turns red.
+
+🌗 **Schemes fall out, not pile up** — light/dark is a value pair inside a token (`light-dark()`), and elevation-based surfaces derive both modes from one number. Adding dark mode touches token definitions only — zero component edits.
+
+🎨 **User theming with zero recomputation** — mark a token `.live()`, call `applyTheme(el, { color: { brand: picked } })`, and every surface, hover, tint, and text pairing re-derives in the browser's cascade. No JS color math at runtime.
+
+⚓ **Ports: the runtime boundary, typed** — a port is a declared, defaulted CSS variable a style exposes as its public runtime interface. One primitive covers reactive component styling (`v-bind()` done right), parent→child theming (`:deep()` retired), consumer theming of shipped libraries, and dynamic utility values.
+
+🧬 **Variants and anatomy** — Stitches-shaped `recipe()` with toggles and compound variants, and `anatomy()` for multi-part components (parts, not "slots" — that word belongs to Vue). Components publish their runtime style API right on the recipe: `button.ports.gap`.
+
+📌 **Errors at the cursor, not the browser** — token paths, variant values, and condition names fail as type errors at the offending key; value grammar (`'8pxx'`) fails as a build diagnostic naming the file and line. A typo'd style can never silently do nothing.
+
+♿ **Guarantees, not guidelines** — legibility pairings are checked at build (APCA), removed focus outlines without replacement are flagged, and preset motion respects `prefers-reduced-motion` by default.
+
+🫗 **100% of CSS, no cliffs** — `:has()`, container queries, `@starting-style`, cascade layers: plain keys, validated, never blocked on the library. The escape hatch is CSS itself (`css.raw`), still scoped, still parsed, still auditable.
+
+🍃 **Boring CSS out the back** — classes, custom properties, `@layer`s, `data-*` selectors. Zero runtime by default; devtools rules trace back to the `.style.ts` line and the token that decided each value. If vane-dux disappeared tomorrow, your app keeps ordinary CSS it can live on.
+
+💚 **Vue and Nuxt, first-class** — `usePorts` for reactive values, `useAnatomy` for multi-part components, a Nuxt module whose auto-imports reach your style files, SSR with no style pipeline at all. One component can adopt vane-dux inside an existing app; nothing demands a migration.
+
+🤖 **Built for agents too** — a machine-readable manifest of tokens, recipes, and ports, plus diagnostics precise enough that a code-generating agent self-corrects before a human ever looks at pixels.
+
+## Install
+
+```bash
+npm install @mszr/vane-dux
+```
+
+`vue`, `nuxt`, and `vite` are optional peers — add only what your entrypoints use.
+
+## The shape
+
+One package, a framework-agnostic core, thin overlays on top.
+
+| Entrypoint | What it is |
+| --- | --- |
+| `@mszr/vane-dux` | `createSystem` → `t`, `css`, `recipe`, `anatomy`, `keyframes`, `globalCss`, `port`, `theme`; `defineTokens` for standalone token graphs |
+| `@mszr/vane-dux/runtime` | the ~300-byte live plane: `applyTheme`, `setScheme`, port helpers |
+| `@mszr/vane-dux/vite` | the Vite plugin: evaluates `*.style.ts`, emits CSS + the manifest |
+| `@mszr/vane-dux/vue` | `usePorts`, `useAnatomy` |
+| `@mszr/vane-dux/nuxt` | the Nuxt module: auto-imports (style files included), SSR polish, DevTools |
+| `@mszr/vane-dux/preset` | the deletable opinions: `presetTokens`, `presetConditions`, `atoms`, a11y + motion helpers, layout patterns |
+
+## Going further
+
+The preset is a furnished room, not the house. Hand-roll the token graph when you're ready — derivations, liveness, and legibility checks included:
+
+```TS
+// design/tokens.style.ts
+import { alpha, defineTokens, elevation, legibleOn, oklch, scale } from '@mszr/vane-dux'
+
+export const t = defineTokens({
+  color: {
+    brand: oklch(0.58, 0.2, 285).live(),                // user-themeable at runtime
+    surface: elevation(0.03),                           // both schemes from one number
+    ink: elevation(0.94),
+    brandSoft: ({ color }) => alpha(color.brand, 0.12), // stays live in the browser
+    brandHover: ({ color }) => color.brand.lighten(0.06),
+    onBrand: legibleOn(({ color }) => color.brand),     // checked at build (APCA)
+  },
+  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
+  radius: { sm: '4px', md: '8px', pill: '999px' },
+})
+```
+
+And cross the runtime boundary through a typed port — reactive values, no runtime CSS:
+
+```TS
+// components/Progress.style.ts
+import { css, port, t } from '~/design/system.style'
+
+export const fraction = port(0) // typed by its default, named by its export
+
+export const track = css({ background: t.color.surface, borderRadius: t.radius.pill })
+export const fill = css({
+  inlineSize: `calc(${fraction} * 100%)`,
+  background: t.color.brand,
+  motionOk: { transition: 'inline-size 200ms ease' },
+})
+```
+
 ```vue
-<!-- reactive values cross through a typed port -->
 <script setup lang="ts">
 import { usePorts } from '@mszr/vane-dux/vue'
 import { fill, fraction, track } from './Progress.style'
@@ -122,7 +168,7 @@ const fillStyle = usePorts(() => [fraction.set(props.value / 100)])
 
 ## The one hard contract
 
-**vane-dux owes the browser boring CSS, not API compatibility to any SDK.** Everything it emits is plain, standards-track CSS — classes, custom properties, layers, data attributes. If vane-dux disappeared tomorrow, your app keeps ordinary CSS it can live on.
+**vane-dux owes the browser boring CSS, not API compatibility to any SDK.** Everything it emits is plain, standards-track CSS — classes, custom properties, layers, data attributes.
 
 ## Development
 

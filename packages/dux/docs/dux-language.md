@@ -54,7 +54,7 @@ These words carry exactly these meanings across every entrypoint, doc, diagnosti
 | **recipe** | a variant-compressed component style: `base` + `variants` + `toggles` + `compound`; calling it resolves variant props to classes |
 | **variant** | one named visual axis of a recipe (`intent`, `size`) with enumerated values |
 | **toggle** | a boolean variant (`pill: { … }` under `toggles:`) — on or off, no value enum |
-| **anatomy** | a multi-part recipe: named **parts** styled as one unit, variants applying across parts ([dux-spec-recipes.md §2](./dux-spec-recipes.md#2-anatomy--parts-styled-as-one-unit)) |
+| **anatomy** | a multi-part recipe: named **parts** styled as one unit, variants applying across parts ([dux-spec-recipes.md §3](./dux-spec-recipes.md#3-anatomy--parts-styled-as-one-unit)) |
 | **part** | one named element of an anatomy (`root`, `trigger`, `content`) — *never* "slot" ([§3](#3-naming-collisions-we-refuse)) |
 | **port** | a declared, typed, defaulted CSS custom property that a style exposes as its public runtime interface — the only way values cross the build/runtime wall ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)) |
 | **atoms** | the preset's strict utility lane: token-bound property→value styling at call sites, dynamic values riding through ports ([dux-spec-preset.md §3](./dux-spec-preset.md#3-atoms)) |
@@ -100,9 +100,9 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | `.live()` | — (new) | marks a runtime-changeable token; names the consequence (derivations stay live) at the definition site |
 | `scheme({ light, dark })` | "dark mode", `createTheme` pairs | one token, two scheme values, compiled to `light-dark()` — never a parallel palette |
 | `elevation(n)` | — (hail-styl, generalized) | plane position → scheme-aware lightness; shipped as a preset derivation, not a core axiom |
-| `contrast(fn)` / `check.*` | manual audits | guaranteed-legible pairing, validated at build (APCA), live via `contrast-color()` where supported |
+| `legibleOn(fn)` / `check.*` | manual audits; "contrast" APIs | named for what it *produces* — a color legible on its target — not the check it carries; validated at build (APCA), live via `contrast-color()` where supported |
 | `theme(overrides)` / `applyTheme(el, overrides)` | VE `createTheme` / `assignInlineVars` | the same concept at build time and runtime, named as the pair it is |
-| `createSystem({ tokens, conditions, layers })` | Panda config + codegen; sprinkles `defineProperties` | a plain typed factory — inference instead of a generated artifact directory |
+| `createSystem({ tokens, conditions?, layers? })` | Panda config + codegen; sprinkles `defineProperties` | a plain typed factory — inference instead of a generated artifact directory; accepts inline tokens and returns `t`, defaults layers, ships base conditions — the happy path is one file |
 | `css(rule)` | VE `style()` | the author thinks "I'm writing CSS", and the emitted thing *is* CSS; `style` collides with the HTML attribute and Vue's `:style` |
 | condition (bare key: `hover:`, `md:`, `dark:`) | Panda/mincho `_hover`; Tailwind `hover:` | the beloved prefix, typed, with no underscore dialect — the factory refuses condition names that collide with CSS properties |
 | `layers: [...]` + per-style `layer:` | CSS `@layer` | platform term kept; the system declares the order once |
@@ -112,10 +112,14 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | `recipe({ base, variants, toggles, compound, defaults })` | Stitches variants; VE recipes; CVA | the settled industry shape, kept deliberately |
 | `toggles:` | `variants: { x: { true: … } }` | a boolean variant is a distinct authoring idea; `pill: true` at the call site, no `'true'` key ceremony |
 | `anatomy({ parts, base, variants })` | Panda `sva`, "slot recipes" | multi-part styling named for what it styles — the component's anatomy; avoids Vue's `slot` ([§3](#3-naming-collisions-we-refuse)) |
-| `port<T>(name, { default })` | VE `createVar` + `assignInlineVars`; Vue `v-bind()` in CSS; rainbow-sprinkles' inline vars | one typed primitive unifying four mechanisms; declared, defaulted, findable, deprecable |
+| `recipe({ ports: { … } })` | sidecar `*Ports` exports | publication: a component's runtime style API travels on the recipe (`button.ports.gap`), one import for classes + API |
+| `port(default, options?)` | VE `createVar` + `assignInlineVars`; Vue `v-bind()` in CSS; rainbow-sprinkles' inline vars | one typed primitive unifying four mechanisms; typed by its default, named by its export — never a repeated string |
 | `fraction.set(v)` / `ports(…)` | `assignInlineVars({ [x]: v })` | a typed setter returning a style fragment — no string-keyed object literals |
 | `usePorts(fn)` | Vue `useCssVars` (internal) | the reactive binding for ports; a `computed()` around a style object, SSR-safe |
-| `within(parent, { [child]: rule })` | Vue `:deep(.child)` | boundary-crossing as typed class references in the module graph, not string incantations |
+| `useAnatomy(anatomy, props)` | — (new) | the one composable the no-wrapper rule bends for: a reactive, typed record of part classes ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy)) |
+| `'root:open'` part-scoped condition | raw `'[data-state="open"] &'` | a part styled by another part's state, typed over parts × conditions |
+| `hover` / `hoverFocus` conditions | Panda `_hover` (secretly `:hover, [data-hover]`) | a condition never claims less than it does: `hover` is `:hover`; the affordance pair is named `hoverFocus` |
+| `` [`${button} + &`] `` interpolation | Vue `:deep(.child)` | boundary-crossing as typed class references in the module graph, not string incantations — and visibly a selector, because it is one |
 | `atoms(props)` | VE sprinkles; Tailwind call-site authoring | the strict utility lane; "sprinkles" is whimsy, "atoms" says small single-purpose declarations |
 | `unsafe.value(v, reason)` | silent arbitrary values | escapes carry intent and surface in the audit |
 | part `data-part` attributes | Zag/Ark `data-part` | headless-ecosystem convention kept verbatim |

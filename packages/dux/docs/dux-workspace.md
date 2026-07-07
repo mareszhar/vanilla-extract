@@ -37,6 +37,7 @@ packages/dux/
   vane-dux/               the published package, @mszr/vane-dux
   sandbox/
     fixtures/             the shared Prism design-system fixtures (@prism/domain)
+    demo-minimal/         the quickstart, runnable — kept in lockstep with the README
     demo-main/            the Prism Nuxt demo — the flagship, exercising every domain
     demo-comparisons/     the same Prism components in SFC scoped CSS, Tailwind,
                           Panda, raw vanilla-extract, and vane-dux
@@ -51,7 +52,9 @@ The outer repo uses **prettier + oxlint**. Inside `packages/dux/` we use **ESLin
 
 ## 2. Sandbox
 
-`sandbox/demo-main/` is the flagship: a Nuxt app built on the **Prism** fixture design system (tokens with a live brand seed, elevation surfaces, Button/Card/Dialog/Tabs anatomy, a ports-driven Progress, the theme-picker moment from the delight gauntlet). It is the proof that phase 5's contracts hold in a real app, and the walking ground for the gauntlet ([dux-vision.md §6](./dux-vision.md#6-the-delight-gauntlet)).
+`sandbox/demo-minimal/` is the quickstart made runnable: the exact files from the README's "Start here" and [dux-spec-css.md §1.1](./dux-spec-css.md#11-the-happy-path-one-file) — one system file, one styled button, both schemes. It is the ground truth for gauntlet moment 12: if the README's code and this demo ever diverge, one of them is wrong, and CI treats it that way.
+
+`sandbox/demo-main/` is the flagship: a Nuxt app built on the **Prism** fixture design system (tokens with a live brand seed, elevation surfaces, Button/Card/Dialog/Tabs anatomy, a ports-driven Progress, the theme-picker moment from the delight gauntlet). It is the proof that the contracts hold in a real app, and the walking ground for the gauntlet ([dux-vision.md §6](./dux-vision.md#6-the-delight-gauntlet)).
 
 `sandbox/demo-comparisons/` implements the same Prism components per competing approach — SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, vane-dux — sharing fixtures from `sandbox/fixtures/` (`@prism/domain`). Comparisons are study material and competitive bars, never compatibility targets.
 
@@ -140,6 +143,7 @@ Run from `packages/dux/`.
 | `bun run sdk:typecheck` | `tsc --noEmit` for the package |
 | `bun run sdk:test` / `sdk:test:watch` | Vitest, all four planes |
 | `bun run audit` | the introspection audits over the Prism fixtures ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
+| `bun run demo:minimal` | the runnable quickstart |
 | `bun run demo:main` | the Prism Nuxt demo, dev mode |
 | `bun run demo:comparisons` | the comparison matrix |
 | `bun run typecheck` / `test` / `build` | turbo across the workspace |
