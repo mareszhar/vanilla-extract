@@ -15,5 +15,5 @@ test-results
 next-env.d.ts
 
 # for dux
-!packages/dux/README.md
+!packages/dux/**/README.md
 __references__
