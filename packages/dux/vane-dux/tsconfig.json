@@ -1,6 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "paths": {
+      "@mszr/vane-dux": ["./src/index.ts"],
+      "@mszr/vane-dux/runtime": ["./src/runtime.ts"],
+      "@mszr/vane-dux/preset": ["./src/preset.ts"],
+      "@test": ["./src/test-support/index.ts"]
+    },
     "types": ["node"],
     "outDir": "dist"
   },

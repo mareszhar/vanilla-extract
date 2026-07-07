@@ -10,7 +10,7 @@ The maintainer manual: how the dux workspace is laid out, built, linted, tested,
 | Phase | Scope | Status |
 | --- | --- | --- |
 | W0 | Workspace scaffold: orchestrator manifest, tooling, package skeleton, outer-repo exclusions, docs | ☑ |
-| W1 | Test foundations: vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots | ☐ |
+| W1 | Test foundations: vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots | ☑ |
 | W2 | Per-domain suites land with each roadmap phase | ☐ |
 | W3 | Sandbox: Nuxt demo + comparison matrix | ☐ |
 | W4 | Publishing pipeline: subtree to `mareszhar/vane-dux`, `@mszr` scope | ☐ |

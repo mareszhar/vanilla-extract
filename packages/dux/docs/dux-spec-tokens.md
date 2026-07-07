@@ -1,5 +1,5 @@
 updated: 2026-07-07
-status: spec — contracts settled, implementation pending
+status: spec — contracts settled, implemented (phase 1)
 
 # vane-dux — spec: tokens
 
@@ -11,15 +11,15 @@ Each entry is **contract-driven**: the desired behavior and why it matters, the 
 
 | # | Contract | Status |
 | --- | --- | --- |
-| 1 | `defineTokens` — the graph in plain TS | ☐ |
-| 2 | Liveness compilation | ☐ |
-| 3 | Schemes | ☐ |
-| 4 | Elevation | ☐ |
-| 5 | Contrast and checks | ☐ |
-| 6 | Composite tokens | ☐ |
-| 7 | Themes: `theme()` and `applyTheme` | ☐ |
-| 8 | Metadata | ☐ |
-| 9 | Emitted names | ☐ |
+| 1 | `defineTokens` — the graph in plain TS | ☑ |
+| 2 | Liveness compilation | ☑ |
+| 3 | Schemes | ☑ |
+| 4 | Elevation | ☑ |
+| 5 | Contrast and checks | ☑ |
+| 6 | Composite tokens | ☑ |
+| 7 | Themes: `theme()` and `applyTheme` | ☑ |
+| 8 | Metadata | ☑ (hover/manifest surfacing lands with the manifest) |
+| 9 | Emitted names | ☑ |
 
 Snippets use the Prism fixture design system ([dux-workspace.md §2](./dux-workspace.md#2-sandbox)).
 
@@ -37,12 +37,12 @@ import { alpha, defineTokens, elevation, legibleOn, oklch, scale, scheme } from 
 
 export const t = defineTokens({
   color: {
-    brand: oklch(0.58, 0.2, 285).live(),                 // runtime input — user-themeable
-    surface: elevation(0.03),                            // plane position, scheme-aware
+    brand: oklch(0.58, 0.2, 285).live(),                  // runtime input — user-themeable
+    surface: elevation(0.03),                             // plane position, scheme-aware
     ink: elevation(0.94),
-    brandSoft: ({ color }) => alpha(color.brand, 0.12),  // derivation — a graph edge
+    brandSoft: ({ color }) => alpha(color.brand, 0.12),   // derivation — a graph edge
     brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: legibleOn(({ color }) => color.brand),      // guaranteed-legible pairing
+    onBrand: ({ color }) => legibleOn(color.brand),       // guaranteed-legible pairing
     canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
   },
   space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
@@ -53,13 +53,13 @@ export const t = defineTokens({
 
 **Contract details.**
 
-- `t` is an ordinary typed export; token references are property accesses, never string paths. Hovering a token shows its resolved value(s) and emitted variable name.
-- Derivations receive the typed graph and return values or further expressions; cycles are a build diagnostic naming the loop.
+- `t` is an ordinary typed export; token references are property accesses, never string paths. Hovering a token reads as facts — its mode and emitted variable name are literal types (`VaneColorToken<'live', 'vane-color-brand'>`), and plain value leaves carry their resolved literal (`VaneValueToken<'4px', …>`).
+- Derivations receive the graph as `VaneRefs` — every token a ref with the color methods one property away — and return values or further expressions; cycles are a build diagnostic naming the loop. Token *names* inside a derivation resolve structurally, not at the cursor: TypeScript fixes the graph's inference before a derivation's own type exists, so a mistyped name is a build diagnostic with a `did you mean`, raised the moment the derivation runs. Everywhere `t` is *consumed*, names stay cursor-checked.
 - Plain strings/numbers are valid leaves — the graph machinery is opt-in per token (principle 10).
 - `scale.*` generators (`linear`, `modular`, …) are ordinary functions producing token subtrees; nothing about them is special-cased.
 - The dedicated tokens file is the *library-authoring* form. An app that wants one design file passes the same graph to `createSystem({ tokens: { … } })` and receives `t` back bound ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)) — the split is available, never required.
 
-**Proposed approach.** `defineTokens` walks the object, resolves derivation thunks against a lazy proxy of the graph, classifies liveness (§2), and registers one global-theme emission via the vanilla-extract substrate (`createGlobalThemeContract` + `createGlobalTheme` internally; never re-exported). The returned `t` is a proxy of typed token handles: each carries its `var(--…)` reference for interpolation, its resolved value(s) for hovers/checks, and its metadata.
+**Implementation.** `defineTokens` walks the object into a handle tree, runs derivation thunks once against that tree (behind a proxy that raises the unknown-name diagnostic), classifies liveness (§2), and registers one global-theme emission via the vanilla-extract substrate (`createGlobalThemeContract` + `createGlobalTheme` internally; never re-exported). Each handle carries its `var(--…)` reference for interpolation, its mode, its folded value where one exists, and its metadata; handles serialize across the build/app boundary through `/runtime`'s `restoreToken`. `VaneRefs` is named-interface recursion, deliberately — tsc's incremental mode mis-resolves self-intersecting recursive aliases.
 
 ---
 
@@ -88,9 +88,9 @@ brandHover: ({ color }) => color.brand.lighten(0.06),
 - Classification per [dux-patterns.md §3](./dux-patterns.md#3-liveness): all-static inputs fold at build; any live input compiles the derivation to relative color syntax, `color-mix()`, `calc()`, or `light-dark()`.
 - **The color-handle surface is finite and documented.** Color handles carry: `alpha`, `lighten`, `darken`, `saturate`, `desaturate`, `rotate` (hue), and `mix(other, amount)`; each exists both as a method (`color.brand.lighten(0.06)`) and a standalone helper (`alpha(color.brand, 0.12)`). Every one has a defined live-CSS serialization, which is what bounds the set — a proposed helper that cannot compile to CSS under liveness doesn't ship. Helpers are equally legal in style rules (`background: alpha(t.color.ink, 0.42)` inside `css()`), where they follow the same static-fold/live-serialize classification.
 - Build-time color math and emitted CSS color math must agree to the rounding digit, or static and live ramps diverge subtly. This is a locked test fixture, not a hope.
-- A derivation the compiler cannot express as CSS (e.g. arbitrary string manipulation over a live input) is a build diagnostic at the derivation, naming the unexpressible step and the two exits: make the input static, or accept a build-folded approximation explicitly.
+- A derivation the compiler cannot express as CSS is a build diagnostic at the derivation. The closed helper set makes this structurally absent today — every helper serializes — and it stays the law for any future addition. String-template derivations need no special case: an embedded token interpolates as its `var()` reference, which is live by construction.
 
-**Proposed approach.** Color handles (`oklch`, `alpha`, `lighten`, `mix`, …) build a tiny expression tree rather than computing eagerly. The compiler either evaluates the tree (culori-grade math) or serializes it to CSS, choosing per liveness. Non-color numeric derivations serialize to `calc()`.
+**Implementation.** Color helpers (`oklch`, `alpha`, `lighten`, `mix`, …) build a tiny expression tree rather than computing eagerly. The compiler either evaluates the tree (culori for parsing/conversion, the operations themselves defined *as* their CSS formulas) or serializes it to CSS, choosing per liveness; anonymous static subtrees inside a live expression fold, graph edges stay `var()` references, so the emitted CSS is as boring as it can be.
 
 ---
 
@@ -112,7 +112,7 @@ surface: elevation(0.03), // elevation is scheme-aware by construction
 
 **Contract details.**
 
-- Scheme-dependent tokens are live by definition (§2 applies downstream).
+- Scheme-dependent tokens compile live by definition (§2 applies downstream). They are not runtime *inputs*: both values are build-known, so `legibleOn` over them stays a checked guarantee, and `applyTheme` rejects them — chain `.live()` (`scheme({ … }).live()`) to make one user-themeable.
 - Forcing a scheme (user toggle) is standard CSS: the system emits `[data-scheme='light']`/`[data-scheme='dark']` scopes that pin `color-scheme`; `/runtime` ships a two-line `setScheme(el, scheme)` and the Nuxt module documents the SSR cookie dance ([dux-spec-vue.md §5](./dux-spec-vue.md#5-ssr-and-hmr)) — no zero-runtime system escapes it, so we ship the recipe instead of pretending.
 - Custom scheme axes beyond light/dark (high-contrast brand modes) are themes ([§7](#7-themes-theme-and-applytheme)), not schemes — the scheme axis is the one the platform natively pairs.
 
@@ -147,21 +147,21 @@ ink: elevation(0.94),
 **Usage.**
 
 ```TS
-onBrand: legibleOn(({ color }) => color.brand),
+onBrand: ({ color }) => legibleOn(color.brand),
 ```
 
 ```text
 ✖ VANE_TOKENS_CONTRAST  color.onBrand / color.brand fails APCA Lc 60 in scheme "dark"
-    brand (dark) → oklch(0.68 0.2 285); best pairing white = Lc 47.2
-    at design/tokens.style.ts:9
-  fix: darken brand in dark scheme, or accept explicitly: legibleOn(…, { minLc: 45 })
+    target (dark) → oklch(0.68 0.2 285); best pairing white = Lc 47.2
+    at design/tokens.style.ts
+  fix: adjust the target color, or accept explicitly: legibleOn(…, { minLc: 47 })
 ```
 
 **Contract details.**
 
-- `legibleOn(fn)` yields the legible pairing for a target token, checked at build against both schemes (APCA by default; WCAG2 selectable per system).
-- Over a **live** target the guarantee cannot be total: the emitted value uses `contrast-color()` where supported plus a computed fallback, and the handle types as `LiveContrast`, not `CheckedContrast` — honest limits, stated in types ([dux-patterns.md §3](./dux-patterns.md#3-liveness)). `applyTheme` can optionally clamp live inputs to a legible range.
-- Standalone assertions cover pairings the graph doesn't own: `checks: [check.textContrast(t.color.ink, t.color.canvas).aa()]` in `defineTokens` options.
+- `legibleOn(target)` yields the legible pairing for a target color, checked at build against both schemes (APCA by default; WCAG2 selectable per system, once one exists). It takes the color itself, so inside a derivation it reads like every other graph reference — one way to reference the graph, everywhere.
+- Over a **live** target the guarantee cannot be total: the emitted value uses `contrast-color()` where supported plus a computed fallback, and the handle types as `VaneContrastToken<'live'>`, never `'checked'` — honest limits, stated in types ([dux-patterns.md §3](./dux-patterns.md#3-liveness)). Scheme and elevation targets stay checked — both values are build-known.
+- Standalone assertions cover pairings the graph doesn't own, as a thunk over the same refs derivations receive: `checks: ({ color }) => [check.textContrast(color.ink, color.canvas).aa()]` in `defineTokens` options.
 - Checks are diagnostics with fix-its, never hard gates you can't consciously accept — an explicit threshold override is always available and shows up in the audit ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)).
 
 ---
@@ -197,16 +197,16 @@ export const heading = css({ ...t.text.title, color: t.color.ink })
 // build time — any tokens; standalone form (phase 1, before the system exists)
 export const midnight = theme(t, { color: { brand: oklch(0.45, 0.15, 250) } }) // → class
 
-// runtime — live tokens only, ~300B from /runtime
-applyTheme(document.documentElement, { color: { brand: userPicked } })
+// runtime — live tokens only, from /runtime; `t` is inert data, importable anywhere
+applyTheme(document.documentElement, t, { color: { brand: userPicked } })
 ```
 
-Once a system exists, `createSystem` binds the tokens and the bound form drops the first argument: `theme({ color: { brand } })` ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)).
+Both standalone forms take the graph — that is what types the overrides (`applyTheme` rejecting a static key needs to know which keys are live) and what carries custom prefixes to the runtime. Once a system exists, `createSystem` binds the tokens and the bound forms drop the argument: `theme({ color: { brand } })` ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)).
 
 **Contract details.**
 
-- `theme()` accepts overrides for any token and emits a class scoping the re-declared variables; derivations downstream re-derive automatically (live ones via CSS; static ones re-folded at build within the theme scope).
-- `applyTheme()` accepts **live tokens only** — a static key is a type error at that key ([dux-patterns.md §3](./dux-patterns.md#3-liveness)). One write re-derives every downstream surface, hover, and pairing in the cascade: gauntlet moment 3.
+- `theme()` accepts overrides for any token and emits a class scoping the re-declared variables; derivations downstream re-derive automatically (live ones via CSS; static ones re-folded at build within the theme scope, legibility re-checked — a `legibleOn` pick may flip). An override changes a token's *value*, never its liveness.
+- `applyTheme()` accepts **live tokens only** — the graph's declared runtime inputs. A static, scheme, or derived key is a type error at that key ([dux-patterns.md §3](./dux-patterns.md#3-liveness)): writing a derived variable would half-clobber its derivation, so the honest API is to theme the input and let the cascade re-derive every downstream surface, hover, and pairing — gauntlet moment 3.
 - Themes nest by DOM scoping, exactly like the custom properties they are.
 
 ---
@@ -222,7 +222,7 @@ brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. Marketing owns 
 legacyBlue: oklch(0.6, 0.15, 250).deprecated('use color.brand'),
 ```
 
-**Contract details.** `describe` surfaces in editor hover and the manifest; `deprecated` rides the standard `@deprecated` machinery — strikethrough at every usage, no custom tooling. Renting the TypeScript ecosystem's affordances is the whole trick.
+**Contract details.** `describe` and `deprecated` ride the handle (`t.color.brand.description`) — readable by tools today, projected into the manifest when it ships ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)). Editor strikethrough for `deprecated` waits on the manifest-driven tooling: TypeScript's `@deprecated` machinery attaches to declarations, and mapped-type properties cannot carry it — a limit we state rather than paper over.
 
 ---
 
@@ -232,6 +232,6 @@ legacyBlue: oklch(0.6, 0.15, 250).deprecated('use color.brand'),
 
 **Contract details.**
 
-- Path-derived kebab names under the system prefix: `t.color.brandSoft` → `--vane-color-brand-soft`; prefix configurable (`createSystem({ prefix: 'prism' })` → `--prism-*`).
+- Path-derived kebab names under the system prefix: `t.color.brandSoft` → `--vane-color-brand-soft`; prefix configurable (`defineTokens(graph, { prefix: 'prism' })` — later `createSystem({ prefix: 'prism' })` — → `--prism-*`), and literal in the types: the emitted name is readable in the hover.
 - Names are stable across builds (no content hashing for tokens — they are the *intended* public surface, unlike style classes).
 - The full name map ships in the manifest ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)).

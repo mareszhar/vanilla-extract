@@ -5,6 +5,53 @@ export class VaneNotImplementedError extends Error {
   }
 }
 
+// ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
+
+export { check } from './tokens/checks'
+export {
+  alpha,
+  color,
+  darken,
+  desaturate,
+  elevation,
+  legibleOn,
+  lighten,
+  mix,
+  oklch,
+  rotate,
+  saturate,
+  scheme,
+} from './tokens/color'
+export type { VaneLegibleOptions } from './tokens/color'
+export { didYouMean, VaneError } from './tokens/diagnostics'
+export type { VaneDiagnostic, VaneDiagnosticCode } from './tokens/diagnostics'
+export { defineTokens } from './tokens/graph'
+export { scale } from './tokens/scale'
+export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
+export { theme } from './tokens/theme'
+export type {
+  VaneCheck,
+  VaneColor,
+  VaneColorish,
+  VaneColorMode,
+  VaneColorToken,
+  VaneContrast,
+  VaneContrastGuarantee,
+  VaneContrastToken,
+  VaneDerivation,
+  VaneElevationOptions,
+  VaneGraphInput,
+  VaneLiveOverrides,
+  VaneRefs,
+  VaneThemeOverrides,
+  VaneTokenMode,
+  VaneTokens,
+  VaneTokensOptions,
+  VaneValueToken,
+} from './tokens/types'
+
+// ─── Later phases: the specified surface, pending ────────────────────────────
+
 export interface VaneSystemOptions<
   TTokens = unknown,
   TConditions = unknown,
@@ -47,11 +94,6 @@ function pending<T>(surface: string, phase: string): T {
   throw new VaneNotImplementedError(surface, phase)
 }
 
-export function defineTokens<TTokens extends object>(tokens: TTokens): TTokens {
-  void tokens
-  return pending('defineTokens', 'phase 1')
-}
-
 export function createSystem<
   TTokens extends object,
   TConditions = unknown,
@@ -90,9 +132,4 @@ export function globalCss(selector: string, rule: VaneStyleRule): void {
 export function port<TValue extends VanePortValue>(defaultValue: TValue): VanePort<TValue> {
   void defaultValue
   return pending('port', 'phase 3')
-}
-
-export function theme(overrides: unknown): string {
-  void overrides
-  return pending('theme', 'phase 1')
 }

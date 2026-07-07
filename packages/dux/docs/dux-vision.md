@@ -167,7 +167,7 @@ The work, one spec per domain. This is the status view; each domain's contracts 
 
 | Domain | The bet | Spec | Status |
 | --- | --- | --- | --- |
-| **Tokens** | the token graph: derivations as functions, liveness compiled to live CSS, schemes via `light-dark()`, elevation, contrast as build diagnostics, `theme()`/`applyTheme` | [dux-spec-tokens.md](./dux-spec-tokens.md) | ☐ |
+| **Tokens** | the token graph: derivations as functions, liveness compiled to live CSS, schemes via `light-dark()`, elevation, contrast as build diagnostics, `theme()`/`applyTheme` | [dux-spec-tokens.md](./dux-spec-tokens.md) | ☑ |
 | **CSS authoring** | `createSystem` → typed `css`, bare condition keys, both nesting directions, layers by default, parsed values, `css.raw`, `globalCss`, keyframes | [dux-spec-css.md](./dux-spec-css.md) | ☐ |
 | **Ports** | the typed runtime boundary: one primitive for reactive styles, parent→child theming, consumer theming, and dynamic utility values | [dux-spec-ports.md](./dux-spec-ports.md) | ☐ |
 | **Recipes** | variants that compress state: `recipe`, toggles, compound variants, and `anatomy` for multi-part components (parts, not "slots") | [dux-spec-recipes.md](./dux-spec-recipes.md) | ☐ |
@@ -234,7 +234,7 @@ Sequenced so each phase is independently useful and nothing depends on a surface
 | Phase | Deliverable | Spec | Status |
 | --- | --- | --- | --- |
 | 0. Scaffold | orchestrator workspace, package skeleton, `/vite` wiring, boundary lint, docs | [workspace](./dux-workspace.md) | ☑ |
-| 1. Tokens | the graph, liveness, schemes, elevation, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☐ |
+| 1. Tokens | the graph, liveness, schemes, elevation, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☑ |
 | 2. Authoring core | `createSystem` (inline tokens, default layers, base conditions), `css`, conditions, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ☐ |
 | 3. Ports | `port`, setters, `/runtime` | [ports](./dux-spec-ports.md) | ☐ |
 | 4. Recipes | `recipe`, toggles, compound variants, published ports, `anatomy` | [recipes](./dux-spec-recipes.md) | ☐ |

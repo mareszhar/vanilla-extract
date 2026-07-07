@@ -58,7 +58,8 @@
   ],
   "dependencies": {
     "@vanilla-extract/css": "^1.21.1",
-    "@vanilla-extract/vite-plugin": "5.2.3"
+    "@vanilla-extract/vite-plugin": "5.2.3",
+    "culori": "^4.0.2"
   },
   "peerDependencies": {
     "@nuxt/kit": "^4.4.8",
@@ -81,7 +82,9 @@
     }
   },
   "devDependencies": {
+    "@mszr/selenita": "^0.2.2",
     "@nuxt/kit": "^4.4.8",
+    "@types/culori": "^4.0.1",
     "@types/node": "^22.15.3",
     "nuxt": "^4.4.8",
     "obuild": "^0.4.37",

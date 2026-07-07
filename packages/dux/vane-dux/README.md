@@ -73,7 +73,7 @@ That's it. `button(props)` takes your component's whole props object — unknown
 
 🌗 **Schemes fall out, not pile up** — light/dark is a value pair inside a token (`light-dark()`), and elevation-based surfaces derive both modes from one number. Adding dark mode touches token definitions only — zero component edits.
 
-🎨 **User theming with zero recomputation** — mark a token `.live()`, call `applyTheme(el, { color: { brand: picked } })`, and every surface, hover, tint, and text pairing re-derives in the browser's cascade. No JS color math at runtime.
+🎨 **User theming with zero recomputation** — mark a token `.live()`, call `applyTheme(el, t, { color: { brand: picked } })`, and every surface, hover, tint, and text pairing re-derives in the browser's cascade. No JS color math at runtime — and only declared live inputs are accepted, at the type level.
 
 ⚓ **Ports: the runtime boundary, typed** — a port is a declared, defaulted CSS variable a style exposes as its public runtime interface. One primitive covers reactive component styling (`v-bind()` done right), parent→child theming (`:deep()` retired), consumer theming of shipped libraries, and dynamic utility values.
 
@@ -127,7 +127,7 @@ export const t = defineTokens({
     ink: elevation(0.94),
     brandSoft: ({ color }) => alpha(color.brand, 0.12), // stays live in the browser
     brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: legibleOn(({ color }) => color.brand),     // checked at build (APCA)
+    onBrand: ({ color }) => legibleOn(color.brand),     // checked at build (APCA)
   },
   space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
   radius: { sm: '4px', md: '8px', pill: '999px' },
