@@ -1,6 +1,7 @@
 preferWorkspacePackages: true
 packages:
   - 'packages/*'
+  - '!packages/dux'
   - 'test-helpers'
   - 'fixtures/*'
   - 'fixtures/thirdparty/**'

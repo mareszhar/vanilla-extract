@@ -23,6 +23,7 @@
   "exclude": [
     "node_modules",
     "**/dist/**",
+    "packages/dux",
     "tests/compiler/fixtures/tsconfig-paths/**"
   ],
   "include": [

@@ -1,0 +1,32 @@
+name: dux
+
+on:
+  push:
+    branches:
+      - dux
+    paths:
+      - 'packages/dux/**'
+      - '.github/workflows/dux.yml'
+  pull_request:
+    paths:
+      - 'packages/dux/**'
+      - '.github/workflows/dux.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/dux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: packages/dux/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run validate

@@ -7,4 +7,7 @@ export default defineConfig({
       unstable_mode: 'transform',
     }),
   ],
+  test: {
+    exclude: ['packages/dux/**'],
+  },
 });

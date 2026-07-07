@@ -1,12 +1,18 @@
 node_modules
 dist
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 packages/**/README.md
 !packages/sprinkles/README.md
 !packages/integration/README.md
 !packages/compiler/README.md
 test-results
 .parcel-cache
+.pnpm-store
+.turbo
+.dux
+.nuxt
+.output
+coverage
 
 .pnp.*
 .next

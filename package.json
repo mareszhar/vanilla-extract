@@ -52,7 +52,8 @@
       "keepDynamicImportAsDynamicImportInCommonJS": true
     },
     "packages": [
-      "packages/*"
+      "packages/*",
+      "!packages/dux"
     ]
   },
   "manypkg": {

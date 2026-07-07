@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["packages/webpack-plugin/extracted.js"],
+  "ignorePatterns": ["packages/webpack-plugin/extracted.js", "packages/dux/**"],
   "rules": {
     "typescript/no-non-null-assertion": "error"
   }
