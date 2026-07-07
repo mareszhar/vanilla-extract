@@ -9,7 +9,7 @@ The maintainer manual: how the dux workspace is laid out, built, linted, tested,
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| W0 | Workspace scaffold: orchestrator manifest, tooling, package skeleton, outer-repo exclusions, docs | ☐ |
+| W0 | Workspace scaffold: orchestrator manifest, tooling, package skeleton, outer-repo exclusions, docs | ☑ |
 | W1 | Test foundations: vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots | ☐ |
 | W2 | Per-domain suites land with each roadmap phase | ☐ |
 | W3 | Sandbox: Nuxt demo + comparison matrix | ☐ |
@@ -32,7 +32,6 @@ packages/dux/
   .markdownlint.json      markdown rules for the editor extension
   .vscode/                eslint fix-on-save, no Prettier
   .githooks/pre-commit    lint guard for staged dux changes
-  .gitignore              dux-internal ignores (.turbo, .dux/, dist)
   scripts/                maintainer scripts (git-hook install, publishing)
   docs/                   vision · language · patterns · domain specs · this manual
   vane-dux/               the published package, @mszr/vane-dux
@@ -118,13 +117,13 @@ Tests collocate beside the code they exercise; Prism fixtures live once in `vane
 - **`.prettierignore`** — add `packages/dux`; dux formatting is ESLint's job.
 - **`.oxlintrc.json`** — add `packages/dux/**` to `ignorePatterns`.
 - **root `vitest.config.ts` / `tsconfig.json`** — exclude `packages/dux` from test collection and `lint:tsc`, so outer CI never typechecks or runs dux suites (dux CI does).
-- **`.gitignore`** — the existing dux group (`__references__`, `!packages/dux/README.md`) plus nothing else; dux-internal ignores live in `packages/dux/.gitignore`.
+- **`.gitignore`** — the existing dux group (`__references__`, `!packages/dux/README.md`) plus dux generated-file patterns (`.turbo`, `.dux/`, `.nuxt/`, `.output/`, `coverage`, `dist`, `*.tsbuildinfo`). The root ignore is the single ignore authority; dux has no nested `.gitignore`.
 - **`vane-dux.code-workspace`** (additive, repo root) — opens `packages/dux` as its own VS Code folder, excluded from the root view.
 - **`.github/workflows/dux.yml`** (additive) — lint + typecheck + test `packages/dux/` with pnpm on the `dux` branch.
 
 We do **not** touch upstream `packages/*` sources, `tests/`, `site/`, or the changesets/release pipeline. If an outer `validate` job still trips on dux files after the exclusions, the fix is a narrower exclusion — never a change to upstream behavior.
 
-> **Git hooks.** `scripts/install-git-hooks.ts` (postinstall) points `core.hooksPath` → `packages/dux/.githooks`; the hook lints staged dux changes and no-ops for commits that don't touch `packages/dux/`.
+> **Git hooks.** `scripts/install-git-hooks.ts` (postinstall) points `core.hooksPath` → `packages/dux/.githooks`. The installer is idempotent, documents its strict and optional modes, verifies the hook file exists, and makes it executable. The hook itself discovers the repo root, lints staged dux changes, and no-ops for commits that don't touch `packages/dux/`.
 
 ### Fork rhythm
 

@@ -1,0 +1,16 @@
+packages:
+  - 'vane-dux'
+  - 'sandbox/fixtures'
+  - 'sandbox/demo-minimal'
+  - 'sandbox/demo-main'
+  - 'sandbox/demo-comparisons'
+
+minimumReleaseAge: 4320
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - semver
+  - undici-types
+blockExoticSubdeps: true
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false

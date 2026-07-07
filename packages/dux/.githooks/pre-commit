@@ -1,0 +1,36 @@
+#!/bin/sh
+set -eu
+
+# dux commit guard: lint staged dux changes before Git records the commit.
+#
+# Installed by scripts/install-git-hooks.ts through:
+#   git config core.hooksPath packages/dux/.githooks
+#
+# The hook is intentionally repo-wide because Git only supports one hooksPath
+# per worktree. It exits quickly for commits that do not touch packages/dux.
+
+repo_root="$(git rev-parse --show-toplevel)"
+dux_root="$repo_root/packages/dux"
+should_lint=0
+
+if [ ! -d "$dux_root" ]; then
+  exit 0
+fi
+
+while IFS= read -r path; do
+  case "$path" in
+    packages/dux/*)
+      should_lint=1
+      break
+      ;;
+  esac
+done <<EOF
+$(git diff --cached --name-only --diff-filter=ACMR)
+EOF
+
+if [ "$should_lint" -ne 1 ]; then
+  exit 0
+fi
+
+echo "[vane-dux pre-commit] running pnpm run lint"
+(cd "$dux_root" && pnpm run lint)

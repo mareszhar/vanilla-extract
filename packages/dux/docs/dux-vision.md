@@ -233,7 +233,7 @@ Sequenced so each phase is independently useful and nothing depends on a surface
 
 | Phase | Deliverable | Spec | Status |
 | --- | --- | --- | --- |
-| 0. Scaffold | orchestrator workspace, package skeleton, `/vite` wiring, boundary lint, docs | [workspace](./dux-workspace.md) | ☐ |
+| 0. Scaffold | orchestrator workspace, package skeleton, `/vite` wiring, boundary lint, docs | [workspace](./dux-workspace.md) | ☑ |
 | 1. Tokens | the graph, liveness, schemes, elevation, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☐ |
 | 2. Authoring core | `createSystem` (inline tokens, default layers, base conditions), `css`, conditions, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ☐ |
 | 3. Ports | `port`, setters, `/runtime` | [ports](./dux-spec-ports.md) | ☐ |
