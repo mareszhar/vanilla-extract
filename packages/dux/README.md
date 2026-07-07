@@ -30,12 +30,12 @@ This is the dux maintainer area inside the **vanilla-extract** fork.
 
 ## Top commands
 
-Run from `packages/dux/` (bun + turbo):
+Run from `packages/dux/` (pnpm + turbo):
 
-1. `bun install` — resolve the workspace and install git hooks
-2. `bun run sdk:build` — build `@mszr/vane-dux`
-3. `bun run sdk:typecheck` — typecheck the package
-4. `bun run sdk:test` — every assertion plane (runtime, types, editor DX, emitted CSS)
-5. `bun run lint` / `lint:fix` — ESLint across dux
-6. `bun run demo:main` — the Prism Nuxt demo
-7. `bun run validate` — lint + typecheck + test + audit
+1. `pnpm install` — resolve the workspace and install git hooks
+2. `pnpm run sdk:build` — build `@mszr/vane-dux`
+3. `pnpm run sdk:typecheck` — typecheck the package
+4. `pnpm run sdk:test` — every assertion plane (runtime, types, editor DX, emitted CSS)
+5. `pnpm run lint` / `lint:fix` — ESLint across dux
+6. `pnpm run demo:main` — the Prism Nuxt demo
+7. `pnpm run validate` — lint + typecheck + test + audit

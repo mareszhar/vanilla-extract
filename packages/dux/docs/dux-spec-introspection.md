@@ -76,7 +76,7 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 - **Escape inventory:** every `css.raw`, `unsafe.value(…, reason)`, third-party-targeting `globalCss`, and `overrides`-layer rule, with its reason and location — exceptional CSS made findable, reviewable, removable.
 - **Scale strays:** values outside a declared scale (z-index anarchy).
 
-Audits run as part of `bun run validate` and print grouped, deep-linked findings; none is a hard gate by default, and each can be promoted to one per system config.
+Audits run as part of `pnpm run validate` and print grouped, deep-linked findings; none is a hard gate by default, and each can be promoted to one per system config.
 
 ---
 

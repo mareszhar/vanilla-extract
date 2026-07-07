@@ -19,14 +19,15 @@ The maintainer manual: how the dux workspace is laid out, built, linted, tested,
 
 ## 1. Layout
 
-`packages/dux/` is a self-contained **orchestrator workspace** — bun + turbo — that owns everything we maintain. It is *not* a member of the outer pnpm workspace: the outer repo never reaches in ([§6](#6-changes-outside-dux)), and we never depend on outer workspace links.
+`packages/dux/` is a self-contained **orchestrator workspace** — pnpm + turbo — that owns everything we maintain. It is *not* a member of the outer pnpm workspace: the outer repo never reaches in ([§6](#6-changes-outside-dux)), and we never depend on outer workspace links. It has its own manifest, workspace file, lockfile, install, and scripts; the package manager matches upstream for disk/cache friendliness, while the workspace boundary keeps dux isolated.
 
 ```
 packages/dux/
   package.json            orchestrator manifest (vane-dux-workspace); package + sandbox workspaces
+  pnpm-workspace.yaml     dux-only workspace members
+  pnpm-lock.yaml          dux-only lockfile
   turbo.json              dev / build / typecheck / test pipelines
   tsconfig.base.json      shared compiler options (members extend this)
-  bunfig.toml             hoisted linker
   eslint.config.ts        @antfu flat config with formatters — the single lint authority for dux
   .markdownlint.json      markdown rules for the editor extension
   .vscode/                eslint fix-on-save, no Prettier
@@ -58,7 +59,7 @@ The outer repo uses **prettier + oxlint**. Inside `packages/dux/` we use **ESLin
 
 `sandbox/demo-comparisons/` implements the same Prism components per competing approach — SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, vane-dux — sharing fixtures from `sandbox/fixtures/` (`@prism/domain`). Comparisons are study material and competitive bars, never compatibility targets.
 
-Both are workspace members: one `bun install`, one turbo pipeline.
+Both are workspace members: one `pnpm install`, one turbo pipeline.
 
 ---
 
@@ -68,9 +69,9 @@ Both are workspace members: one `bun install`, one turbo pipeline.
 
 - **Build:** obuild emits ESM-only bundles per entrypoint (`index`, `runtime`, `vite`, `vue`, `nuxt`, `preset`) to `dist/*.mjs` + `*.d.mts`.
 - **Exports:** all six subpaths named, `sideEffects: false`.
-- **Dependencies:** the vanilla-extract substrate (`@vanilla-extract/css`, integration/vite pieces) as **published versions, never `workspace:*`** — the fork adjacency is for reading and porting, not runtime linking ([dux-vision.md §10](./dux-vision.md#10-how-vane-dux-stays-alive)). lightningcss and the color-math dependency stay internal to `/vite` and the token compiler.
+- **Dependencies:** the vanilla-extract substrate (`@vanilla-extract/css`, integration/vite pieces) as **published versions, never `workspace:*`** — pnpm installs the same package shape a consumer gets, so dux can't accidentally depend on unpublished internals or a local package graph that the public package will never see. The fork adjacency is for reading and porting, not runtime linking ([dux-vision.md §10](./dux-vision.md#10-how-vane-dux-stays-alive)). lightningcss and the color-math dependency stay internal to `/vite` and the token compiler.
 - **Peers:** `vue` (optional, `/vue`), `nuxt`/`@nuxt/kit` (optional, `/nuxt`), `vite` (optional, `/vite`). The peer rule: needed by everyone → dependency; needed by a subpath → optional peer.
-- **Manifest stays npm-only:** no `scripts` in `vane-dux/package.json`; the orchestrator invokes tools directly (`cd vane-dux && bun x <tool>`), keeping one place that controls build/lint/test/publish.
+- **Manifest stays npm-only:** no `scripts` in `vane-dux/package.json`; the orchestrator invokes tools directly (`pnpm --dir vane-dux exec <tool>`), keeping one place that controls build/lint/test/publish.
 
 ---
 
@@ -119,15 +120,28 @@ Tests collocate beside the code they exercise; Prism fixtures live once in `vane
 - **root `vitest.config.ts` / `tsconfig.json`** — exclude `packages/dux` from test collection and `lint:tsc`, so outer CI never typechecks or runs dux suites (dux CI does).
 - **`.gitignore`** — the existing dux group (`__references__`, `!packages/dux/README.md`) plus nothing else; dux-internal ignores live in `packages/dux/.gitignore`.
 - **`vane-dux.code-workspace`** (additive, repo root) — opens `packages/dux` as its own VS Code folder, excluded from the root view.
-- **`.github/workflows/dux.yml`** (additive) — lint + typecheck + test `packages/dux/` with bun on the `dux` branch.
+- **`.github/workflows/dux.yml`** (additive) — lint + typecheck + test `packages/dux/` with pnpm on the `dux` branch.
 
 We do **not** touch upstream `packages/*` sources, `tests/`, `site/`, or the changesets/release pipeline. If an outer `validate` job still trips on dux files after the exclusions, the fix is a narrower exclusion — never a change to upstream behavior.
 
-> **Git hooks.** `scripts/install-git-hooks.ts` (bun postinstall) points `core.hooksPath` → `packages/dux/.githooks`; the hook lints staged dux changes and no-ops for commits that don't touch `packages/dux/`.
+> **Git hooks.** `scripts/install-git-hooks.ts` (postinstall) points `core.hooksPath` → `packages/dux/.githooks`; the hook lints staged dux changes and no-ops for commits that don't touch `packages/dux/`.
 
 ### Fork rhythm
 
 `master` mirrors upstream; development happens on `dux`. Upstream sync = fast-forward `master`, merge into `dux`, review the compiler/integration diff for portable changes, run the full suite. The tiny outer-edit surface above is the whole conflict zone.
+
+### Substrate dependency rhythm
+
+Rebasing updates the adjacent vanilla-extract source we read, compare against, and port from; it does **not** update what `@mszr/vane-dux` compiles against. The package contract moves when we bump the published vanilla-extract dependencies in `vane-dux/package.json` and refresh the dux lockfile.
+
+The natural cadence:
+
+1. **On upstream sync:** review changes under the compiler, integration, and relevant bundler packages. If nothing affects the seam, leave the published dependency pins alone.
+2. **When an upstream release contains something we need:** bump the published `@vanilla-extract/*` versions from `packages/dux/`, run `pnpm install`, then `pnpm run validate`. This is the normal path.
+3. **When an upstream fix is useful but unpublished:** port the idea behind our seam or wait for the release. Temporary local proof is allowed with an explicit throwaway override or packed tarball, but `workspace:*` and `file:` links must not ship in the dux package or lockfile.
+4. **Before a vane-dux release:** check whether the substrate pins are intentionally current. A stale pin is fine when deliberate; an accidental stale pin is a release smell.
+
+This keeps the fork valuable as a source map without letting local monorepo resolution become part of the public package's behavior.
 
 ---
 
@@ -137,20 +151,20 @@ Run from `packages/dux/`.
 
 | Command | Does |
 | --- | --- |
-| `bun install` | resolve the workspace, install git hooks |
-| `bun run lint` / `lint:fix` | ESLint across dux |
-| `bun run sdk:build` | build `@mszr/vane-dux` → `dist` |
-| `bun run sdk:typecheck` | `tsc --noEmit` for the package |
-| `bun run sdk:test` / `sdk:test:watch` | Vitest, all four planes |
-| `bun run audit` | the introspection audits over the Prism fixtures ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
-| `bun run demo:minimal` | the runnable quickstart |
-| `bun run demo:main` | the Prism Nuxt demo, dev mode |
-| `bun run demo:comparisons` | the comparison matrix |
-| `bun run typecheck` / `test` / `build` | turbo across the workspace |
-| `bun run validate` / `val` | lint + typecheck + test + audit |
-| `bun run publish:sdk:dry-run` | gate + packaging rehearsal; nothing published |
-| `bun run publish:sdk:patch` / `:minor` / `:major` | the release ([§8](#8-publishing)) |
-| `bun run publish:subtree:squash` | re-push the public mirror without a release |
+| `pnpm install` | resolve the workspace, install git hooks |
+| `pnpm run lint` / `lint:fix` | ESLint across dux |
+| `pnpm run sdk:build` | build `@mszr/vane-dux` → `dist` |
+| `pnpm run sdk:typecheck` | `tsc --noEmit` for the package |
+| `pnpm run sdk:test` / `sdk:test:watch` | Vitest, all four planes |
+| `pnpm run audit` | the introspection audits over the Prism fixtures ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
+| `pnpm run demo:minimal` | the runnable quickstart |
+| `pnpm run demo:main` | the Prism Nuxt demo, dev mode |
+| `pnpm run demo:comparisons` | the comparison matrix |
+| `pnpm run typecheck` / `test` / `build` | turbo across the workspace |
+| `pnpm run validate` / `val` | lint + typecheck + test + audit |
+| `pnpm run publish:sdk:dry-run` | gate + packaging rehearsal; nothing published |
+| `pnpm run publish:sdk:patch` / `:minor` / `:major` | the release ([§8](#8-publishing)) |
+| `pnpm run publish:subtree:squash` | re-push the public mirror without a release |
 
 ---
 
@@ -158,7 +172,7 @@ Run from `packages/dux/`.
 
 The public `mareszhar/vane-dux` repo is the package + docs face, not the development home — development stays in this fork so the substrate source and comparison sandbox remain adjacent. Releases push the `vane-dux/` subtree to the public repo as a single squashed commit and publish `@mszr/vane-dux` to npm.
 
-**The flow** (`bun run publish:sdk:<patch|minor|major>`), following the house release machinery:
+**The flow** (`pnpm run publish:sdk:<patch|minor|major>`), following the house release machinery:
 
 1. **Shared gate**, once — build · lint · typecheck · test · audit, with a content-keyed receipt so a resumed release doesn't re-verify unchanged inputs. `VANE_FORCE_VERIFY=1` ignores the receipt; the deliberately awkward `VANE_UNSAFE_PUBLISH_SKIP_CHECKS=1` skips the gate outright — no flag for that, on purpose.
 2. **npm auth check**, then bump `vane-dux/package.json` directly (never `npm version` — it would try to reify the outer pnpm workspace).
