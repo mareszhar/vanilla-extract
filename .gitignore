@@ -5,7 +5,6 @@ packages/**/README.md
 !packages/sprinkles/README.md
 !packages/integration/README.md
 !packages/compiler/README.md
-!packages/dux/README.md
 test-results
 .parcel-cache
 
@@ -14,3 +13,7 @@ test-results
 .DS_Store
 .idea
 next-env.d.ts
+
+# for dux
+!packages/dux/README.md
+__references__
