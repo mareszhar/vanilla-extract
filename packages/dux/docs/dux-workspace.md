@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-07
 status: maintainer manual — layout, tooling, testing, fork hygiene, publishing
 
 # vane-dux — workspace
@@ -99,7 +99,7 @@ One runner (Vitest), **four assertion planes**, one fixture set (Prism). No doma
 | --- | --- | --- | --- |
 | Runtime | `*.test.ts` | evaluation results, recipe resolution, port setters, `applyTheme`, theme scoping | Vitest |
 | Type shapes | `*.test-d.ts` | token graph inference, `VaneProps`, condition typing, liveness honesty (`applyTheme` rejecting static keys) | Vitest `--typecheck` |
-| Editor DX | `*.dx.test.ts` | completions and diagnostics land on the intended key with the intended message; hovers stay readable; `DUXERR_*` codes stable | [selenita](https://github.com/mareszhar/selenita) on Vitest |
+| Editor DX | `*.dx.test.ts` | completions and diagnostics land on the intended key with the intended message; hovers stay readable; `VANE_*` codes stable | [selenita](https://github.com/mareszhar/selenita) on Vitest |
 | Output | `*.out.test.ts` | the emitted CSS: liveness compilation (`light-dark()`, relative color), layer order, condition compilation, debug names, build-vs-live color-math agreement | Vitest snapshot over the compiler |
 
 The output plane is this project's addition to the house methodology: **the emitted CSS is a public contract** (principle 6 — boring CSS is the artifact consumers keep), so it gets locked like one. Diagnostic messages are a quality contract per [dux-patterns.md §10](./dux-patterns.md#10-diagnostics-are-a-contract): exactly one diagnostic, at the offending key, naming the fix.

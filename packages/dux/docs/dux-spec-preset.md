@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-07
 status: spec — contracts settled, implementation pending
 
 # vane-dux — spec: preset
@@ -65,7 +65,7 @@ createSystem({
 - preference: `contrastMore`, `forcedColors`
 - headless states: `open`, `closed`, `checked`, `selected`, `highlighted`, `invalid` (the Zag/Reka `data-state`/`data-*` contract)
 
-The interaction and preference basics (`hover`, `hoverFocus`, `down`, `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`) are core, not preset — they're platform facts, not opinions. Note the naming law at work: `hover` is `&:hover` and nothing more; the hover-plus-keyboard-focus affordance pair is **`hoverFocus`**, so a condition never claims less than it does. Preset helpers and patterns use `hoverFocus` for interactive affordances and the docs recommend it — by name, not by stealth.
+The interaction and preference basics (`hover`, `hoverFocus`, `active`, `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`) are core, not preset — they're platform facts, not opinions. Note the naming law at work: `hover` is `&:hover` and nothing more, `active` is `&:active`, and the hover-plus-keyboard-focus affordance pair is **`hoverFocus`**, so a condition never claims less than it does. Preset helpers and patterns use `hoverFocus` for interactive affordances and the docs recommend it — by name, not by stealth.
 
 ---
 

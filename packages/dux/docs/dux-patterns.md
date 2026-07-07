@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-07
 status: settled law — the cross-cutting behavioral rules every spec builds on
 
 # vane-dux — patterns
@@ -190,7 +190,7 @@ A diagnostic that merely *exists* proves nothing; the message a human (or agent)
 - it **names the offending key** and, where the fix is enumerable, suggests it (`did you mean 'md'?`);
 - it **lands on** the offending property, not the call;
 - hovers stay **readable public types** — `VaneProps<typeof button>` collapses to `{ intent?: 'brand' | 'ghost'; size?: 'sm' | 'md' }`, never an internals wall;
-- build diagnostics carry the **`DUXERR_*` code**, the file:line, and a fix-it — including the lane redirect: *"this value is runtime data — use a variant for finite choices, or a port for live values."*
+- build diagnostics carry the **`VANE_*` code**, the file:line, and a fix-it — including the lane redirect: *"this value is runtime data — use a variant for finite choices, or a port for live values."*
 
 ---
 

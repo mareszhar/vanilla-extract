@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-07
 status: settled law — referenced by every spec; changes here ripple everywhere
 
 # vane-dux — language
@@ -69,13 +69,15 @@ The words of CSS itself keep their platform meanings: property names are csstype
 
 ## 2. Values vs types
 
-- **Values are unprefixed:** `defineTokens`, `createSystem`, `css`, `recipe`, `anatomy`, `port`, `keyframes`, `globalCss`, `theme`, `applyTheme`, `usePorts`. The package specifier already namespaces them; a userland clash is one `import { css as vaneCss }` away.
+- **Values are unprefixed:** `defineTokens`, `createSystem`, `css`, `recipe`, `anatomy`, `port`, `keyframes`, `globalCss`, `theme`, `applyTheme`, `setScheme`, `usePorts`, `useAnatomy`. The package specifier already namespaces them; a userland clash is one `import { css as vaneCss }` away.
 - **Types are `Vane`-prefixed and domain-scoped.** Root nouns may stand alone (`VaneSystem`, `VaneTokens`); supporting types read `Vane<Domain><Thing>` (`VaneStyleRule`, `VaneRecipeProps`, `VanePortValue`). The everyday utility is `VaneProps<typeof button>` — the inferred variant props of a recipe or anatomy.
 - **A standard name stays standard; a name we coin is chosen for precision.** csstype property names, CSS at-rule spellings, and platform terms pass through untouched.
 
-**Why `Vane*` and not `VaneDux*`.** The maintainer's forks brand coined types `<Brand>Dux*` when the bare brand belongs to an upstream (`H3Dux*` beside h3's own `H3*`, `IdbDux*` beside Instant's). Here *vane* is itself the coined brand — no official `Vane*` namespace exists to collide with — so the shorter prefix is unambiguous and the `Dux` tier is unnecessary. `dux` stays the plain word for this workspace and doc set (`packages/dux/`, "the dux branch", *dux-vision*, *dux-spec*, …), never for shipped API.
+**The shipped namespace is `Vane`.** `dux` is the workspace, branch, and doc-set word only. Shipped types, classes, and interfaces use `Vane*` (`VaneError`, `VaneDiagnostic`, `VaneDiagnosticCode`). Stable machine identifiers use `VANE_*`. No shipped API, diagnostic code, environment variable, class, or type uses `Dux*`, `*Dux*`, or `DUX*` unless it is literally naming the workspace/docs.
 
-**Emitted names.** CSS custom properties are `--vane-*` by default (`--vane-color-brand`), configurable via the system's `prefix`. Diagnostic codes are `DUXERR_<DOMAIN>_<DETAIL>` — stable identifiers the editor-DX suites assert on; renaming one is a breaking change.
+**Why `Vane*` and not `VaneDux*`.** The maintainer's forks brand coined types `<Brand>Dux*` when the bare brand belongs to an upstream (`H3Dux*` beside h3's own `H3*`, `IdbDux*` beside Instant's). Here *vane* is itself the coined brand — no official `Vane*` namespace exists to collide with — so the shorter prefix is unambiguous and the `Dux` tier is unnecessary.
+
+**Generated names.** vane-owned CSS custom properties use `--vane-*` by default (`--vane-color-brand`), configurable via the system's `prefix`; user-authored custom properties pass through unchanged. Diagnostic codes are `VANE_<DOMAIN>_<DETAIL>` — stable identifiers the editor-DX suites assert on; renaming one is a breaking change.
 
 ---
 
@@ -102,6 +104,7 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | `elevation(n)` | — (hail-styl, generalized) | plane position → scheme-aware lightness; shipped as a preset derivation, not a core axiom |
 | `legibleOn(fn)` / `check.*` | manual audits; "contrast" APIs | named for what it *produces* — a color legible on its target — not the check it carries; validated at build (APCA), live via `contrast-color()` where supported |
 | `theme(overrides)` / `applyTheme(el, overrides)` | VE `createTheme` / `assignInlineVars` | the same concept at build time and runtime, named as the pair it is |
+| `setScheme(el, scheme)` | manual `data-scheme` writes | the tiny runtime helper for pinning the platform color-scheme axis; themes still mean token overrides |
 | `createSystem({ tokens, conditions?, layers? })` | Panda config + codegen; sprinkles `defineProperties` | a plain typed factory — inference instead of a generated artifact directory; accepts inline tokens and returns `t`, defaults layers, ships base conditions — the happy path is one file |
 | `css(rule)` | VE `style()` | the author thinks "I'm writing CSS", and the emitted thing *is* CSS; `style` collides with the HTML attribute and Vue's `:style` |
 | condition (bare key: `hover:`, `md:`, `dark:`) | Panda/mincho `_hover`; Tailwind `hover:` | the beloved prefix, typed, with no underscore dialect — the factory refuses condition names that collide with CSS properties |
@@ -118,7 +121,7 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | `usePorts(fn)` | Vue `useCssVars` (internal) | the reactive binding for ports; a `computed()` around a style object, SSR-safe |
 | `useAnatomy(anatomy, props)` | — (new) | the one composable the no-wrapper rule bends for: a reactive, typed record of part classes ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy)) |
 | `'root:open'` part-scoped condition | raw `'[data-state="open"] &'` | a part styled by another part's state, typed over parts × conditions |
-| `hover` / `hoverFocus` conditions | Panda `_hover` (secretly `:hover, [data-hover]`) | a condition never claims less than it does: `hover` is `:hover`; the affordance pair is named `hoverFocus` |
+| `hover` / `active` / `hoverFocus` conditions | Panda `_hover` (secretly `:hover, [data-hover]`) | a condition never claims less than it does: `hover` is `:hover`, `active` is `:active`; the affordance pair is named `hoverFocus` |
 | `` [`${button} + &`] `` interpolation | Vue `:deep(.child)` | boundary-crossing as typed class references in the module graph, not string incantations — and visibly a selector, because it is one |
 | `atoms(props)` | VE sprinkles; Tailwind call-site authoring | the strict utility lane; "sprinkles" is whimsy, "atoms" says small single-purpose declarations |
 | `unsafe.value(v, reason)` | silent arbitrary values | escapes carry intent and surface in the audit |

@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-07
 status: spec — contracts settled, implementation pending
 
 # vane-dux — spec: css authoring
@@ -52,8 +52,8 @@ export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = creat
 - One system per design system; the destructured functions are the app's whole authoring import surface.
 - **`tokens` accepts a raw graph or a `defineTokens` result, and `t` is always returned** beside the authoring functions — one import line serves every style file. The separate tokens file remains the library-authoring form ([dux-spec-tokens.md §1](./dux-spec-tokens.md#1-definetokens--the-graph-in-plain-ts)); nothing requires it.
 - **`layers` is optional**, defaulting to `['reset', 'tokens', 'recipes', 'utilities', 'overrides']`. Nobody needs to know what a cascade layer is to hello-world; declaring `layers` is how you take control when you do.
-- **A base condition set is built in** — the platform-universal names, no opinions: `hover` (`&:hover` — exactly what it says), `hoverFocus` (`&:hover, &:focus-visible` — the interactive-affordance pair, named for what it does), `down` (`&:active`), `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`. User conditions merge over it; a same-named user condition overrides; `baseConditions: false` opts out entirely. Breakpoints, container sizes, and headless states are opinions and live in the preset ([dux-spec-preset.md §2](./dux-spec-preset.md#2-preset-conditions)).
-- A condition name colliding with a CSS property is refused **at the definition key** (`DUXERR_SYSTEM_CONDITION_COLLISION`).
+- **A base condition set is built in** — the platform-universal names, no opinions: `hover` (`&:hover` — exactly what it says), `hoverFocus` (`&:hover, &:focus-visible` — the interactive-affordance pair, named for what it does), `active` (`&:active`), `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`. User conditions merge over it; a same-named user condition overrides; `baseConditions: false` opts out entirely. Breakpoints, container sizes, and headless states are opinions and live in the preset ([dux-spec-preset.md §2](./dux-spec-preset.md#2-preset-conditions)).
+- A condition name colliding with a CSS property is refused **at the definition key** (`VANE_SYSTEM_CONDITION_COLLISION`).
 - Condition values are plain selector strings or the typed helpers (`media`, `container`, `schemeIs`, `data`, `aria`); helpers exist for readability, strings are never second-class.
 - `createSystem` is itself evaluated build-time code; its returns are inert typed functions ([dux-patterns.md §1](./dux-patterns.md#1-evaluate-dont-extract-compile-dont-run)).
 
@@ -238,9 +238,9 @@ export const prose = css.raw`
 
 **Contract details.**
 
-- Every declaration — object, raw, global, keyframe step — is parsed; an invalid value is a build diagnostic with file:line, the offending property, and the reason (`DUXERR_CSS_INVALID_VALUE`).
+- Every declaration — object, raw, global, keyframe step — is parsed; an invalid value is a build diagnostic with file:line, the offending property, and the reason (`VANE_CSS_INVALID_VALUE`).
 - Unknown properties pass through only under an explicit vendor/experimental marker; otherwise they error (the silent-failure ban is absolute).
 - Diagnostics land within the HMR loop — save, and the overlay names the line; never later than the reload.
-- **Setup failures are diagnosed too.** Importing a `*.style.ts` module without the `/vite` plugin registered produces one friendly error naming the missing plugin and the config line to add (`DUXERR_VITE_PLUGIN_MISSING`) — never a raw Node evaluation stack. The bounce point of a misconfigured first install gets the same message quality as a typo'd property.
+- **Setup failures are diagnosed too.** Importing a `*.style.ts` module without the `/vite` plugin registered produces one friendly error naming the missing plugin and the config line to add (`VANE_VITE_PLUGIN_MISSING`) — never a raw Node evaluation stack. The bounce point of a misconfigured first install gets the same message quality as a typo'd property.
 
 **Proposed approach.** lightningcss parses the assembled rules during evaluation in the `/vite` plugin, mapping positions back through the emitter's source map to the `.style.ts` expression.

@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-07
 status: spec — contracts settled, implementation pending
 
 # vane-dux — spec: tokens
@@ -151,7 +151,7 @@ onBrand: legibleOn(({ color }) => color.brand),
 ```
 
 ```text
-✖ DUXERR_TOKENS_CONTRAST  color.onBrand / color.brand fails APCA Lc 60 in scheme "dark"
+✖ VANE_TOKENS_CONTRAST  color.onBrand / color.brand fails APCA Lc 60 in scheme "dark"
     brand (dark) → oklch(0.68 0.2 285); best pairing white = Lc 47.2
     at design/tokens.style.ts:9
   fix: darken brand in dark scheme, or accept explicitly: legibleOn(…, { minLc: 45 })
