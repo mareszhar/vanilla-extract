@@ -5,6 +5,7 @@ packages/**/README.md
 !packages/sprinkles/README.md
 !packages/integration/README.md
 !packages/compiler/README.md
+!packages/dux/README.md
 test-results
 .parcel-cache
 
