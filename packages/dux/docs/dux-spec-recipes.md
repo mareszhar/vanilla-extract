@@ -1,5 +1,5 @@
-updated: 2026-07-06
-status: spec — contracts settled, implementation pending
+updated: 2026-07-08
+status: spec — contracts settled, implemented (phase 4)
 
 # vane-dux — spec: recipes
 
@@ -9,12 +9,12 @@ Variants and anatomy: how component styling compresses state into a legible, typ
 
 | # | Contract | Status |
 | --- | --- | --- |
-| 1 | `recipe()` — variants, toggles, compound, defaults | ☐ |
-| 2 | Published ports: the `ports:` key | ☐ |
-| 3 | `anatomy()` — parts styled as one unit | ☐ |
-| 4 | The call site: props in, classes out | ☐ |
-| 5 | Headless states | ☐ |
-| 6 | Diagnostics quality | ☐ |
+| 1 | `recipe()` — variants, toggles, compound, defaults | ☑ |
+| 2 | Published ports: the `ports:` key | ☑ |
+| 3 | `anatomy()` — parts styled as one unit | ☑ |
+| 4 | The call site: props in, classes out | ☑ |
+| 5 | Headless states | ☑ |
+| 6 | Diagnostics quality | ☑ |
 
 ---
 
@@ -68,10 +68,11 @@ button.variants // → the typed variant map, for prop forwarding and docs
 - Every arm — `base`, each variant value, each toggle, each compound `style` — is a full vane rule: conditions, selectors, ports, and composite tokens all legal.
 - **Finite choice only:** a recipe call resolves among precompiled classes; the lane redirect diagnostic points non-finite values to ports ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)).
 - `compound` entries type `when` against declared variants/toggles — an impossible combination errors at the offending key.
-- `defaults` compile into `base` where possible (no extra class for the default case).
+- `defaults` compile into `base` where sound (no extra class for the default case): a default value folds only when every sibling value declares everything it declares, arm for arm — otherwise the fold would leak the default's styling into the other choices, so the default keeps its own class.
+- A recipe lives in one cascade layer, declared at the recipe root (`layer:`); a `layer` key inside an arm is a diagnostic.
 - Calling with no arguments yields the defaults; the full call-site law — strict literals, permissive widened props — is [§4](#4-the-call-site-props-in-classes-out).
 
-**Proposed approach.** Per-arm `css()` emission plus a tiny generated lookup (the runtime is a class-string join over a precomputed table). Prior art to read, not depend on: `@vanilla-extract/recipes`, CVA.
+**Implementation.** Per-arm `css()`-equivalent emission plus a lookup table (the runtime is a class-string join over the precomputed table, restored across the build/app boundary by `restoreRecipe`). Emission order — base, variants, toggles, compound — makes compound entries win by ordinary CSS order within the layer. Debug names follow the declaration via the `/vite` transform (`button_intent_brand__h4x`). Prior art read, not depended on: `@vanilla-extract/recipes`, CVA, Stitches.
 
 ---
 
@@ -170,9 +171,9 @@ d.content // → class string per part; d is a typed record keyed by part
   }
   ```
 
-  No raw `'[data-state="open"] &'` string needed for relationships the anatomy already knows about; the raw form remains available for states outside the anatomy ([dux-patterns.md §8](./dux-patterns.md#8-escape-hatch-grace)).
+  No raw `'[data-state="open"] &'` string needed for relationships the anatomy already knows about; the raw form remains available for states outside the anatomy ([dux-patterns.md §8](./dux-patterns.md#8-escape-hatch-grace)). A condition with no element selector (`'root:md'` — a bare media query) holds no part state, so scoping it is a diagnostic naming the reason.
 - Dev builds add `data-part` attributes' styling hooks via stable debug class names (`Dialog_content__h4x`) — provenance for devtools ([dux-spec-introspection.md §1](./dux-spec-introspection.md#1-provenance)).
-- Cross-part selectors use typed part references, same rule as cross-file class references ([dux-spec-css.md §4](./dux-spec-css.md#4-selectors-and-cross-file-references)).
+- Cross-part selectors use typed part references, same rule as cross-file class references ([dux-spec-css.md §4](./dux-spec-css.md#4-selectors-and-cross-file-references)): `dialog.parts.content` is the part's stable class, carried on the handle.
 
 ---
 
@@ -201,7 +202,7 @@ const props = defineProps<VaneProps<typeof button> & { disabled?: boolean }>()
 
 - **A wider props object just works.** `button(props)` accepts any object assignable to the variant props; unknown keys are ignored at runtime (resolution reads only declared variants and toggles). No `pick`, no wrapper, no per-component stripping — ever.
 - **Literals stay strict.** `button({ intnet: 'brand' })` is a red squiggle: TypeScript's excess-property checks fire on object literals, so inline typos die at the cursor while spread props flow through. The two behaviors are the same type, used as designed.
-- **Values are always checked.** A declared variant key with an undeclared value (`intent: 'brnd'`) is a type error wherever the object is typed, and a dev-mode runtime warning when it arrives through an untyped edge.
+- **Values are always checked.** A declared variant key with an undeclared value (`intent: 'brnd'`) is a type error wherever the object is typed; arriving through an untyped edge it warns once in dev — naming the valid set — and resolves as the default, so a wrong prop never half-styles a component silently.
 - `VaneProps<typeof button>` hovers as the plain optional object (`{ intent?: 'brand' | 'ghost' | 'danger'; size?: 'sm' | 'md'; pill?: boolean }`) — readable public types, no internals wall.
 - **Anatomy in Vue: `useAnatomy`.** An anatomy call returns a record, and the tempting `const d = dialog(props)` in `<script setup>` silently loses reactivity. The `/vue` overlay ships the blessed one-liner — a typed `computed` that keeps part classes reactive and template-clean ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy)):
 

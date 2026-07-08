@@ -2,17 +2,27 @@
  * The vane-dux Vite plugin — evaluates `*.style.ts` at build time and emits
  * static CSS ([dux-patterns.md §1], [dux-workspace.md §3]). App code never
  * sees an authoring call: a style module's exports arrive as serialized
- * classes, ports, and metadata, and its CSS arrives as a virtual `.vane.css`
- * module the bundler treats like any stylesheet.
+ * classes, ports, recipes, and metadata, and its CSS arrives as a virtual
+ * `.vane.css` module the bundler treats like any stylesheet.
  *
  * The pipeline is the substrate's proven integration model (the one its
  * webpack/esbuild/next plugins ship on): esbuild bundles the style module
- * with port labels and file scopes injected, the bundle is evaluated
- * in-process against the css adapter, and the emitted CSS rides a `?source=`
- * query on the virtual id. The substrate's newer vite-node compiler is not
- * reusable here — its file filter is hardcoded to `*.css.ts` at every level.
- * If that filter ever becomes configurable upstream, this plugin can move
- * over without a public change.
+ * with debug names and file scopes injected, and the bundle is evaluated
+ * in-process against the css adapter. The substrate's newer vite-node
+ * compiler is not reusable here — its file filter is hardcoded to `*.css.ts`
+ * at every level. If that filter ever becomes configurable upstream, this
+ * plugin can move over without a public change.
+ *
+ * **HMR is in-place, never stacked.** Each style file's CSS lives behind a
+ * stable* virtual id (`/path/File.style.ts.vane.css`) whose content is
+ * served from an in-memory store — so when a save changes the CSS, the same
+ * id delivers the new text and Vite's client replaces the existing style tag
+ * instead of appending a second one. Style modules self-accept in dev (an
+ * edit that only moves declarations swaps CSS with no reload); when the
+ * export shape* changes, importers hold stale bindings, so the plugin sends
+ * one full reload instead. Files a style module bundles in (tokens, shared
+ * styles) are watched and mapped back to their dependents, so editing a
+ * token file hot-updates every style module built on it.
  *
  * Two deliberate deviations from the substrate's `processVanillaFile`:
  *
@@ -31,7 +41,7 @@
  */
 
 import type { Adapter } from '@vanilla-extract/css'
-import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
+import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from 'vite'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { removeAdapter, setAdapter } from '@vanilla-extract/css/adapter'
@@ -39,10 +49,8 @@ import { transformCss } from '@vanilla-extract/css/transformCss'
 import {
   addFileScope,
   getPackageInfo,
-  getSourceFromVirtualCssFile,
   normalizePath,
   parseFileScope,
-  serializeCss,
   serializeVanillaModule,
   stringifyFileScope,
 } from '@vanilla-extract/integration'
@@ -62,11 +70,22 @@ export interface VaneViteOptions {
 /** `*.style.ts` (and variants) — vane-dux's authoring file extension. */
 const styleFileFilter = /\.style\.(?:js|cjs|mjs|jsx|ts|tsx)(?:\?used)?$/
 
-/** The virtual stylesheet a compiled style module imports; CSS rides the query. */
-const virtualCssFileFilter = /\.vane\.css\?source=/
+/** The stable virtual stylesheet a compiled style module imports; content lives in the store. */
+const virtualExt = '.vane.css'
+
+/** In dev a style module accepts itself: a CSS-only edit swaps styles in place, no reload. */
+const selfAcceptFooter = '\nif (import.meta.hot) { import.meta.hot.accept() }\n'
 
 export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
   let config: ResolvedConfig
+  let server: ViteDevServer | undefined
+
+  /** Stable virtual id → the CSS it currently serves. */
+  const cssByVirtualId = new Map<string, string>()
+  /** Style module → its last serialized code, for export-shape comparison. */
+  const serializedModules = new Map<string, string>()
+  /** Bundled dependency → the style modules built on it, for HMR fan-out. */
+  const dependentsByFile = new Map<string, Set<string>>()
 
   const identOption = () =>
     options.identifiers ?? (config.mode === 'production' ? 'short' : 'debug')
@@ -79,7 +98,11 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
       config = resolvedConfig
     },
 
-    async transform(_code, id) {
+    configureServer(devServer) {
+      server = devServer
+    },
+
+    async transform(_code, id, transformOptions) {
       const [validId] = id.split('?')
 
       if (!styleFileFilter.test(validId))
@@ -95,8 +118,16 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
       })
 
       for (const file of watchFiles) {
-        if (!file.includes('node_modules') && normalizePath(file) !== filePath)
-          this.addWatchFile(file)
+        const watched = normalizePath(file)
+
+        if (watched.includes('node_modules') || watched === filePath)
+          continue
+
+        this.addWatchFile(watched)
+
+        const dependents = dependentsByFile.get(watched) ?? new Set()
+        dependents.add(filePath)
+        dependentsByFile.set(watched, dependents)
       }
 
       const { exports, cssByFileScope, unusedCompositionRegex }
@@ -106,29 +137,73 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
 
       for (const [serializedFileScope, css] of cssByFileScope) {
         const fileScope = parseFileScope(serializedFileScope)
-        const virtualId = `${normalizePath(join(root, fileScope.filePath))}.vane.css?source=${await serializeCss(css)}`
+        const virtualId = `${normalizePath(join(root, fileScope.filePath))}${virtualExt}`
+        const changed = cssByVirtualId.get(virtualId) !== css
+
+        cssByVirtualId.set(virtualId, css)
         cssImports.push(`import '${virtualId}';`)
+
+        // The id is stable, so the module graph must learn the content moved —
+        // import analysis then stamps a fresh timestamp on the import and the
+        // client replaces the existing style tag in place.
+        if (changed && server) {
+          for (const virtualModule of server.moduleGraph.getModulesByFile(virtualId) ?? [])
+            server.moduleGraph.invalidateModule(virtualModule)
+        }
       }
 
-      return {
-        code: serializeVanillaModule(cssImports, exports, unusedCompositionRegex),
-        map: { mappings: '' },
+      let code = serializeVanillaModule(cssImports, exports, unusedCompositionRegex)
+
+      if (server && !transformOptions?.ssr) {
+        const previous = serializedModules.get(filePath)
+        serializedModules.set(filePath, code)
+
+        // Same exports → the accepted update is sound. New export shape →
+        // importers hold stale bindings; one full reload restores truth.
+        if (previous !== undefined && previous !== code)
+          server.hot.send({ type: 'full-reload' })
+
+        code += selfAcceptFooter
       }
+
+      return { code, map: { mappings: '' } }
+    },
+
+    handleHotUpdate({ file, server: devServer, modules }) {
+      const dependents = dependentsByFile.get(normalizePath(file))
+
+      if (!dependents?.size)
+        return
+
+      // A bundled dependency changed: every style module built on it
+      // re-evaluates, so its fresh CSS lands under the same stable ids.
+      const affected = new Set(modules)
+
+      for (const dependent of dependents) {
+        for (const dependentModule of devServer.moduleGraph.getModulesByFile(dependent) ?? [])
+          affected.add(dependentModule)
+      }
+
+      return [...affected]
     },
 
     resolveId(source) {
-      if (!virtualCssFileFilter.test(source))
+      const [validId, query] = source.split('?')
+
+      if (!validId.endsWith(virtualExt) || !cssByVirtualId.has(validId))
         return null
 
-      return source
+      // Keep the query — Vite's HMR timestamps ride it.
+      return query ? `${validId}?${query}` : validId
     },
 
-    async load(id) {
-      if (!virtualCssFileFilter.test(id))
+    load(id) {
+      const [validId] = id.split('?')
+
+      if (!validId.endsWith(virtualExt))
         return null
 
-      const { source } = await getSourceFromVirtualCssFile(id)
-      return source
+      return cssByVirtualId.get(validId) ?? null
     },
   }
 
@@ -192,7 +267,7 @@ async function bundleStyleModule({ filePath, root, alias }: BundleStyleModulePar
             const original = await readFile(path, 'utf-8')
 
             const source = addFileScope({
-              source: applyPortLabels(original),
+              source: applyDebugNames(original),
               filePath: path,
               rootPath: root,
               packageName,
@@ -313,31 +388,31 @@ function executeBundle(source: string, filePath: string): Record<string, unknown
   return module.exports
 }
 
-// ─── The port label transform ────────────────────────────────────────────────
+// ─── The debug-name transform ────────────────────────────────────────────────
 
 /**
- * Inject export names as `{ label: 'X' }` in `port()` calls, so the emitted
- * variable's debug label follows the export — rename-symbol renames everything
- * ([dux-spec-ports.md §1]). A light bracket-matching pass, not a Babel plugin:
- * `port()` is the one function that needs it, and the common form is one line.
- * When the pass can't parse a call, it leaves it alone — the port still works
- * with a hash-only label.
+ * Inject declaration names into authoring calls, so emitted identifiers
+ * follow the code — rename-symbol renames everything, devtools rules trace
+ * back to their export ([dux-spec-ports.md §1], [dux-spec-recipes.md §3]).
+ * A light bracket-matching pass, not a Babel plugin; when it can't parse a
+ * call it leaves it alone — everything still works with hash-only names.
  *
- * Handles:
- * - `export const X = port(value)` → `export const X = port(value, { label: 'X' })`
- * - `export const X = port(value, { as: 'deg' })` → adds `label` to the options
- * - `export const X = IDENT.port(...)` — the system-bound form
- *
- * Skips calls that already have a `label` option.
+ * Handles module-scope `const` declarations, exported or not (published
+ * ports are typically module-local):
+ * - `const X = port(value)` → `port(value, { label: 'X' })`;
+ *   an existing options object gains the `label` key, an explicit label wins
+ * - `const X = css(rule)` / `recipe(…)` / `anatomy(…)` / `keyframes(…)` /
+ *   `fontFace(…)` → the call gains `'X'` as its debug id; an explicit id wins
+ * - `IDENT.port(...)` and friends — the system-bound forms
  */
-export function applyPortLabels(source: string): string {
+export function applyDebugNames(source: string): string {
   let output = source
   let offset = 0
 
-  const pattern = /export\s+const\s+(\w+)\s*=\s*(?:\w+\.)?port\s*\(/g
+  const pattern = /(?:export\s+)?const\s+(\w+)\s*=\s*(?:\w+\.)?(port|css|recipe|anatomy|keyframes|fontFace)\s*\(/g
 
   for (const match of source.matchAll(pattern)) {
-    const exportName = match[1]
+    const [, name, callee] = match
     const callStart = match.index! + match[0].lastIndexOf('(')
     const callEnd = findMatchingParen(source, callStart)
 
@@ -347,10 +422,13 @@ export function applyPortLabels(source: string): string {
     const args = source.slice(callStart + 1, callEnd)
     const { hasLabel, commaIndex } = analyzeArgs(args)
 
-    if (hasLabel)
+    const replacement = callee === 'port'
+      ? hasLabel ? undefined : buildPortReplacement(args, commaIndex, name)
+      : buildDebugIdReplacement(args, commaIndex, name)
+
+    if (replacement === undefined)
       continue
 
-    const replacement = buildReplacement(args, commaIndex, exportName)
     const before = output.slice(0, callStart + 1 + offset)
     const after = output.slice(callEnd + offset)
     output = before + replacement + after
@@ -424,8 +502,8 @@ function analyzeArgs(args: string): { hasLabel: boolean, commaIndex: number } {
   return { hasLabel, commaIndex }
 }
 
-/** Build the replacement arguments with the `label` option injected. */
-function buildReplacement(args: string, commaIndex: number, exportName: string): string {
+/** Build a `port()` call's replacement arguments with the `label` option injected. */
+function buildPortReplacement(args: string, commaIndex: number, exportName: string): string {
   const trimmed = args.trim()
 
   if (trimmed === '')
@@ -448,6 +526,17 @@ function buildReplacement(args: string, commaIndex: number, exportName: string):
 
   // The second argument is not an object literal — wrap it.
   return `${before}, { label: '${exportName}' }`
+}
+
+/**
+ * Append the declaration name as a debug id — only to single-argument calls,
+ * so an explicit id (or any extra argument) always wins.
+ */
+function buildDebugIdReplacement(args: string, commaIndex: number, exportName: string): string | undefined {
+  if (args.trim() === '' || commaIndex !== -1)
+    return undefined
+
+  return `${args}, '${exportName}'`
 }
 
 export const vanePlugin = vaneDuxPlugin

@@ -6,13 +6,16 @@
 
 import type { VaneRuntimeHandle } from './internal/handle'
 import type { VanePort, VanePortMeta } from './ports/types'
+import type { VaneAnatomy, VaneAnatomyRuntime, VaneRecipe, VaneRecipeRuntime } from './recipes/types'
 import type { VaneLiveOverrides } from './tokens/types'
 import { createHandle, isHandle } from './internal/handle'
 import { createPortHandle } from './ports/handle'
 import { ports } from './ports/ports'
+import { createAnatomyHandle, createRecipeHandle } from './recipes/handle'
 
 export type { VaneLiveOverrides }
 export type { VanePort, VanePortMeta, VanePortStyle, VanePortValue } from './ports/types'
+export type { VaneAnatomyRuntime, VaneRecipeRuntime } from './recipes/types'
 
 export type VaneRuntimeValue = string | number
 export type VaneRuntimeStyle = Record<`--${string}`, VaneRuntimeValue>
@@ -100,4 +103,20 @@ export function restoreToken(meta: Parameters<typeof createHandle>[0]): VaneRunt
  */
 export function restorePort(meta: VanePortMeta): VanePort {
   return createPortHandle(meta)
+}
+
+/**
+ * Restores a recipe handle from its serialized class table. Generated import
+ * target — not for hand-written code.
+ */
+export function restoreRecipe(runtime: VaneRecipeRuntime): VaneRecipe<Record<string, unknown>> {
+  return createRecipeHandle(runtime)
+}
+
+/**
+ * Restores an anatomy handle from its serialized part-class tables. Generated
+ * import target — not for hand-written code.
+ */
+export function restoreAnatomy(runtime: VaneAnatomyRuntime): VaneAnatomy<string, Record<string, unknown>> {
+  return createAnatomyHandle(runtime)
 }

@@ -1,5 +1,5 @@
 updated: 2026-07-08
-status: spec — contracts settled, implemented (phase 3)
+status: spec — contracts settled, implemented (phase 3; `set()` reference-widening and HMR polish landed with phase 4)
 
 # vane-dux — spec: ports
 
@@ -70,7 +70,7 @@ ports(fraction.set(p), tint.set(color)) // merged fragment
 
 **Contract details.**
 
-- `set()` type-checks the value against the port's declared type; serialization is kind-driven (§3).
+- `set()` type-checks the value against the port's declared type — plus token/port references, whatever the kind: a parent theming a child's number port with a token is the flagship static-set form (§4).
 - Setting writes a value — never a rule, never a stylesheet ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)).
 - `set()` and `ports()` live on the core handles with ~zero runtime; the `/runtime` subpath adds only DOM conveniences (`setPorts(el, …)` for imperative code outside a framework).
 - **`ports()` is for imperative merging only.** The framework bindings already merge: `usePorts(() => [a.set(x), b.set(y)])` is complete as written — wrapping the array in `ports()` is redundant and the docs never show it.

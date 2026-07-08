@@ -76,7 +76,7 @@ describe('errors at the cursor', () => {
       export const fraction = port(0)
       void fraction.set('hello')
     `
-    expect(errors).toHaveError(/not assignable to parameter of type 'number'/)
+    expect(errors).toHaveError(/not assignable to parameter of type 'number \| VaneVarReference'/)
     expect(errors).toHaveErrorCount(1)
     expectNoLeak(errors)
   })
@@ -86,7 +86,7 @@ describe('errors at the cursor', () => {
       export const width = port('4px')
       void width.set(8)
     `
-    expect(errors).toHaveError(/not assignable to parameter of type 'string'/)
+    expect(errors).toHaveError(/not assignable to parameter of type 'string \| VaneVarReference'/)
     expect(errors).toHaveErrorCount(1)
     expectNoLeak(errors)
   })

@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-08
 status: spec — contracts settled, implementation pending
 
 # vane-dux — spec: vue + nuxt
@@ -133,7 +133,7 @@ export default defineNuxtConfig({
 
 **Contract details.**
 
-- **HMR:** editing a `.style.ts` hot-swaps the emitted CSS without a full reload or component state loss (the substrate's vite pipeline provides this; the contract locks it — a regression here is a release blocker).
+- **HMR:** editing a `.style.ts` hot-swaps the emitted CSS without a full reload or component state loss. The mechanics live in the `/vite` plugin (landed with phase 4): stable virtual CSS ids swap the style tag in place, style modules self-accept, an edit to a bundled dependency (a token file) hot-updates every style module built on it, and only an export-shape change costs a full reload. This phase locks the contract end-to-end in the Nuxt demos — a regression here is a release blocker.
 - **SSR:** static styles ship as stylesheets; port values as inline style; no FOUC, no hydration style mismatch, no per-request collection.
 - **Scheme flash:** SSR of a user-forced scheme uses the documented cookie + `data-scheme` recipe shipped with the module ([dux-spec-tokens.md §3](./dux-spec-tokens.md#3-schemes)) — the standard dance no zero-runtime system escapes, shipped rather than left to users.
 

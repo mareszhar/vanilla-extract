@@ -2,18 +2,28 @@
  * The build plane: `*.style.ts` modules are evaluated at build time and leave
  * nothing behind — static CSS out, serialized exports in the bundle, zero
  * authoring code shipped ([dux-patterns.md §1], principle 6). Locked against
- * a real Vite build over the fixture app, plus the port label transform as a
+ * a real Vite build over the fixture app, a real dev server for the HMR
+ * contract (stable ids, in-place swaps), and the debug-name transform as a
  * unit.
  */
 
-import type { Rollup } from 'vite'
+import type { Rollup, ViteDevServer } from 'vite'
+import { Buffer } from 'node:buffer'
+import { cp, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { applyPortLabels, vaneDuxPlugin } from '@mszr/vane-dux/vite'
-import { build } from 'vite'
-import { describe, expect, it } from 'vitest'
+import { applyDebugNames, vaneDuxPlugin } from '@mszr/vane-dux/vite'
+import { build, createServer } from 'vite'
+import { afterEach, describe, expect, it } from 'vitest'
 
 function local(path: string) {
   return fileURLToPath(new URL(path, import.meta.url))
+}
+
+const aliases = {
+  '@mszr/vane-dux/runtime': local('./runtime.ts'),
+  '@mszr/vane-dux': local('./index.ts'),
 }
 
 describe('the vite build', () => {
@@ -23,12 +33,7 @@ describe('the vite build', () => {
       logLevel: 'silent',
       root: local('./test-support/vite-app'),
       plugins: [vaneDuxPlugin({ identifiers: 'debug' })],
-      resolve: {
-        alias: {
-          '@mszr/vane-dux/runtime': local('./runtime.ts'),
-          '@mszr/vane-dux': local('./index.ts'),
-        },
-      },
+      resolve: { alias: aliases },
       build: {
         write: false,
         minify: false,
@@ -48,24 +53,35 @@ describe('the vite build', () => {
     return { js: chunk?.type === 'chunk' ? chunk.code : '', css }
   }
 
-  it('emits static CSS: classes, port fallbacks, and labeled port names', async () => {
+  it('emits static CSS with declaration-name debug ids — no explicit id in the fixture', async () => {
     const { css } = await buildFixture()
 
     expect(css).toMatch(/\.track__[\w-]+ \{/)
     expect(css).toMatch(/\.fill__[\w-]+ \{/)
 
-    // The export name reached the emitted variable via the label transform,
-    // and the default rides the var() reference.
+    // The export name reached the emitted variable via the debug-name
+    // transform, and the default rides the var() reference.
     expect(css).toMatch(/inline-size: calc\(var\(--vane-fraction__[\w-]+, 0\) \* 100%\)/)
     expect(css).toMatch(/background: var\(--vane-tint__[\w-]+, var\(--vane-color-brand\)\)/)
   })
 
-  it('ships no authoring plane: exports are serialized, ports restored from meta', async () => {
+  it('emits recipe classes per arm, named for the recipe', async () => {
+    const { css } = await buildFixture()
+
+    expect(css).toMatch(/\.button__[\w-]+ \{/)
+    expect(css).toMatch(/\.button_intent_ghost__[\w-]+ \{/)
+    expect(css).toMatch(/\.button_pill__[\w-]+ \{/)
+
+    // The module-local published port got its declaration name too.
+    expect(css).toMatch(/padding-inline: var\(--vane-paddingX__[\w-]+, var\(--vane-space-sm\)\)/)
+  })
+
+  it('ships no authoring plane: exports are serialized, handles restored from tables', async () => {
     const { js } = await buildFixture()
 
-    // The classes arrive as strings, the ports as restorePort(meta) calls.
     expect(js).toMatch(/track__[\w-]+/)
     expect(js).toMatch(/--vane-fraction__[\w-]+/)
+    expect(js).toContain('restoreRecipe')
 
     // Nothing from the build plane survives into app code.
     expect(js).not.toContain('setFileScope')
@@ -73,48 +89,178 @@ describe('the vite build', () => {
     expect(js).not.toContain('createSystem')
     expect(js).not.toContain('@vanilla-extract')
   })
+
+  it('a restored recipe resolves at runtime: classes, defaults, published ports', async () => {
+    const { js } = await buildFixture()
+    const bundle = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`)
+
+    expect(bundle.ghostPill).toMatch(/^button__[\w-]+ button_intent_ghost__[\w-]+ button_pill__[\w-]+$/)
+    expect(bundle.button()).toMatch(/^button__[\w-]+ button_intent_brand__[\w-]+$/)
+    expect(bundle.button.variants).toEqual({ intent: ['brand', 'ghost'] })
+    expect(Object.keys(bundle.themedPadding)[0]).toMatch(/^--vane-paddingX__[\w-]+$/)
+  })
 })
 
-describe('applyPortLabels', () => {
+describe('hmr', () => {
+  let server: ViteDevServer | undefined
+
+  afterEach(async () => {
+    await server?.close()
+    server = undefined
+  })
+
+  async function serveFixtureCopy() {
+    // realpath: Vite resolves modules to real paths; macOS tmpdir is a symlink.
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-hmr-')))
+    await cp(local('./test-support/vite-app'), root, { recursive: true })
+    // The substrate walks up for a named package.json; the copy needs its own.
+    await writeFile(join(root, 'package.json'), '{ "name": "vane-hmr-fixture", "type": "module" }')
+
+    server = await createServer({
+      configFile: false,
+      logLevel: 'silent',
+      root,
+      plugins: [vaneDuxPlugin({ identifiers: 'debug' })],
+      resolve: { alias: aliases },
+      server: { middlewareMode: true, hmr: false, watch: null },
+      optimizeDeps: { noDiscovery: true },
+    })
+
+    return { root, server }
+  }
+
+  /** The changed file's HMR pass, deterministically: our hook + invalidation. */
+  async function hotUpdate(devServer: ViteDevServer, file: string) {
+    // The instance wired into the server holds the dependency index.
+    const wired = devServer.config.plugins.find(entry => entry.name === 'vane-dux-style-ts')!
+    const modules = [...devServer.moduleGraph.getModulesByFile(file) ?? []]
+    const handler = (typeof wired.handleHotUpdate === 'object'
+      ? wired.handleHotUpdate.handler
+      : wired.handleHotUpdate) as unknown as (ctx: object) => Promise<unknown> | unknown
+    const affected = await handler({
+      file,
+      server: devServer,
+      modules,
+      timestamp: Date.now(),
+      read: () => readFile(file, 'utf-8'),
+    })
+
+    for (const moduleNode of (affected as Iterable<never> | undefined) ?? modules)
+      devServer.moduleGraph.invalidateModule(moduleNode)
+
+    return affected as Array<{ file: string | null }> | undefined
+  }
+
+  it('a style edit serves fresh CSS under the same virtual id — swap in place, never stack', async () => {
+    const { root, server: devServer } = await serveFixtureCopy()
+    const styleUrl = '/progress.style.ts'
+    const virtualId = `${join(root, 'progress.style.ts')}.vane.css`
+
+    const first = await devServer.transformRequest(styleUrl)
+    // Vite serves the stable id root-relative — no content hash in the URL.
+    expect(first?.code).toContain('import "/progress.style.ts.vane.css"')
+    expect(first?.code).toContain('import.meta.hot.accept()')
+
+    expect((await devServer.transformRequest(virtualId))?.code).toContain('block-size: 100%')
+
+    const file = join(root, 'progress.style.ts')
+    await writeFile(file, (await readFile(file, 'utf-8')).replace('\'100%\'', '\'50%\''))
+    await hotUpdate(devServer, file)
+
+    const second = await devServer.transformRequest(styleUrl)
+    // The import is the same stable id — the client's style tag gets replaced.
+    expect(second?.code).toContain('import "/progress.style.ts.vane.css"')
+
+    const refreshed = await devServer.transformRequest(virtualId)
+    expect(refreshed?.code).toContain('block-size: 50%')
+    expect(refreshed?.code).not.toContain('block-size: 100%')
+  })
+
+  it('editing a bundled dependency hot-updates every style module built on it', async () => {
+    const { root, server: devServer } = await serveFixtureCopy()
+
+    await devServer.transformRequest('/progress.style.ts')
+    await devServer.transformRequest('/button.style.ts')
+
+    const systemFile = join(root, 'system.style.ts')
+    await writeFile(systemFile, (await readFile(systemFile, 'utf-8')).replace('#635bff', '#ff0000'))
+
+    const affected = await hotUpdate(devServer, systemFile)
+    const affectedFiles = (affected ?? []).map(moduleNode => moduleNode.file)
+
+    // Both dependents re-evaluate; their fresh CSS lands under the same ids.
+    expect(affectedFiles).toContain(join(root, 'progress.style.ts'))
+    expect(affectedFiles).toContain(join(root, 'button.style.ts'))
+
+    await devServer.transformRequest('/progress.style.ts')
+    const refreshed = await devServer.transformRequest(`${join(root, 'system.style.ts')}.vane.css`)
+    expect(refreshed?.code).toContain('#ff0000')
+  })
+})
+
+describe('applyDebugNames', () => {
   it('injects the export name into a bare port() call', () => {
-    expect(applyPortLabels('export const fraction = port(0)'))
+    expect(applyDebugNames('export const fraction = port(0)'))
       .toBe('export const fraction = port(0, { label: \'fraction\' })')
   })
 
   it('injects into the system-bound form', () => {
-    expect(applyPortLabels('export const gap = system.port(t.space.sm)'))
+    expect(applyDebugNames('export const gap = system.port(t.space.sm)'))
       .toBe('export const gap = system.port(t.space.sm, { label: \'gap\' })')
   })
 
+  it('labels module-local ports — the published-ports pattern', () => {
+    expect(applyDebugNames('const paddingX = port(t.space.md)'))
+      .toBe('const paddingX = port(t.space.md, { label: \'paddingX\' })')
+  })
+
   it('merges into existing options', () => {
-    expect(applyPortLabels('export const angle = port(0, { as: \'deg\' })'))
+    expect(applyDebugNames('export const angle = port(0, { as: \'deg\' })'))
       .toBe('export const angle = port(0, { label: \'angle\', as: \'deg\' })')
   })
 
   it('respects an explicit label', () => {
     const source = 'export const x = port(0, { label: \'custom\' })'
-    expect(applyPortLabels(source)).toBe(source)
+    expect(applyDebugNames(source)).toBe(source)
   })
 
-  it('handles nested parens and strings in the default', () => {
+  it('appends debug ids to css, recipe, anatomy, and keyframes calls', () => {
+    expect(applyDebugNames('export const card = css({ padding: 8 })'))
+      .toBe('export const card = css({ padding: 8 }, \'card\')')
+    expect(applyDebugNames('export const button = recipe({ base: {} })'))
+      .toBe('export const button = recipe({ base: {} }, \'button\')')
+    expect(applyDebugNames('const dialog = anatomy({ parts: [\'root\'] })'))
+      .toBe('const dialog = anatomy({ parts: [\'root\'] }, \'dialog\')')
+    expect(applyDebugNames('const fade = system.keyframes({ from: { opacity: 0 } })'))
+      .toBe('const fade = system.keyframes({ from: { opacity: 0 } }, \'fade\')')
+  })
+
+  it('respects an explicit debug id', () => {
+    const source = 'export const card = css({ padding: 8 }, \'Card\')'
+    expect(applyDebugNames(source)).toBe(source)
+  })
+
+  it('handles nested parens and strings in arguments', () => {
     // eslint-disable-next-line no-template-curly-in-string
     const template = 'export const w = port(`calc(${x} * (1 + 2))`)'
     // eslint-disable-next-line no-template-curly-in-string
     const labeled = 'export const w = port(`calc(${x} * (1 + 2))`, { label: \'w\' })'
 
-    expect(applyPortLabels(template)).toBe(labeled)
-    expect(applyPortLabels('export const s = port(\'a) b\')'))
+    expect(applyDebugNames(template)).toBe(labeled)
+    expect(applyDebugNames('export const s = port(\'a) b\')'))
       .toBe('export const s = port(\'a) b\', { label: \'s\' })')
+    expect(applyDebugNames('export const c = css({ content: \'","\' })'))
+      .toBe('export const c = css({ content: \'","\' }, \'c\')')
   })
 
-  it('labels several ports in one module', () => {
-    const source = 'export const a = port(0)\nexport const b = port(\'4px\')\n'
-    expect(applyPortLabels(source))
-      .toBe('export const a = port(0, { label: \'a\' })\nexport const b = port(\'4px\', { label: \'b\' })\n')
+  it('names several declarations in one module', () => {
+    const source = 'export const a = port(0)\nconst b = css({})\n'
+    expect(applyDebugNames(source))
+      .toBe('export const a = port(0, { label: \'a\' })\nconst b = css({}, \'b\')\n')
   })
 
-  it('leaves non-exported and unrelated calls alone', () => {
-    const source = 'const local = port(0)\nexport const style = css({})\n'
-    expect(applyPortLabels(source)).toBe(source)
+  it('leaves unrelated calls alone', () => {
+    const source = 'export const system = createSystem({ tokens: {} })\nconst n = Math.max(1, 2)\n'
+    expect(applyDebugNames(source)).toBe(source)
   })
 })

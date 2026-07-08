@@ -8,10 +8,10 @@ export const tint = port(t.color.brand)
 export const track = css({
   background: t.color.surface,
   blockSize: t.space.sm,
-}, 'track')
+})
 
 export const fill = css({
   inlineSize: `calc(${fraction} * 100%)`,
   background: tint,
   blockSize: '100%',
-}, 'fill')
+})

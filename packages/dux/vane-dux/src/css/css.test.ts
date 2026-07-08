@@ -4,7 +4,7 @@
  * ([dux-patterns.md §10]).
  */
 
-import { createSystem, legibleOn, oklch, VaneError, VaneNotImplementedError } from '@mszr/vane-dux'
+import { createSystem, legibleOn, oklch, VaneError } from '@mszr/vane-dux'
 import { definePrism, definePrismSystem, emit } from '@test'
 import { describe, expect, it } from 'vitest'
 
@@ -99,13 +99,6 @@ describe('createSystem', () => {
       'VANE_CSS_UNKNOWN_PROPERTY',
       /hover is neither a CSS property nor a condition of this system/,
     )
-  })
-
-  it('recipe and anatomy state their phase instead of failing silently', () => {
-    const { returned: system } = emit(() => definePrismSystem())
-
-    expect(() => system.recipe({})).toThrow(VaneNotImplementedError)
-    expect(() => system.anatomy({})).toThrow(VaneNotImplementedError)
   })
 
   it('an authoring call outside a style-module build names the missing plugin', () => {

@@ -57,12 +57,13 @@ export interface VanePortOptions {
 }
 
 /**
- * What `set()` accepts — color and token ports accept strings *and*
- * references, so a runtime caller can pass either a CSS literal or another
- * token. Number and string ports stay narrow: their own type only.
+ * What `set()` accepts — the port's own primitive kind, or any token/port
+ * reference ([dux-spec-ports.md §4]): a parent theming a child's port with a
+ * token is the flagship static-set form, whatever the port's kind. Color and
+ * token ports also take plain strings (a CSS literal is their currency).
  */
 export type VanePortSetValue<TValue extends VanePortInput>
-  = TValue extends VaneVarReference | VaneColor<any> ? string | VaneVarReference : TValue
+  = (TValue extends VaneVarReference | VaneColor<any> ? string : TValue) | VaneVarReference
 
 /**
  * What the handle stores as its default: references and color expressions
@@ -93,8 +94,12 @@ export interface VanePort<TValue extends VanePortInput = VanePortInput> {
   readonly var: `var(--${string}, ${string})`
   /** The declaration record — one object, shared with the serialized boundary crossing. */
   readonly meta: VanePortMeta
-  /** Set the port's value — returns a style-object fragment, never a rule. */
-  set: (value: VanePortSetValue<TValue>) => VanePortStyle
+  /**
+   * Set the port's value — returns a style-object fragment, never a rule.
+   * The union is spelled inline so a wrong value's error names it plainly
+   * (`string | VaneVarReference`), not through the alias.
+   */
+  set: (value: (TValue extends VaneVarReference | VaneColor<any> ? string : TValue) | VaneVarReference) => VanePortStyle
   /** Intent at the definition site — surfaced by the manifest and audits. */
   describe: (text: string) => VanePort<TValue>
   /** Name the replacement — flows into the manifest and audits. */

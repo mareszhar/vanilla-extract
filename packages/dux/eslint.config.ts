@@ -65,6 +65,7 @@ export default antfu(
       'vane-dux/src/system/**',
       'vane-dux/src/css/**',
       'vane-dux/src/ports/**',
+      'vane-dux/src/recipes/**',
       'vane-dux/src/internal/**',
     ],
     ignores: ['**/*.test.ts', '**/*.test-d.ts'],

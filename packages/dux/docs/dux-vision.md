@@ -1,4 +1,4 @@
-updated: 2026-07-06
+updated: 2026-07-08
 status: living hub — the philosophy, the architecture, and the index over every dux doc
 
 # vane-dux — vision
@@ -170,7 +170,7 @@ The work, one spec per domain. This is the status view; each domain's contracts 
 | **Tokens** | the token graph: derivations as functions, liveness compiled to live CSS, schemes via `light-dark()`, elevation, contrast as build diagnostics, `theme()`/`applyTheme` | [dux-spec-tokens.md](./dux-spec-tokens.md) | ☑ |
 | **CSS authoring** | `createSystem` → typed `css`, bare condition keys, both nesting directions, layers by default, parsed values, `css.raw`, `globalCss`, keyframes | [dux-spec-css.md](./dux-spec-css.md) | ☑ |
 | **Ports** | the typed runtime boundary: one primitive for reactive styles, parent→child theming, consumer theming, and dynamic utility values | [dux-spec-ports.md](./dux-spec-ports.md) | ☑ |
-| **Recipes** | variants that compress state: `recipe`, toggles, compound variants, and `anatomy` for multi-part components (parts, not "slots") | [dux-spec-recipes.md](./dux-spec-recipes.md) | ☐ |
+| **Recipes** | variants that compress state: `recipe`, toggles, compound variants, and `anatomy` for multi-part components (parts, not "slots") | [dux-spec-recipes.md](./dux-spec-recipes.md) | ☑ |
 | **Vue + Nuxt** | `usePorts`, the Nuxt module, SSR/HMR polish, the SFC-feature mapping made typed | [dux-spec-vue.md](./dux-spec-vue.md) | ☐ |
 | **Preset** | the hospitable start: default tokens/conditions, `atoms`, a11y and motion helpers, layout patterns — all deletable | [dux-spec-preset.md](./dux-spec-preset.md) | ☐ |
 | **Introspection** | the system explains itself: debug names, the manifest, audits, agent context | [dux-spec-introspection.md](./dux-spec-introspection.md) | ☐ |
@@ -237,7 +237,7 @@ Sequenced so each phase is independently useful and nothing depends on a surface
 | 1. Tokens | the graph, liveness, schemes, elevation, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☑ |
 | 2. Authoring core | `createSystem` (inline tokens, default layers, base conditions), `css`, conditions, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ☑ |
 | 3. Ports | `port`, setters, `/runtime` | [ports](./dux-spec-ports.md) | ☑ |
-| 4. Recipes | `recipe`, toggles, compound variants, published ports, `anatomy` | [recipes](./dux-spec-recipes.md) | ☐ |
+| 4. Recipes | `recipe`, toggles, compound variants, published ports, `anatomy` | [recipes](./dux-spec-recipes.md) | ☑ |
 | 5. Preset foundations | `presetTokens`, `presetConditions` — the quickstart becomes real | [preset](./dux-spec-preset.md) | ☐ |
 | 6. Vue + Nuxt | `usePorts`, `useAnatomy`, the Nuxt module, SSR/HMR polish, `demo-minimal` + the Prism demo app | [vue](./dux-spec-vue.md) | ☐ |
 | 7. Preset conveniences | `atoms`, a11y/motion helpers, patterns | [preset](./dux-spec-preset.md) | ☐ |

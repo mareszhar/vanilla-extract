@@ -20,6 +20,11 @@ export type VaneDiagnosticCode
     | 'VANE_CSS_UNKNOWN_CONDITION'
     | 'VANE_CSS_UNKNOWN_PROPERTY'
     | 'VANE_PORT_INVALID_DEFAULT'
+    | 'VANE_RECIPE_INVALID_KEY'
+    | 'VANE_RECIPE_UNKNOWN_VARIANT'
+    | 'VANE_RECIPE_UNKNOWN_VALUE'
+    | 'VANE_ANATOMY_UNKNOWN_PART'
+    | 'VANE_ANATOMY_INVALID_CONDITION'
     | 'VANE_VITE_PLUGIN_MISSING'
 
 export interface VaneDiagnostic {
@@ -61,13 +66,6 @@ export class VaneError extends Error {
     this.name = 'VaneError'
     this.diagnostics = all
     this.code = all[0].code
-  }
-}
-
-export class VaneNotImplementedError extends Error {
-  constructor(surface: string, phase: string) {
-    super(`${surface} is specified but not implemented yet; see ${phase} in docs/dux-vision.md.`)
-    this.name = 'VaneNotImplementedError'
   }
 }
 

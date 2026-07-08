@@ -28,6 +28,18 @@ export function serializeStyleValue(value: unknown, path: string, ctx: VaneValue
   if (isPort(value) || isHandle(value))
     return value.var
 
+  // The lane redirect ([dux-patterns.md §10]): a callable in a value position
+  // is a Stitches-style dynamic value — runtime data, which never crosses here.
+  if (typeof value === 'function') {
+    throw new VaneError({
+      code: 'VANE_CSS_INVALID_VALUE',
+      message: `${path} is a function, which is runtime data — styles are decided at build time`,
+      path,
+      file: ctx.file,
+      fix: 'use a variant for finite choices, or a port for live values',
+    })
+  }
+
   if (value instanceof ColorValue) {
     if (containsContrast(value.expr))
       throw new VaneError(contrastDiagnostic(path, ctx))

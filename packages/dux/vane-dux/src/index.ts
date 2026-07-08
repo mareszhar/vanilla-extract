@@ -1,5 +1,5 @@
 // Exports are ordered by source module. Each group below is one domain:
-// css types → diagnostics → ports → system → tokens.
+// css types → diagnostics → ports → recipes → system → tokens.
 
 // ─── CSS authoring: the style-rule types (phase 2) ───────────────────────────
 
@@ -28,7 +28,7 @@ export type {
 
 // ─── Diagnostics: the error contract every domain shares ─────────────────────
 
-export { didYouMean, VaneError, VaneNotImplementedError } from './diagnostics'
+export { didYouMean, VaneError } from './diagnostics'
 export type { VaneDiagnostic, VaneDiagnosticCode } from './diagnostics'
 
 // ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
@@ -47,6 +47,25 @@ export type {
   VanePortWiden,
 } from './ports/types'
 
+// ─── Recipes: variants, toggles, anatomy, published ports (phase 4) ──────────
+
+export type {
+  VaneAnatomy,
+  VaneAnatomyArms,
+  VaneAnatomyCompoundEntry,
+  VaneAnatomyFactory,
+  VaneAnatomyOptions,
+  VaneAnatomyRule,
+  VaneCompoundEntry,
+  VaneProps,
+  VaneRecipe,
+  VaneRecipeArm,
+  VaneRecipeFactory,
+  VaneRecipeOptions,
+  VaneRecipeProps,
+  VaneRecipeSelection,
+} from './recipes/types'
+
 // ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
 
 export { aria, container, data, media, schemeIs, supports } from './system/conditions'
@@ -54,8 +73,6 @@ export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneCondit
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'
 export type {
   VaneDefaultLayers,
-  VaneProps,
-  VaneRecipeFunction,
   VaneSystem,
   VaneSystemConditionName,
   VaneSystemOptions,

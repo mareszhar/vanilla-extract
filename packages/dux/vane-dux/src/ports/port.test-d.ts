@@ -62,20 +62,22 @@ describe('port type inference', () => {
 })
 
 describe('set() typing', () => {
-  it('a number port accepts a number', () => {
-    const { port } = system()
+  it('a number port accepts a number or a reference', () => {
+    const { port, t } = system()
     const fraction = port(0)
 
-    expectTypeOf(fraction.set).parameter(0).toEqualTypeOf<number>()
+    expectTypeOf(fraction.set).parameter(0).toEqualTypeOf<number | VaneVarReference>()
     fraction.set(0.62)
+    fraction.set(t.space.sm)
   })
 
-  it('a string port accepts a string', () => {
-    const { port } = system()
+  it('a string port accepts a string or a reference', () => {
+    const { port, t } = system()
     const width = port('4px')
 
-    expectTypeOf(width.set).parameter(0).toEqualTypeOf<string>()
+    expectTypeOf(width.set).parameter(0).toEqualTypeOf<string | VaneVarReference>()
     width.set('8px')
+    width.set(t.space.md)
   })
 
   it('a color port accepts a string or a token reference', () => {

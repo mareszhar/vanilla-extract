@@ -28,6 +28,21 @@ export function emitStyle(compiled: VaneCompiled, debugId?: string): string {
   return className
 }
 
+/**
+ * Attach every unit — the base included — to an already-created class.
+ * Anatomy parts are created before their rules compile (cross-part references
+ * need every part's class name first), so their rules land here.
+ */
+export function emitOnto(className: string, compiled: VaneCompiled): void {
+  for (const unit of compiled.units) {
+    const selector = unit.arm.selector === undefined
+      ? className
+      : unit.arm.selector.replaceAll('&', className)
+
+    globalStyle(selector, inLayer(compiled.layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
+  }
+}
+
 export function emitGlobal(selector: string, compiled: VaneCompiled): void {
   for (const unit of compiled.units) {
     const resolved = unit.arm.selector === undefined

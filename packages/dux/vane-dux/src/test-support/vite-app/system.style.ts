@@ -2,7 +2,7 @@
 
 import { createSystem } from '@mszr/vane-dux'
 
-export const { css, port, t } = createSystem({
+export const { css, port, recipe, t } = createSystem({
   tokens: {
     color: { brand: '#635bff', surface: '#f4f4f6' },
     space: { sm: '8px' },

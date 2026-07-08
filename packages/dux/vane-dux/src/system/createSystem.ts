@@ -9,15 +9,18 @@
 
 import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
+import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
 import type { VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
 import { bindCss } from '../css/css'
 import { bindGlobalCss } from '../css/global'
 import { bindFontFace, bindKeyframes } from '../css/keyframes'
-import { VaneError, VaneNotImplementedError } from '../diagnostics'
+import { VaneError } from '../diagnostics'
 import { requireStyleModule } from '../internal/styleModule'
 import { createPort } from '../ports/port'
+import { bindAnatomy } from '../recipes/anatomy'
+import { bindRecipe } from '../recipes/recipe'
 import { defineTokens, graphOf } from '../tokens/graph'
 import { theme as standaloneTheme } from '../tokens/theme'
 import { baseConditions, normalizeConditions } from './conditions'
@@ -64,11 +67,6 @@ export type VaneSystemTokens<T extends object, P extends string> = T extends Van
 export type VaneSystemConditionName<C, B extends boolean>
   = (keyof C & string) | (B extends false ? never : VaneBaseConditionName)
 
-// ─── The pending surfaces (phase 4) ──────────────────────────────────────────
-
-export type VaneRecipeFunction<TProps extends object = Record<string, never>> = (props?: TProps) => string
-export type VaneProps<TRecipe> = TRecipe extends VaneRecipeFunction<infer TProps> ? TProps : never
-
 // ─── The system ──────────────────────────────────────────────────────────────
 
 export interface VaneSystem<T, C extends string, L extends string> {
@@ -80,8 +78,10 @@ export interface VaneSystem<T, C extends string, L extends string> {
   readonly globalCss: VaneGlobalCssFunction<C, L>
   /** The bound form of `theme(t, overrides)` — the graph argument dropped. */
   readonly theme: (overrides: VaneThemeOverrides<T>, debugId?: string) => string
-  readonly recipe: <TProps extends object = Record<string, never>>(config: unknown) => VaneRecipeFunction<TProps>
-  readonly anatomy: (config: unknown) => unknown
+  /** Variants compress state: props in, classes out ([dux-spec-recipes.md §1]). */
+  readonly recipe: VaneRecipeFactory<C, L>
+  /** The recipe pattern applied to parts ([dux-spec-recipes.md §3]). */
+  readonly anatomy: VaneAnatomyFactory<C, L>
   /** The typed runtime boundary: declare a port with a default, typed by it. */
   readonly port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) => VanePort<VanePortWiden<TValue>>
 }
@@ -142,12 +142,8 @@ export function createSystem<
     fontFace: bindFontFace(),
     globalCss: bindGlobalCss(system) as Bound['globalCss'],
     theme: (overrides, debugId) => standaloneTheme(tokens, overrides, debugId),
-    recipe: () => {
-      throw new VaneNotImplementedError('recipe', 'phase 4')
-    },
-    anatomy: () => {
-      throw new VaneNotImplementedError('anatomy', 'phase 4')
-    },
+    recipe: bindRecipe(system) as Bound['recipe'],
+    anatomy: bindAnatomy(system) as Bound['anatomy'],
     port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
       createPort(defaultValue, options, { prefix, elevation: graph.resolverConfig }) as unknown as VanePort<VanePortWiden<TValue>>,
   }

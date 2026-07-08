@@ -10,7 +10,7 @@ import type { VaneDiagnostic } from '../diagnostics'
 import type { VaneConditionArm } from '../system/conditions'
 import type { VaneValueContext } from './values'
 import { didYouMean, VaneError } from '../diagnostics'
-import { checkDeclaration, checkQuery, checkSelector, isCssProperty } from '../internal/cssParser'
+import { checkDeclaration, checkPropertyName, checkQuery, checkSelector, isCssProperty } from '../internal/cssParser'
 import { kebab } from '../tokens/names'
 import { serializeStyleValue } from './values'
 
@@ -18,7 +18,20 @@ export interface VaneRuleContext extends VaneValueContext {
   conditions: Map<string, readonly VaneConditionArm[]>
   layers: readonly string[]
   defaultLayer: string
+  /** Seeds diagnostic paths — recipe arms report as `variants.intent.brand.…`. */
+  rootPath?: readonly string[]
+  /**
+   * Resolves keys the host surface scopes beyond the system's conditions —
+   * anatomy's `'root:open'`. Returns arms to nest under, a diagnostic for a
+   * malformed scoped key, or `undefined` to fall through to ordinary
+   * classification.
+   */
+  scopedConditions?: (key: string) => VaneScopedConditionResult | undefined
 }
+
+export type VaneScopedConditionResult
+  = | { arms: readonly VaneConditionArm[] }
+    | { diagnostic: Omit<VaneDiagnostic, 'file'> }
 
 export interface VaneArm {
   media?: string
@@ -63,21 +76,15 @@ class RuleWalker {
     const declared = (rule as { layer?: unknown }).layer
 
     if (typeof declared === 'string') {
-      if (this.ctx.layers.includes(declared)) {
+      const diagnostic = checkLayer(declared, this.ctx.layers)
+
+      if (diagnostic === undefined)
         layer = declared
-      }
-      else {
-        const suggestion = didYouMean(declared, this.ctx.layers)
-        this.report({
-          code: 'VANE_SYSTEM_UNKNOWN_LAYER',
-          message: `'${declared}' is not a layer of this system${suggestion ? ` — did you mean '${suggestion}'?` : ''}`,
-          path: 'layer',
-          fix: `use one of: ${this.ctx.layers.join(', ')} — or declare it in createSystem({ layers })`,
-        })
-      }
+      else
+        this.report(diagnostic)
     }
 
-    this.walk(rule, {}, [], true)
+    this.walk(rule, {}, [...this.ctx.rootPath ?? []], true)
     return layer
   }
 
@@ -102,6 +109,16 @@ class RuleWalker {
 
       if (condition !== undefined) {
         this.nest(key, value, condition, arm, path)
+        continue
+      }
+
+      const scoped = this.ctx.scopedConditions?.(key)
+
+      if (scoped !== undefined) {
+        if ('diagnostic' in scoped)
+          this.report(scoped.diagnostic)
+        else
+          this.nest(key, value, scoped.arms, arm, path)
         continue
       }
 
@@ -291,10 +308,12 @@ class RuleWalker {
       const cssProperty = kebab(property)
 
       for (const entry of Array.isArray(serialized) ? serialized : [serialized]) {
-        if (typeof entry !== 'string')
-          continue
-
-        const issue = checkDeclaration(cssProperty, entry)
+        // Numbers take the substrate's unit rule downstream, so only their
+        // property's existence is checkable here — but it is checked: an
+        // unknown property never rides a numeric value out silently.
+        const issue = typeof entry === 'string'
+          ? checkDeclaration(cssProperty, entry)
+          : checkPropertyName(cssProperty)
 
         if (issue?.kind === 'unknown-property') {
           this.report({
@@ -330,7 +349,7 @@ class RuleWalker {
   }
 
   private unit(arm: VaneArm): VaneUnit {
-    const key = JSON.stringify([arm.media, arm.supports, arm.container, arm.selector, arm.startingStyle])
+    const key = armKey(arm)
     const existing = this.units.get(key)
 
     if (existing)
@@ -371,6 +390,26 @@ class RuleWalker {
 }
 
 // ─── Arm algebra ─────────────────────────────────────────────────────────────
+
+/** The identity of an arm — units merge on it, recipes compare on it. */
+export function armKey(arm: VaneArm): string {
+  return JSON.stringify([arm.media, arm.supports, arm.container, arm.selector, arm.startingStyle])
+}
+
+/** Validate a declared layer name against the system's order; `undefined` means valid. */
+export function checkLayer(declared: string, layers: readonly string[]): Omit<VaneDiagnostic, 'file'> | undefined {
+  if (layers.includes(declared))
+    return undefined
+
+  const suggestion = didYouMean(declared, layers)
+
+  return {
+    code: 'VANE_SYSTEM_UNKNOWN_LAYER',
+    message: `'${declared}' is not a layer of this system${suggestion ? ` — did you mean '${suggestion}'?` : ''}`,
+    path: 'layer',
+    fix: `use one of: ${layers.join(', ')} — or declare it in createSystem({ layers })`,
+  }
+}
 
 function joinQueries(outer: string | undefined, inner: string | undefined): string | undefined {
   if (outer === undefined || inner === undefined)
