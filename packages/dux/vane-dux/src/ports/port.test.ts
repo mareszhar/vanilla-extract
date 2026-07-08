@@ -4,10 +4,10 @@
  * of [dux-spec-ports.md], asserted directly.
  */
 
-import { createSystem, ports } from '@mszr/vane-dux'
+import { createSystem, oklch, ports, VaneError } from '@mszr/vane-dux'
 import { restorePort } from '@mszr/vane-dux/runtime'
 import { definePrismSystem, emit } from '@test'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 describe('port() declaration', () => {
   it('creates a handle with a hashed name under the system prefix', () => {
@@ -74,14 +74,74 @@ describe('port() declaration', () => {
     expect(angle.set(45)).toEqual({ [angle.name]: '45deg' })
   })
 
-  it('metadata rides the handle — describe and deprecated chain', () => {
+  it('a value-token default is a string port — the kind never claims color', () => {
+    const { returned: gap } = emit(() => {
+      const { port, t } = definePrismSystem()
+      return port(t.space.sm)
+    })
+
+    expect(gap.kind).toBe('string')
+    expect(`${gap}`).toBe(`var(${gap.name}, var(--vane-space-sm))`)
+  })
+
+  it('a color expression default folds to its CSS form', () => {
+    const { returned: tint } = emit(() => {
+      const { port } = definePrismSystem()
+      return port(oklch(0.58, 0.2, 285))
+    })
+
+    expect(tint.kind).toBe('color')
+    expect(`${tint}`).toBe(`var(${tint.name}, oklch(0.58 0.2 285))`)
+  })
+
+  it('a port default inherits the parent port — nested var(), same kind', () => {
+    const { returned } = emit(() => {
+      const { port, t } = definePrismSystem()
+      const parent = port(t.color.brand)
+      return { parent, child: port(parent) }
+    })
+
+    expect(returned.child.kind).toBe('color')
+    expect(`${returned.child}`).toBe(`var(${returned.child.name}, ${returned.parent.var})`)
+  })
+
+  it('an invalid default is a diagnostic, not a silent String()', () => {
+    const fail = (value: unknown) => {
+      try {
+        emit(() => {
+          const system = definePrismSystem()
+          // A JS caller can pass anything; the factory answers with a diagnostic.
+          return (system.port as unknown as (v: unknown) => unknown)(value)
+        })
+        return undefined
+      }
+      catch (error) {
+        return error
+      }
+    }
+
+    const objectFailure = fail({ not: 'css' })
+    expect(objectFailure).toBeInstanceOf(VaneError)
+    expect((objectFailure as VaneError).code).toBe('VANE_PORT_INVALID_DEFAULT')
+  })
+
+  it('metadata rides the handle and its meta — describe and deprecated chain', () => {
     const { returned: gap } = emit(() => {
       const { port } = definePrismSystem()
       return port('8px').describe('The gap between buttons.').deprecated('use gap.sm')
     })
 
-    expect(gap).toBe(gap.describe('The gap between buttons.'))
-    expect(`${gap}`).toContain('var(')
+    expect(gap.meta.description).toBe('The gap between buttons.')
+    expect(gap.meta.deprecated).toBe('use gap.sm')
+
+    // The methods survive chaining — `.deprecated()` never clobbers itself.
+    expect(typeof gap.describe).toBe('function')
+    expect(typeof gap.deprecated).toBe('function')
+
+    // The same meta restores the port on the far side of the boundary.
+    const restored = restorePort({ ...gap.meta })
+    expect(restored.meta.description).toBe('The gap between buttons.')
+    expect(`${restored}`).toBe(`${gap}`)
   })
 })
 
@@ -134,6 +194,27 @@ describe('set()', () => {
     expect(Object.keys(fragment)).toHaveLength(1)
     expect(Object.keys(fragment)[0]).toMatch(/^--vane-/)
   })
+
+  it('dev builds warn once, with the port\'s name, on a kind mismatch', () => {
+    const { returned: fraction } = emit(() => {
+      const { port } = definePrismSystem()
+      return port(0)
+    })
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      fraction.set('nope' as never)
+      fraction.set('nope' as never)
+
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls[0][0]).toContain(fraction.name)
+      expect(warn.mock.calls[0][0]).toContain('number port')
+    }
+    finally {
+      warn.mockRestore()
+    }
+  })
 })
 
 describe('ports() merge', () => {
@@ -161,7 +242,7 @@ describe('restorePort', () => {
   it('rebuilds a port handle from serialized meta', () => {
     const handle = restorePort({
       name: '--vane-fraction__h4x',
-      defaultValue: '0',
+      defaultValue: 0,
       kind: 'number',
     })
 
@@ -169,6 +250,20 @@ describe('restorePort', () => {
     expect(handle.name).toBe('--vane-fraction__h4x')
     expect(handle.kind).toBe('number')
     expect(handle.set(0.62)).toEqual({ '--vane-fraction__h4x': 0.62 })
+  })
+
+  it('a restored port equals its build-time original — defaultValue included', () => {
+    const { returned: angle } = emit(() => {
+      const { port } = definePrismSystem()
+      return port(0, { as: 'deg' })
+    })
+
+    const restored = restorePort({ ...angle.meta })
+
+    expect(restored.defaultValue).toBe(angle.defaultValue)
+    expect(restored.defaultValue).toBe(0)
+    expect(`${restored}`).toBe(`${angle}`)
+    expect(restored.set(45)).toEqual(angle.set(45))
   })
 
   it('a restored port with `as` serializes the unit in set()', () => {

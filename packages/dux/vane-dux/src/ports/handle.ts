@@ -16,9 +16,10 @@ export function isPort(value: unknown): value is VanePort {
 }
 
 /**
- * Rebuild a port handle from serialized meta — the runtime half of the
- * build/app boundary. The handle carries the same `name`, `var`, and `set()`
- * as the build-time original, so `port.set(v)` works identically at runtime.
+ * Build a port handle around its meta — the one declaration record. The
+ * build-time factory shares the same object with the function serializer, so
+ * `.describe()`/`.deprecated()` calls after declaration still cross the
+ * boundary; `/runtime`'s `restorePort` passes the deserialized copy.
  */
 export function createPortHandle(meta: VanePortMeta): VanePort {
   const serializedDefault = serializeDefault(meta.defaultValue, meta.unit)
@@ -30,22 +31,31 @@ export function createPortHandle(meta: VanePortMeta): VanePort {
   Object.defineProperty(handle, 'name', { value: meta.name, configurable: true })
   Object.defineProperty(handle, PORT, { value: true, configurable: true })
 
+  const checked = new Set<string>()
+
   const set = (value: VanePortSetValue<VanePortInput>): VanePortStyle => {
-    const serialized = serializeSetValue(value, meta.unit)
-    return { [meta.name]: serialized }
+    // The literal `process.env.NODE_ENV` is what bundlers statically replace,
+    // so production builds drop the validation entirely; the `typeof` guard
+    // keeps a define-less browser from throwing.
+    // eslint-disable-next-line node/prefer-global/process
+    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production')
+      validateSetValue(value, meta, checked)
+
+    return { [meta.name]: serializeSetValue(value, meta.unit) }
   }
 
   return Object.assign(handle, {
+    meta,
     defaultValue: meta.defaultValue as VanePort['defaultValue'],
     kind: meta.kind,
     var: reference,
     set,
     describe: (text: string): VanePort => {
-      Object.defineProperty(handle, 'description', { value: text, configurable: true, enumerable: true })
+      meta.description = text
       return handle
     },
     deprecated: (reason: string): VanePort => {
-      Object.defineProperty(handle, 'deprecated', { value: reason, configurable: true, enumerable: true })
+      meta.deprecated = reason
       return handle
     },
     toString: () => reference,
@@ -62,14 +72,48 @@ export function serializeDefault(value: VanePortValue, unit: string | undefined)
 }
 
 /**
- * Serialize a `set()` value — handles become their `var()` reference, numbers
- * take the declared unit, strings pass through. The result is a style-object
- * fragment value any framework can bind.
+ * Serialize a `set()` value — handles and ports become their `var()`
+ * reference, numbers take the declared unit, strings pass through. The result
+ * is a style-object fragment value any framework can bind.
  */
 function serializeSetValue(value: VanePortSetValue<VanePortInput>, unit: string | undefined): VanePortValue {
-  if (isHandle(value))
+  if (isPort(value) || isHandle(value))
     return value.var
   if (typeof value === 'number')
     return unit ? `${value}${unit}` : value
   return value as VanePortValue
+}
+
+/**
+ * Dev builds validate each `set()` value once and warn with the port's name on
+ * mismatch ([dux-spec-ports.md §3]) — the cursor lie ban extends to runtime
+ * writes. Compiled away in production bundles.
+ */
+function validateSetValue(value: unknown, meta: VanePortMeta, checked: Set<string>): void {
+  if (isPort(value) || isHandle(value))
+    return
+
+  const key = String(value)
+
+  if (checked.has(key))
+    return
+
+  checked.add(key)
+
+  if (meta.kind === 'number' && typeof value !== 'number') {
+    warn(`${meta.name} is a number port — set() got ${JSON.stringify(value)}`)
+  }
+  else if (meta.kind === 'string' && typeof value !== 'string') {
+    warn(`${meta.name} is a string port — set() got ${JSON.stringify(value)}`)
+  }
+  else if (meta.kind === 'color') {
+    if (typeof value !== 'string')
+      warn(`${meta.name} is a color port — set() got ${JSON.stringify(value)}`)
+    else if (typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && !CSS.supports('color', value))
+      warn(`${meta.name} is a color port — '${value}' does not parse as a color`)
+  }
+}
+
+function warn(message: string): void {
+  console.warn(`[vane] ${message}`)
 }

@@ -47,6 +47,9 @@ importers:
       culori:
         specifier: ^4.0.2
         version: 4.0.2
+      esbuild:
+        specifier: '>=0.17.6 <0.29.0'
+        version: 0.28.1
       known-css-properties:
         specifier: ^0.37.0
         version: 0.37.0

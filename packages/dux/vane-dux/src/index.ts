@@ -1,4 +1,7 @@
-// ─── Diagnostics: the error contract every domain shares ─────────────────────
+// Exports are ordered by source module. Each group below is one domain:
+// css types → diagnostics → ports → system → tokens.
+
+// ─── CSS authoring: the style-rule types (phase 2) ───────────────────────────
 
 export type {
   VaneAtRules,
@@ -22,22 +25,30 @@ export type {
   VaneStyleValue,
   VaneVarReference,
 } from './css/types'
+
+// ─── Diagnostics: the error contract every domain shares ─────────────────────
+
 export { didYouMean, VaneError, VaneNotImplementedError } from './diagnostics'
-
-// ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
-
 export type { VaneDiagnostic, VaneDiagnosticCode } from './diagnostics'
+
+// ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
+
 export { ports } from './ports/ports'
 export type {
   VanePort,
+  VanePortDefault,
   VanePortInput,
   VanePortKind,
+  VanePortMeta,
   VanePortOptions,
   VanePortSetValue,
   VanePortStyle,
   VanePortValue,
   VanePortWiden,
 } from './ports/types'
+
+// ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
+
 export { aria, container, data, media, schemeIs, supports } from './system/conditions'
 export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneConditionInput } from './system/conditions'
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'
@@ -50,10 +61,10 @@ export type {
   VaneSystemOptions,
   VaneSystemTokens,
 } from './system/createSystem'
+
+// ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
+
 export { check } from './tokens/checks'
-
-// ─── The authoring core: the system and its bound functions (phase 2) ────────
-
 export {
   alpha,
   color,
@@ -71,12 +82,8 @@ export {
 export type { VaneLegibleOptions } from './tokens/color'
 export { defineTokens } from './tokens/graph'
 export { scale } from './tokens/scale'
-
-// ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
-
 export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
 export { theme } from './tokens/theme'
-
 export type {
   VaneCheck,
   VaneColor,

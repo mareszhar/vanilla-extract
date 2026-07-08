@@ -12,15 +12,17 @@
  * build/app boundary so `restorePort` rebuilds it at runtime.
  */
 
-import type { VaneExprTraits, VaneResolver } from '../tokens/resolve'
-import type { VanePort, VanePortInput, VanePortKind, VanePortOptions, VanePortValue } from './types'
+import type { VaneResolver } from '../tokens/resolve'
+import type { VanePort, VanePortInput, VanePortKind, VanePortMeta, VanePortOptions, VanePortValue } from './types'
 import { createVar } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
+import { VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
 import { requireStyleModule } from '../internal/styleModule'
-import { ColorValue } from '../tokens/color'
-import { serializeExpr } from '../tokens/resolve'
-import { createPortHandle, serializeDefault } from './handle'
+import { ColorValue, ContrastValue } from '../tokens/color'
+import { tokenKindOf } from '../tokens/graph'
+import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
+import { createPortHandle, isPort } from './handle'
 
 /** Re-exported so `css/values.ts` can detect ports without a second import. */
 export { isPort } from './handle'
@@ -42,36 +44,32 @@ export function createPort<TValue extends VanePortInput>(
   options: VanePortOptions | undefined,
   ctx: VanePortContext,
 ): VanePort<TValue> {
-  requireStyleModule('port')
-  const kind = inferKind(defaultValue)
+  const file = requireStyleModule('port')
   const unit = options?.as
-  const label = options?.label
 
   // `createVar` generates a scoped, hashed identifier from the file scope.
   // We extract the bare name and prepend the system prefix.
-  const rawRef = createVar(label)
+  const rawRef = createVar(options?.label)
   const bareIdent = rawRef.slice(4, -1).replace(/^--/, '')
-  const name = `--${ctx.prefix}-${bareIdent}` as `--${string}`
+  const name = `--${ctx.prefix}-${bareIdent}`
 
-  const metaDefault = toMetaDefault(defaultValue, kind, ctx)
-
-  const handle = createPortHandle({
+  // One declaration record: the handle mutates it (`.describe()`), the
+  // serializer reads it when exports cross the boundary — late metadata still
+  // arrives because serialization happens after the module body runs.
+  const meta: VanePortMeta = {
     name,
-    defaultValue: metaDefault,
-    kind,
-    ...(unit !== undefined ? { unit } : {}),
-  }) as unknown as VanePort<TValue>
+    defaultValue: toMetaDefault(defaultValue, ctx, file),
+    kind: inferKind(defaultValue),
+    ...(unit === undefined ? {} : { unit }),
+  }
+
+  const handle = createPortHandle(meta) as unknown as VanePort<TValue>
 
   // Carry the handle across the build/app boundary so `restorePort` rebuilds it.
   addFunctionSerializer(handle as unknown as (...args: unknown[]) => unknown, {
     importPath: '@mszr/vane-dux/runtime',
     importName: 'restorePort',
-    args: [{
-      name,
-      defaultValue: serializeDefault(metaDefault, unit),
-      kind,
-      ...(unit !== undefined ? { unit } : {}),
-    }],
+    args: [meta as unknown as Record<string, string>],
   })
 
   return handle
@@ -80,38 +78,75 @@ export function createPort<TValue extends VanePortInput>(
 // ─── Kind inference and default serialization ────────────────────────────────
 
 function inferKind(defaultValue: VanePortInput): VanePortKind {
+  if (isPort(defaultValue))
+    return defaultValue.kind
+
   if (isHandle(defaultValue))
-    return 'color'
+    return tokenKindOf(defaultValue) === 'value' ? 'string' : 'color'
+
   if (defaultValue instanceof ColorValue)
     return 'color'
-  if (typeof defaultValue === 'number')
-    return 'number'
-  return 'string'
+
+  return typeof defaultValue === 'number' ? 'number' : 'string'
 }
 
 /**
  * The default for the meta — the serialized form that survives the
- * build/runtime boundary. Handles become their `var()` reference; color
- * expressions fold through the system's resolver; primitives pass through.
+ * build/runtime boundary. Handles and ports become their `var()` reference;
+ * color expressions fold through the system's resolver; primitives pass
+ * through. Anything else is a diagnostic, not a silent `String()`.
  */
-function toMetaDefault(value: VanePortInput, _kind: VanePortKind, ctx: VanePortContext): VanePortValue {
-  if (isHandle(value))
+function toMetaDefault(value: VanePortInput, ctx: VanePortContext, file: string): VanePortValue {
+  if (isPort(value) || isHandle(value))
     return value.var
-  if (value instanceof ColorValue)
-    return serializeColorDefault(value, ctx)
-  return value as VanePortValue
-}
 
-/** Fold a color expression to its CSS string form using the system resolver. */
-function serializeColorDefault(value: ColorValue, ctx: VanePortContext): string {
-  const resolver: VaneResolver = {
-    elevation: ctx.elevation,
-    refTraits: () => ({ cssLive: false, volatile: false } as VaneExprTraits),
-    foldRef: () => ({ l: 0, c: 0, h: 0 }),
-    invalidColor: (detail) => {
-      throw new Error(`a port's color default cannot resolve: ${detail}`)
-    },
+  if (value instanceof ContrastValue || (value instanceof ColorValue && containsContrast(value.expr))) {
+    throw new VaneError({
+      code: 'VANE_PORT_INVALID_DEFAULT',
+      message: 'a port default uses legibleOn, which is graph knowledge — the check needs both endpoints at build time',
+      file,
+      fix: 'define it as a token — onX: ({ color }) => legibleOn(color.x) — and default the port to that token',
+    })
   }
 
-  return serializeExpr(value.expr, resolver)
+  if (value instanceof ColorValue)
+    return serializeExpr(value.expr, portResolver(ctx, file))
+
+  if (typeof value === 'string' || typeof value === 'number')
+    return value
+
+  throw new VaneError({
+    code: 'VANE_PORT_INVALID_DEFAULT',
+    message: 'a port default is not a CSS value',
+    file,
+    fix: 'give it a string, number, token, port, or color expression',
+  })
+}
+
+/**
+ * The port-default resolver: graph edges stay `var()` references with their
+ * real traits; `serializeExpr` folds only ref-free subtrees and contrast is
+ * rejected above, so `foldRef` is unreachable — kept as a diagnostic, not a
+ * silent zero.
+ */
+function portResolver(ctx: VanePortContext, file: string): VaneResolver {
+  return {
+    elevation: ctx.elevation,
+    refTraits: handle => modeTraits(handle.mode),
+    foldRef: (handle) => {
+      throw new VaneError({
+        code: 'VANE_PORT_INVALID_DEFAULT',
+        message: `a port default cannot fold ${handle.path} at build time`,
+        file,
+      })
+    },
+    invalidColor: (detail) => {
+      throw new VaneError({
+        code: 'VANE_PORT_INVALID_DEFAULT',
+        message: `a port default cannot resolve: ${detail}`,
+        file,
+        fix: 'give the color helper a color value or a color token',
+      })
+    },
+  }
 }

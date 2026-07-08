@@ -72,6 +72,20 @@ function nodeOf(handle: VaneRuntimeHandle): TokenNode | undefined {
   return (handle as unknown as { [NODE]?: TokenNode })[NODE]
 }
 
+/**
+ * Whether a graph handle names a color or a plain value — build-plane
+ * knowledge for surfaces that infer a type from a token default (ports).
+ * Undefined for handles outside a resolved graph.
+ */
+export function tokenKindOf(handle: VaneRuntimeHandle): 'color' | 'value' | undefined {
+  const node = nodeOf(handle)
+
+  if (!node)
+    return undefined
+
+  return node.definition.kind === 'literal' ? 'value' : 'color'
+}
+
 // ─── defineTokens ────────────────────────────────────────────────────────────
 
 export function defineTokens<const T extends object, Prefix extends string = 'vane'>(

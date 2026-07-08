@@ -52,6 +52,15 @@ describe('the authoring shape', () => {
     expect(errors).toBeClean()
   })
 
+  it('value-token and color-expression defaults raise no diagnostics', () => {
+    const { errors } = project.check`${defineSystem}
+      export const gap = port(t.space.sm)
+      export const glow = port(oklch(0.7, 0.1, 200))
+      void gap.set(t.space.md); void glow.set('rebeccapurple')
+    `
+    expect(errors).toBeClean()
+  })
+
   it('port methods autocomplete — set, describe, deprecated, toString', () => {
     const result = project.query`${defineSystem}
       export const fraction = port(0)

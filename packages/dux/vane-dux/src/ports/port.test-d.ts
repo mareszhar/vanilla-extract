@@ -4,7 +4,7 @@
  * at the type level.
  */
 
-import type { VaneColorToken, VanePort, VanePortKind, VaneVarReference } from '@mszr/vane-dux'
+import type { VaneColorToken, VanePort, VanePortKind, VanePortMeta, VaneVarReference } from '@mszr/vane-dux'
 import { createSystem, oklch } from '@mszr/vane-dux'
 import { describe, expectTypeOf, it } from 'vitest'
 
@@ -116,6 +116,41 @@ describe('set() typing', () => {
     const fraction = port(0)
 
     expectTypeOf(fraction.set(0.5)).toEqualTypeOf<Record<`--${string}`, string | number>>()
+  })
+})
+
+describe('token and expression defaults', () => {
+  it('a value-token default types set() to strings and references', () => {
+    const { port, t } = system()
+    const gap = port(t.space.sm)
+
+    gap.set('12px')
+    gap.set(t.space.md)
+    // @ts-expect-error — a token-defaulted port takes strings or references, not numbers
+    gap.set(8)
+  })
+
+  it('a color expression default is a color port', () => {
+    const { port } = system()
+    const tint = port(oklch(0.5, 0.1, 200))
+
+    tint.set('rebeccapurple')
+    // @ts-expect-error — a color port takes a string or a reference, not a number
+    tint.set(0.5)
+  })
+
+  it('defaultValue is honest about serialization: references become strings', () => {
+    const { port, t } = system()
+
+    expectTypeOf(port(0).defaultValue).toEqualTypeOf<number>()
+    expectTypeOf(port('4px').defaultValue).toEqualTypeOf<string>()
+    expectTypeOf(port(t.color.brand).defaultValue).toEqualTypeOf<string>()
+  })
+
+  it('meta is the declaration record', () => {
+    const { port } = system()
+
+    expectTypeOf(port(0).meta).toExtend<VanePortMeta>()
   })
 })
 

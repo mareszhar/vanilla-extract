@@ -14,6 +14,7 @@
  */
 
 import type { VaneVarReference } from '../css/types'
+import type { VaneColor } from '../tokens/types'
 
 /** The primitive values a port can hold and `set()` can return. */
 export type VanePortValue = string | number
@@ -21,13 +22,14 @@ export type VanePortValue = string | number
 /** A style-object fragment — the currency that crosses the build/runtime wall. */
 export type VanePortStyle = Record<`--${string}`, VanePortValue>
 
-/** Anything acceptable as a port default: a primitive or a token/port reference. */
-export type VanePortInput = VanePortValue | VaneVarReference
+/** Anything acceptable as a port default: a primitive, a token/port reference, or a color expression. */
+export type VanePortInput = VanePortValue | VaneVarReference | VaneColor<any>
 
 /**
  * Widen literal primitives to their base type — `0` → `number`, `'4px'` →
  * `string` — so `set()` accepts any value of the kind, not just the default
- * literal. Object types (token handles, ports) pass through untouched.
+ * literal. Object types (token handles, ports, color expressions) pass
+ * through untouched.
  */
 export type VanePortWiden<T> = T extends number ? number : T extends string ? string : T
 
@@ -35,8 +37,8 @@ export type VanePortWiden<T> = T extends number ? number : T extends string ? st
  * The serialization kind — drives how `set()` serializes values and how the
  * default folds into the `var()` reference ([dux-spec-ports.md §3]).
  *
- * - `number` → unitless (`0.62`)
- * - `string` → passthrough (validated once in dev)
+ * - `number` → unitless (`0.62`), or unit-annotated via `options.as`
+ * - `string` → passthrough — also the kind of a plain-value token default
  * - `color` → color syntax or token var (`var(--vane-color-brand)`)
  */
 export type VanePortKind = 'number' | 'string' | 'color'
@@ -55,12 +57,21 @@ export interface VanePortOptions {
 }
 
 /**
- * What `set()` accepts — color/token ports accept strings *and* references, so
- * a runtime caller can pass either a CSS literal or another token. Number and
- * string ports stay narrow: their own type only.
+ * What `set()` accepts — color and token ports accept strings *and*
+ * references, so a runtime caller can pass either a CSS literal or another
+ * token. Number and string ports stay narrow: their own type only.
  */
 export type VanePortSetValue<TValue extends VanePortInput>
-  = TValue extends VaneVarReference ? string | VaneVarReference : TValue
+  = TValue extends VaneVarReference | VaneColor<any> ? string | VaneVarReference : TValue
+
+/**
+ * What the handle stores as its default: references and color expressions
+ * serialize at declaration (`var(--vane-color-brand)`, `oklch(…)`), so the
+ * same string is there on both sides of the boundary; primitives stay as
+ * written.
+ */
+export type VanePortDefault<TValue extends VanePortInput>
+  = TValue extends VaneVarReference | VaneColor<any> ? string : TValue
 
 /**
  * A port — a declared, typed, defaulted CSS custom property
@@ -74,17 +85,19 @@ export type VanePortSetValue<TValue extends VanePortInput>
 export interface VanePort<TValue extends VanePortInput = VanePortInput> {
   /** The emitted custom-property name: `--vane-fraction__h4x`. */
   readonly name: `--${string}`
-  /** The default value — also what types the port. */
-  readonly defaultValue: TValue
+  /** The serialized default — identical at build time and after `restorePort`. */
+  readonly defaultValue: VanePortDefault<TValue>
   /** The serialization kind. */
   readonly kind: VanePortKind
   /** The reference form for interpolation: `var(--name, <default>)`. */
   readonly var: `var(--${string}, ${string})`
+  /** The declaration record — one object, shared with the serialized boundary crossing. */
+  readonly meta: VanePortMeta
   /** Set the port's value — returns a style-object fragment, never a rule. */
   set: (value: VanePortSetValue<TValue>) => VanePortStyle
   /** Intent at the definition site — surfaced by the manifest and audits. */
   describe: (text: string) => VanePort<TValue>
-  /** The replacement named by `.deprecated()`. */
+  /** Name the replacement — flows into the manifest and audits. */
   deprecated: (reason: string) => VanePort<TValue>
   toString: () => `var(--${string}, ${string})`
 }

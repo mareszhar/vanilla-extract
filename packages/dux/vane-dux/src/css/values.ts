@@ -7,14 +7,13 @@
  */
 
 import type { VaneDiagnostic } from '../diagnostics'
-import type { VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
-import type { VaneColorExpr } from '../tokens/color'
-import type { VaneExprTraits, VaneResolver } from '../tokens/resolve'
+import type { VaneRuntimeHandle } from '../internal/handle'
+import type { VaneResolver } from '../tokens/resolve'
 import { VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
 import { isPort } from '../ports/port'
 import { ColorValue, ContrastValue } from '../tokens/color'
-import { serializeExpr } from '../tokens/resolve'
+import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
 
 export interface VaneValueContext {
   elevation: VaneResolver['elevation']
@@ -83,34 +82,5 @@ function valueResolver(path: string, ctx: VaneValueContext): VaneResolver {
         fix: 'give the color helper a color value or a color token',
       })
     },
-  }
-}
-
-function modeTraits(mode: VaneTokenMode): VaneExprTraits {
-  switch (mode) {
-    case 'static':
-      return { cssLive: false, volatile: false }
-    case 'scheme':
-      return { cssLive: true, volatile: false }
-    case 'live':
-      return { cssLive: false, volatile: true }
-    case 'derived':
-      return { cssLive: true, volatile: true }
-  }
-}
-
-function containsContrast(expr: VaneColorExpr): boolean {
-  switch (expr.kind) {
-    case 'contrast':
-      return true
-    case 'alpha':
-    case 'adjust':
-      return containsContrast(expr.input)
-    case 'mix':
-      return containsContrast(expr.input) || containsContrast(expr.other)
-    case 'scheme':
-      return containsContrast(expr.light) || containsContrast(expr.dark)
-    default:
-      return false
   }
 }

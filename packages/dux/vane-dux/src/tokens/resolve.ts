@@ -14,7 +14,7 @@
  * resolver callbacks, so `theme()` can re-resolve with substitutions.
  */
 
-import type { VaneRuntimeHandle } from '../internal/handle'
+import type { VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
 import type { VaneColorExpr } from './color'
 import type { VaneOklch } from './math'
 import { formatNumber, formatOklch, mixOklch, parseColor, pickLegible } from './math'
@@ -74,6 +74,44 @@ export function exprTraits(expr: VaneColorExpr, resolver: VaneResolver): VaneExp
 
 function join(a: VaneExprTraits, b: VaneExprTraits): VaneExprTraits {
   return { cssLive: a.cssLive || b.cssLive, volatile: a.volatile || b.volatile }
+}
+
+/** The traits a token contributes at a reference site, read off its resolved mode. */
+export function modeTraits(mode: VaneTokenMode): VaneExprTraits {
+  switch (mode) {
+    case 'static':
+      return { cssLive: false, volatile: false }
+    case 'scheme':
+      return { cssLive: true, volatile: false }
+    case 'live':
+      return { cssLive: false, volatile: true }
+    case 'derived':
+      return { cssLive: true, volatile: true }
+  }
+}
+
+/**
+ * Whether a legible pairing sits anywhere in the tree. `legibleOn` is graph
+ * knowledge — the check needs both endpoints at build time — so positions
+ * outside the graph (rule values, port defaults) reject it with a diagnostic.
+ */
+export function containsContrast(expr: VaneColorExpr): boolean {
+  switch (expr.kind) {
+    case 'oklch':
+    case 'parse':
+    case 'elevation':
+    case 'ref':
+      return false
+    case 'contrast':
+      return true
+    case 'alpha':
+    case 'adjust':
+      return containsContrast(expr.input)
+    case 'mix':
+      return containsContrast(expr.input) || containsContrast(expr.other)
+    case 'scheme':
+      return containsContrast(expr.light) || containsContrast(expr.dark)
+  }
 }
 
 function containsRef(expr: VaneColorExpr): boolean {

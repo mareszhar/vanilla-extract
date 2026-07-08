@@ -5,14 +5,14 @@
  */
 
 import type { VaneRuntimeHandle } from './internal/handle'
-import type { VanePortMeta } from './ports/types'
+import type { VanePort, VanePortMeta } from './ports/types'
 import type { VaneLiveOverrides } from './tokens/types'
 import { createHandle, isHandle } from './internal/handle'
 import { createPortHandle } from './ports/handle'
 import { ports } from './ports/ports'
 
 export type { VaneLiveOverrides }
-export type { VanePort, VanePortStyle, VanePortValue } from './ports/types'
+export type { VanePort, VanePortMeta, VanePortStyle, VanePortValue } from './ports/types'
 
 export type VaneRuntimeValue = string | number
 export type VaneRuntimeStyle = Record<`--${string}`, VaneRuntimeValue>
@@ -98,6 +98,6 @@ export function restoreToken(meta: Parameters<typeof createHandle>[0]): VaneRunt
  * Restores a port handle when a style module's exports are serialized for app
  * code. Generated import target — not for hand-written code.
  */
-export function restorePort(meta: VanePortMeta): ReturnType<typeof createPortHandle> {
+export function restorePort(meta: VanePortMeta): VanePort {
   return createPortHandle(meta)
 }

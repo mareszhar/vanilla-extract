@@ -5,7 +5,7 @@
  * in `ports()` is redundant and the docs never show it.
  */
 
-import type { VanePortStyle, VanePortValue } from './types'
+import type { VanePortStyle } from './types'
 
 /** Merge port/style fragments, skipping falsy entries. */
 export function ports(
@@ -13,5 +13,3 @@ export function ports(
 ): VanePortStyle {
   return Object.assign({}, ...styles.filter(Boolean))
 }
-
-export type { VanePortStyle, VanePortValue }

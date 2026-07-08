@@ -1,5 +1,5 @@
-updated: 2026-07-06
-status: spec — contracts settled, implementation pending
+updated: 2026-07-08
+status: spec — contracts settled, implemented (phase 3)
 
 # vane-dux — spec: ports
 
@@ -46,7 +46,7 @@ export const fill = css({
 
 **Contract details.**
 
-- **The signature is `port(default, options?)`.** The type is inferred from the default (`port(0)` → number, `port(t.color.brand)` → color, `port('4px')` → length); an explicit generic (`port<VaneLength>('0px')`) and an options kind (`port(0, { as: 'deg' })`) resolve the ambiguous cases (§3).
+- **The signature is `port(default, options?)`.** The type is inferred from the default (`port(0)` → number, `port(t.color.brand)` → color, `port('4px')` → string); the options unit (`port(0, { as: 'deg' })`) resolves the ambiguous number cases (§3).
 - **The export is the name.** No string argument exists: the emitted variable's debug label is inferred from the export/filename by the same transform the substrate uses for class debug names, so rename-symbol renames everything, everywhere, including dev output and the manifest. Without the transform the port still works (hash-only label); `options.label` is the rare manual override.
 - A port interpolates in any rule position as `var(--…, <default>)`; the default makes every style complete without its runtime half.
 - Ports are scoped identifiers (hashed like classes) — two components' `fraction` ports never collide; the *export* is the identity.
@@ -83,8 +83,8 @@ ports(fraction.set(p), tint.set(color)) // merged fragment
 
 **Contract details.**
 
-- The declared type maps to a serialization kind: `number` → unitless, `VaneLength` → the canonical unit rule from `css()`, `VaneColor` → color syntax or token var, `string` → passthrough (parsed once in dev for validity).
-- Ambiguity is resolved at the declaration, not the call: `port(0, { as: 'deg' })`.
+- The default maps to a serialization kind: a number → unitless, a color — token, expression, or another color port — → color syntax or token var, everything else — strings and value tokens — → passthrough. A value-token default never claims the color kind.
+- Units ride the declaration, not the call: `port(0, { as: 'deg' })` serializes every `set()` number as degrees, the default included.
 - Dev builds validate each `set()` value's serialization once and warn with the port's name on mismatch — the cursor lie ban extends to runtime writes.
 
 ---

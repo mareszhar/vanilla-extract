@@ -13,6 +13,7 @@ export default defineConfig({
       '@test': local('./src/test-support/index.ts'),
       '@mszr/vane-dux/runtime': local('./src/runtime.ts'),
       '@mszr/vane-dux/preset': local('./src/preset.ts'),
+      '@mszr/vane-dux/vite': local('./src/vite.ts'),
       '@mszr/vane-dux': local('./src/index.ts'),
     },
   },
