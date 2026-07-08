@@ -17,7 +17,6 @@ This is the dux maintainer area inside the **vanilla-extract** fork.
 - `sandbox/demo-main/` — the Prism Nuxt demo (flagship)
 - `sandbox/demo-comparisons/` — the same components in SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux
 - `scripts/` — maintainer automation
-- `__references__/` — gitignored research material from the ideation phase
 
 ## Start here
 

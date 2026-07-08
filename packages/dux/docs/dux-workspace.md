@@ -41,7 +41,6 @@ packages/dux/
     demo-main/            the Prism Nuxt demo — the flagship, exercising every domain
     demo-comparisons/     the same Prism components in SFC scoped CSS, Tailwind,
                           Panda, raw vanilla-extract, and vane-dux
-  __references__/         gitignored research material (deleted eventually)
 ```
 
 ### Tooling, and why it differs from the outer repo
