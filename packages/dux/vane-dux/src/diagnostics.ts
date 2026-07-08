@@ -19,6 +19,7 @@ export type VaneDiagnosticCode
     | 'VANE_CSS_INVALID_VALUE'
     | 'VANE_CSS_UNKNOWN_CONDITION'
     | 'VANE_CSS_UNKNOWN_PROPERTY'
+    | 'VANE_PORT_INVALID_DEFAULT'
     | 'VANE_VITE_PLUGIN_MISSING'
 
 export interface VaneDiagnostic {

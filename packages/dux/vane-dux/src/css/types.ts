@@ -14,7 +14,11 @@ type CSSTypeProperties = CSS.Properties<number | (string & {})>
 
 export type VaneCssPropertyName = keyof CSSTypeProperties
 
-/** Anything carrying a `var()` reference — token handles today, ports next. */
+/**
+ * Anything carrying a `var()` reference — token handles and ports. Ports carry
+ * the default in the reference (`var(--name, 0)`); tokens don't (`var(--name)`).
+ * Both satisfy this structural type, so style values accept either.
+ */
 export interface VaneVarReference {
   readonly var: `var(--${string})`
 }

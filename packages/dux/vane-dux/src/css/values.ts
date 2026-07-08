@@ -12,6 +12,7 @@ import type { VaneColorExpr } from '../tokens/color'
 import type { VaneExprTraits, VaneResolver } from '../tokens/resolve'
 import { VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
+import { isPort } from '../ports/port'
 import { ColorValue, ContrastValue } from '../tokens/color'
 import { serializeExpr } from '../tokens/resolve'
 
@@ -25,7 +26,7 @@ export function serializeStyleValue(value: unknown, path: string, ctx: VaneValue
   if (typeof value === 'string' || typeof value === 'number')
     return value
 
-  if (isHandle(value))
+  if (isPort(value) || isHandle(value))
     return value.var
 
   if (value instanceof ColorValue) {

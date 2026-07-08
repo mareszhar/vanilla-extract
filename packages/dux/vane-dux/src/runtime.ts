@@ -5,10 +5,14 @@
  */
 
 import type { VaneRuntimeHandle } from './internal/handle'
+import type { VanePortMeta } from './ports/types'
 import type { VaneLiveOverrides } from './tokens/types'
 import { createHandle, isHandle } from './internal/handle'
+import { createPortHandle } from './ports/handle'
+import { ports } from './ports/ports'
 
 export type { VaneLiveOverrides }
+export type { VanePort, VanePortStyle, VanePortValue } from './ports/types'
 
 export type VaneRuntimeValue = string | number
 export type VaneRuntimeStyle = Record<`--${string}`, VaneRuntimeValue>
@@ -79,10 +83,8 @@ export function setScheme(element: HTMLElement, scheme: 'light' | 'dark' | null)
   element.dataset.scheme = scheme
 }
 
-/** Merge port/style fragments, skipping falsy entries. */
-export function ports(...styles: Array<VaneRuntimeStyle | false | null | undefined>): VaneRuntimeStyle {
-  return Object.assign({}, ...styles.filter(Boolean))
-}
+/** Merge port/style fragments, skipping falsy entries. Re-exported from core. */
+export { ports }
 
 /**
  * Restores a token handle when a style module's exports are serialized for app
@@ -90,4 +92,12 @@ export function ports(...styles: Array<VaneRuntimeStyle | false | null | undefin
  */
 export function restoreToken(meta: Parameters<typeof createHandle>[0]): VaneRuntimeHandle {
   return createHandle(meta)
+}
+
+/**
+ * Restores a port handle when a style module's exports are serialized for app
+ * code. Generated import target — not for hand-written code.
+ */
+export function restorePort(meta: VanePortMeta): ReturnType<typeof createPortHandle> {
+  return createPortHandle(meta)
 }

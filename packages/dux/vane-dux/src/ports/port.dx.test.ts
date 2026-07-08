@@ -1,0 +1,118 @@
+/**
+ * The editor-DX plane: port completions and diagnostics land on the intended
+ * key, and hovers stay readable public types ([dux-patterns.md §10]) — locked
+ * with selenita against the real language service.
+ */
+
+import type { Diagnostic } from '@mszr/selenita'
+import { cursor } from '@mszr/selenita'
+import { duxProject } from '@test'
+import { describe, expect, it } from 'vitest'
+
+const project = duxProject()
+
+/** Compiler internals a diagnostic or hover must never leak. */
+const LEAK = /ColorValue\b|ContrastValue\b|createPortHandle\b|VanePortMeta\b/
+
+function expectNoLeak(messages: Array<Diagnostic | string>): void {
+  for (const message of messages)
+    expect(typeof message === 'string' ? message : message.message).not.toMatch(LEAK)
+}
+
+const defineSystem = `
+import { createSystem, oklch } from '@mszr/vane-dux'
+
+const { t, css, port } = createSystem({
+  tokens: {
+    color: { brand: oklch(0.58, 0.2, 285).live(), ink: oklch(0.2, 0, 0) },
+    space: { sm: '8px', md: '16px' },
+  },
+})
+
+void t; void css; void port
+`
+
+describe('the authoring shape', () => {
+  it('a port declaration with interpolation raises no diagnostics', () => {
+    const { errors } = project.check`${defineSystem}
+      export const fraction = port(0)
+      export const fill = css({
+        inlineSize: \`calc(\${fraction} * 100%)\`,
+        background: t.color.brand,
+      })
+    `
+    expect(errors).toBeClean()
+  })
+
+  it('a color port defaulted to a token raises no diagnostics', () => {
+    const { errors } = project.check`${defineSystem}
+      export const tint = port(t.color.brand)
+      export const fill = css({ background: tint })
+    `
+    expect(errors).toBeClean()
+  })
+
+  it('port methods autocomplete — set, describe, deprecated, toString', () => {
+    const result = project.query`${defineSystem}
+      export const fraction = port(0)
+      void fraction.${cursor}
+    `
+    expect(result.completions).toContainCompletions(['set', 'describe', 'deprecated', 'toString', 'var', 'name', 'kind'])
+  })
+})
+
+describe('errors at the cursor', () => {
+  it('a number port rejects a string in set()', () => {
+    const { errors } = project.check`${defineSystem}
+      export const fraction = port(0)
+      void fraction.set('hello')
+    `
+    expect(errors).toHaveError(/not assignable to parameter of type 'number'/)
+    expect(errors).toHaveErrorCount(1)
+    expectNoLeak(errors)
+  })
+
+  it('a string port rejects a number in set()', () => {
+    const { errors } = project.check`${defineSystem}
+      export const width = port('4px')
+      void width.set(8)
+    `
+    expect(errors).toHaveError(/not assignable to parameter of type 'string'/)
+    expect(errors).toHaveErrorCount(1)
+    expectNoLeak(errors)
+  })
+
+  it('port rejects a non-port-input default', () => {
+    const { errors } = project.check`${defineSystem}
+      void port(true)
+    `
+    expect(errors).toHaveErrorCount(1)
+    expectNoLeak(errors)
+  })
+
+  it('a color port set accepts a string cleanly', () => {
+    const { errors } = project.check`${defineSystem}
+      export const tint = port(t.color.brand)
+      void tint.set('oklch(0.45 0.15 250)')
+    `
+    expect(errors).toBeClean()
+  })
+
+  it('a color port set accepts a token reference cleanly', () => {
+    const { errors } = project.check`${defineSystem}
+      export const tint = port(t.color.brand)
+      void tint.set(t.color.ink)
+    `
+    expect(errors).toBeClean()
+  })
+})
+
+describe('hovers', () => {
+  it('a port hover reads as the public type, not internals', () => {
+    const result = project.query`${defineSystem}
+      export const fract${cursor}ion = port(0)
+    `
+    expect(result.hover).toContain('VanePort')
+    expectNoLeak([result.hover ?? ''])
+  })
+})

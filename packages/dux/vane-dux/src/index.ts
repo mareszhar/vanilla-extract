@@ -27,14 +27,22 @@ export { didYouMean, VaneError, VaneNotImplementedError } from './diagnostics'
 // ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
 
 export type { VaneDiagnostic, VaneDiagnosticCode } from './diagnostics'
+export { ports } from './ports/ports'
+export type {
+  VanePort,
+  VanePortInput,
+  VanePortKind,
+  VanePortOptions,
+  VanePortSetValue,
+  VanePortStyle,
+  VanePortValue,
+  VanePortWiden,
+} from './ports/types'
 export { aria, container, data, media, schemeIs, supports } from './system/conditions'
 export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneConditionInput } from './system/conditions'
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'
 export type {
   VaneDefaultLayers,
-  VanePort,
-  VanePortStyle,
-  VanePortValue,
   VaneProps,
   VaneRecipeFunction,
   VaneSystem,
@@ -43,6 +51,9 @@ export type {
   VaneSystemTokens,
 } from './system/createSystem'
 export { check } from './tokens/checks'
+
+// ─── The authoring core: the system and its bound functions (phase 2) ────────
+
 export {
   alpha,
   color,
@@ -58,11 +69,11 @@ export {
   scheme,
 } from './tokens/color'
 export type { VaneLegibleOptions } from './tokens/color'
-
-// ─── The authoring core: the system and its bound functions (phase 2) ────────
-
 export { defineTokens } from './tokens/graph'
 export { scale } from './tokens/scale'
+
+// ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
+
 export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
 export { theme } from './tokens/theme'
 

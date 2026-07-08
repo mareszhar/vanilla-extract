@@ -101,12 +101,11 @@ describe('createSystem', () => {
     )
   })
 
-  it('recipe, anatomy, and port state their phase instead of failing silently', () => {
+  it('recipe and anatomy state their phase instead of failing silently', () => {
     const { returned: system } = emit(() => definePrismSystem())
 
     expect(() => system.recipe({})).toThrow(VaneNotImplementedError)
     expect(() => system.anatomy({})).toThrow(VaneNotImplementedError)
-    expect(() => system.port(0)).toThrow(VaneNotImplementedError)
   })
 
   it('an authoring call outside a style-module build names the missing plugin', () => {

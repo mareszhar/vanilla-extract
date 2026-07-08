@@ -9,11 +9,11 @@ The typed runtime boundary — vane-dux's flagship new primitive. Phase 3 of the
 
 | # | Contract | Status |
 | --- | --- | --- |
-| 1 | `port()` — declaration and interpolation | ☐ |
-| 2 | Setters and the `ports()` merge | ☐ |
-| 3 | Value kinds and serialization | ☐ |
-| 4 | Child and consumer theming | ☐ |
-| 5 | SSR | ☐ |
+| 1 | `port()` — declaration and interpolation | ☑ |
+| 2 | Setters and the `ports()` merge | ☑ |
+| 3 | Value kinds and serialization | ☑ |
+| 4 | Child and consumer theming | ☑ |
+| 5 | SSR | ☑ |
 
 ---
 

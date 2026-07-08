@@ -35,6 +35,9 @@ importers:
       '@vanilla-extract/css':
         specifier: ^1.21.1
         version: 1.21.1
+      '@vanilla-extract/integration':
+        specifier: ^8.0.10
+        version: 8.0.10
       '@vanilla-extract/vite-plugin':
         specifier: 5.2.3
         version: 5.2.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.0)(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0))(yaml@2.9.0)
