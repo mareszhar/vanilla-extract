@@ -58,7 +58,14 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/index.ts', 'vane-dux/src/tokens/**', 'vane-dux/src/internal/**'],
+    files: [
+      'vane-dux/src/index.ts',
+      'vane-dux/src/diagnostics.ts',
+      'vane-dux/src/tokens/**',
+      'vane-dux/src/system/**',
+      'vane-dux/src/css/**',
+      'vane-dux/src/internal/**',
+    ],
     ignores: ['**/*.test.ts', '**/*.test-d.ts'],
     rules: {
       'no-restricted-imports': ['error', {

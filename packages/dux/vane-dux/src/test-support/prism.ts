@@ -5,7 +5,7 @@
  * and composite text styles.
  */
 
-import { alpha, defineTokens, elevation, legibleOn, oklch, scale, scheme } from '@mszr/vane-dux'
+import { alpha, container, createSystem, defineTokens, elevation, legibleOn, media, oklch, scale, scheme } from '@mszr/vane-dux'
 
 export const prismOptions = {
   elevation: { hue: 285, chroma: 0.008 },
@@ -34,3 +34,19 @@ export function definePrism() {
 }
 
 export type PrismTokens = ReturnType<typeof definePrism>
+
+/** The Prism system — the spec's `createSystem` example over the Prism graph. */
+export function definePrismSystem() {
+  return createSystem({
+    tokens: definePrism(),
+    conditions: {
+      open: '&[data-state="open"]',
+      closed: '&[data-state="closed"]',
+      md: media('(min-width: 768px)'),
+      lg: media('(min-width: 1024px)'),
+      cardWide: container('card', '(min-width: 400px)'),
+    },
+  })
+}
+
+export type PrismSystem = ReturnType<typeof definePrismSystem>

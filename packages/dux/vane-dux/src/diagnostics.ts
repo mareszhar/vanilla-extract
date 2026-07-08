@@ -1,6 +1,6 @@
 /**
  * Diagnostics are a contract ([dux-patterns.md §10]): exactly one per mistake,
- * naming the offending token and the fix. Stable `VANE_*` codes are asserted
+ * naming the offending key and the fix. Stable `VANE_*` codes are asserted
  * by the editor-DX suites; renaming one is a breaking change.
  */
 
@@ -10,14 +10,24 @@ export type VaneDiagnosticCode
     | 'VANE_TOKENS_INVALID_COLOR'
     | 'VANE_TOKENS_INVALID_OVERRIDE'
     | 'VANE_TOKENS_UNKNOWN_REF'
+    | 'VANE_SYSTEM_CONDITION_COLLISION'
+    | 'VANE_SYSTEM_INVALID_CONDITION'
+    | 'VANE_SYSTEM_UNKNOWN_LAYER'
+    | 'VANE_CSS_INVALID_KEY'
+    | 'VANE_CSS_INVALID_RAW'
+    | 'VANE_CSS_INVALID_SELECTOR'
+    | 'VANE_CSS_INVALID_VALUE'
+    | 'VANE_CSS_UNKNOWN_CONDITION'
+    | 'VANE_CSS_UNKNOWN_PROPERTY'
+    | 'VANE_VITE_PLUGIN_MISSING'
 
 export interface VaneDiagnostic {
   code: VaneDiagnosticCode
-  /** The headline: what is wrong, naming the token path. */
+  /** The headline: what is wrong, naming the offending key or token path. */
   message: string
   /** Supporting detail lines (resolved values, comparisons). */
   detail?: string[]
-  /** The dot path of the offending token, e.g. `color.onBrand`. */
+  /** The dot path of the offending key, e.g. `color.onBrand`. */
   path?: string
   /** The style module being evaluated, when known. */
   file?: string
@@ -50,6 +60,13 @@ export class VaneError extends Error {
     this.name = 'VaneError'
     this.diagnostics = all
     this.code = all[0].code
+  }
+}
+
+export class VaneNotImplementedError extends Error {
+  constructor(surface: string, phase: string) {
+    super(`${surface} is specified but not implemented yet; see ${phase} in docs/dux-vision.md.`)
+    this.name = 'VaneNotImplementedError'
   }
 }
 

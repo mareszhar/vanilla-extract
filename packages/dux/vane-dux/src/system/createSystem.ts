@@ -1,0 +1,162 @@
+/**
+ * `createSystem` — bind once, typed everywhere ([dux-spec-css.md §1]): a
+ * factory that closes over tokens, conditions, and layers and returns
+ * authoring functions whose types are inferred. No codegen, no artifact
+ * directory — inference is the codegen. The floor is engineered: tokens can be
+ * defined inline and `t` always comes back out, layers default, and the base
+ * condition set is already there. The happy path is one file, one call.
+ */
+
+import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
+import type { VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
+import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
+import { globalLayer } from '@vanilla-extract/css'
+import { bindCss } from '../css/css'
+import { bindGlobalCss } from '../css/global'
+import { bindFontFace, bindKeyframes } from '../css/keyframes'
+import { VaneError, VaneNotImplementedError } from '../diagnostics'
+import { requireStyleModule } from '../internal/styleModule'
+import { defineTokens, graphOf } from '../tokens/graph'
+import { theme as standaloneTheme } from '../tokens/theme'
+import { baseConditions, normalizeConditions } from './conditions'
+
+export const VANE_DEFAULT_LAYERS = ['reset', 'tokens', 'recipes', 'utilities', 'overrides'] as const
+
+export type VaneDefaultLayers = typeof VANE_DEFAULT_LAYERS
+
+/** The system's own layers; authored styles default to the first layer after them. */
+const SYSTEM_LAYERS: readonly string[] = ['reset', 'tokens']
+
+// ─── Options ─────────────────────────────────────────────────────────────────
+
+/**
+ * A condition name colliding with a CSS property is refused at the definition
+ * key (`never` value → error at that key); the build diagnostic carries the
+ * full sentence (`VANE_SYSTEM_CONDITION_COLLISION`).
+ */
+export type VaneConditionsInput<C> = {
+  [K in keyof C]: K extends VaneCssPropertyName ? never : VaneConditionInput
+}
+
+export interface VaneSystemOptions<
+  T extends object,
+  C extends Record<string, VaneConditionInput>,
+  L extends readonly string[],
+  P extends string,
+  B extends boolean,
+> {
+  /** A raw token graph or a `defineTokens` result — `t` is always returned beside the functions. */
+  tokens: T
+  conditions?: C & VaneConditionsInput<C>
+  /** Cascade-layer order, `['reset', 'tokens', 'recipes', 'utilities', 'overrides']` by default. */
+  layers?: L
+  /** The emitted custom-property prefix: `--vane-*` by default. */
+  prefix?: P
+  /** Opt out of the built-in base condition set. */
+  baseConditions?: B
+}
+
+/** Inline graphs bind here; a `defineTokens` result passes through untouched. */
+export type VaneSystemTokens<T extends object, P extends string> = T extends VaneGraphInput ? VaneTokens<T, P> : T
+
+export type VaneSystemConditionName<C, B extends boolean>
+  = (keyof C & string) | (B extends false ? never : VaneBaseConditionName)
+
+// ─── The pending surfaces (phases 3 and 4) ───────────────────────────────────
+
+export type VaneRecipeFunction<TProps extends object = Record<string, never>> = (props?: TProps) => string
+export type VaneProps<TRecipe> = TRecipe extends VaneRecipeFunction<infer TProps> ? TProps : never
+export type VanePortValue = string | number
+export type VanePortStyle = Record<`--${string}`, VanePortValue>
+
+export interface VanePort<TValue extends VanePortValue = VanePortValue> {
+  readonly name: string
+  readonly defaultValue: TValue
+  readonly variable: `var(--${string})`
+  set: (value: TValue) => VanePortStyle
+  toString: () => `var(--${string})`
+}
+
+// ─── The system ──────────────────────────────────────────────────────────────
+
+export interface VaneSystem<T, C extends string, L extends string> {
+  /** The bound token graph — one import line serves every style file. */
+  readonly t: T
+  readonly css: VaneCssFunction<C, L>
+  readonly keyframes: VaneKeyframesFunction
+  readonly fontFace: VaneFontFaceFunction
+  readonly globalCss: VaneGlobalCssFunction<C, L>
+  /** The bound form of `theme(t, overrides)` — the graph argument dropped. */
+  readonly theme: (overrides: VaneThemeOverrides<T>, debugId?: string) => string
+  readonly recipe: <TProps extends object = Record<string, never>>(config: unknown) => VaneRecipeFunction<TProps>
+  readonly anatomy: (config: unknown) => unknown
+  readonly port: <TValue extends VanePortValue>(defaultValue: TValue) => VanePort<TValue>
+}
+
+export function createSystem<
+  const T extends object,
+  const C extends Record<string, VaneConditionInput> = Record<never, never>,
+  const L extends readonly string[] = VaneDefaultLayers,
+  P extends string = 'vane',
+  B extends boolean = true,
+>(
+  options: VaneSystemOptions<T, C, L, P, B>,
+): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]> {
+  const file = requireStyleModule('createSystem')
+  const prefix = options.prefix ?? 'vane'
+
+  const tokens = graphOf(options.tokens)
+    ? options.tokens
+    : defineTokens(options.tokens as VaneGraphInput & object, { prefix })
+  const graph = graphOf(tokens)!
+
+  const layers = options.layers ?? VANE_DEFAULT_LAYERS
+
+  if (layers.length === 0) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_UNKNOWN_LAYER',
+      message: 'a system declares at least one layer',
+      file,
+      fix: 'drop the layers key to accept the default order, or declare your own',
+    })
+  }
+
+  for (const layer of layers)
+    globalLayer(layer)
+
+  const conditions = normalizeConditions(
+    {
+      ...(options.baseConditions === false ? {} : baseConditions()),
+      ...options.conditions,
+    },
+    file,
+  )
+
+  const system = {
+    conditions,
+    layers,
+    defaultLayer: layers.find(layer => !SYSTEM_LAYERS.includes(layer)) ?? layers[0],
+    globalDefaultLayer: layers.includes('reset') ? 'reset' : layers[0],
+    elevation: graph.resolverConfig,
+  }
+
+  type Bound = VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]>
+
+  return {
+    t: tokens as Bound['t'],
+    css: bindCss(system) as Bound['css'],
+    keyframes: bindKeyframes(system),
+    fontFace: bindFontFace(),
+    globalCss: bindGlobalCss(system) as Bound['globalCss'],
+    theme: (overrides, debugId) => standaloneTheme(tokens, overrides, debugId),
+    recipe: () => {
+      throw new VaneNotImplementedError('recipe', 'phase 4')
+    },
+    anatomy: () => {
+      throw new VaneNotImplementedError('anatomy', 'phase 4')
+    },
+    port: () => {
+      throw new VaneNotImplementedError('port', 'phase 3')
+    },
+  }
+}

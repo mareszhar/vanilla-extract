@@ -9,9 +9,9 @@
 import type { VaneOverride } from './graph'
 import type { VaneThemeOverrides } from './types'
 import { style } from '@vanilla-extract/css'
+import { didYouMean, VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
 import { ColorValue, ContrastValue } from './color'
-import { didYouMean, VaneError } from './diagnostics'
 import { graphOf, resolveGraph } from './graph'
 
 export function theme<T extends object>(tokens: T, overrides: VaneThemeOverrides<T>, debugId?: string): string {

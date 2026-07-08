@@ -1,5 +1,5 @@
 updated: 2026-07-07
-status: spec — contracts settled, implementation pending
+status: spec — contracts settled, implemented (phase 2)
 
 # vane-dux — spec: css authoring
 
@@ -11,15 +11,15 @@ Contracts here lean on the cross-cutting law: evaluation ([dux-patterns.md §1](
 
 | # | Contract | Status |
 | --- | --- | --- |
-| 1 | `createSystem` — bind once, typed everywhere | ☐ |
-| 2 | `css()` — the style unit | ☐ |
-| 3 | Conditions | ☐ |
-| 4 | Selectors and cross-file references | ☐ |
-| 5 | Layers | ☐ |
-| 6 | `keyframes` and `fontFace` | ☐ |
-| 7 | `globalCss` | ☐ |
-| 8 | `css.raw` | ☐ |
-| 9 | Value validation | ☐ |
+| 1 | `createSystem` — bind once, typed everywhere | ☑ |
+| 2 | `css()` — the style unit | ☑ |
+| 3 | Conditions | ☑ |
+| 4 | Selectors and cross-file references | ☑ |
+| 5 | Layers | ☑ |
+| 6 | `keyframes` and `fontFace` | ☑ |
+| 7 | `globalCss` | ☑ |
+| 8 | `css.raw` | ☑ |
+| 9 | Value validation | ☑ (file-level diagnostics; line mapping lands with the `/vite` source-map work) |
 
 ---
 
@@ -54,7 +54,7 @@ export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = creat
 - **`layers` is optional**, defaulting to `['reset', 'tokens', 'recipes', 'utilities', 'overrides']`. Nobody needs to know what a cascade layer is to hello-world; declaring `layers` is how you take control when you do.
 - **A base condition set is built in** — the platform-universal names, no opinions: `hover` (`&:hover` — exactly what it says), `hoverFocus` (`&:hover, &:focus-visible` — the interactive-affordance pair, named for what it does), `active` (`&:active`), `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`. User conditions merge over it; a same-named user condition overrides; `baseConditions: false` opts out entirely. Breakpoints, container sizes, and headless states are opinions and live in the preset ([dux-spec-preset.md §2](./dux-spec-preset.md#2-preset-conditions)).
 - A condition name colliding with a CSS property is refused **at the definition key** (`VANE_SYSTEM_CONDITION_COLLISION`).
-- Condition values are plain selector strings or the typed helpers (`media`, `container`, `schemeIs`, `data`, `aria`); helpers exist for readability, strings are never second-class.
+- Condition values are plain selector strings or the typed helpers (`media`, `supports`, `container`, `schemeIs`, `data`, `aria`); helpers exist for readability, strings are never second-class. String forms: a selector containing `&`, or a bare at-rule (`'@media (min-width: 768px)'`).
 - `createSystem` is itself evaluated build-time code; its returns are inert typed functions ([dux-patterns.md §1](./dux-patterns.md#1-evaluate-dont-extract-compile-dont-run)).
 
 **Proposed approach.** A generic factory whose type parameters flow from the literal config (`const`-inferred), compiling each authoring call down to substrate primitives. No emitted `.d.ts` artifacts: inference is the codegen.
@@ -110,7 +110,7 @@ export const card = css({
 - Returns a class string; the rules compile away entirely.
 - Properties are csstype-typed camelCase; values accept tokens, ports, plain CSS values, color-helper expressions (`alpha(t.color.ink, 0.42)` — [dux-spec-tokens.md §2](./dux-spec-tokens.md#2-liveness-compilation)), and template interpolations of any of them.
 - **`css()` is open-valued: any valid CSS value is legal with no escape wrapper.** The token map guides; it never gates. (`unsafe.value` exists only in `atoms`, whose property sets are deliberately closed — [dux-spec-preset.md §3](./dux-spec-preset.md#3-atoms). A utility-CSS refugee looking for "arbitrary value syntax" here should find this sentence: there isn't one, because everything is already allowed and still parsed.)
-- Numbers take the property's canonical unit where one exists (`padding: 8` → `8px`; unitless properties like `lineHeight`, `opacity`, `zIndex`, `flexGrow` stay unitless); ambiguous cases are a type error asking for a unit. The number→unit table follows the substrate's proven behavior, ships in the manifest, and is locked by the output test plane — it must never be a guess.
+- Numbers take the property's canonical unit where one exists (`padding: 8` → `8px`; unitless properties like `lineHeight`, `opacity`, `zIndex`, `flexGrow` stay unitless). The number→unit table **is** the substrate's proven table — vane-dux delegates rather than re-deriving it — ships in the manifest, and is locked by the output test plane; it must never be a guess.
 - Nesting depth is unlimited; every non-property key is either a known condition, a selector, or an at-rule — anything else errors at the key.
 
 ---
@@ -122,7 +122,8 @@ The behavior contract lives in [dux-patterns.md §5](./dux-patterns.md#5-conditi
 - **Bare keys, both directions.** `hover: { … }` and `color: { base, hover }` compile identically; mixing directions in one rule is legal. House style so teams don't relitigate it per PR: group a state's declarations selector-first; reach for property-first when one property varies across three or more states.
 - **Conditions compose by nesting:** `open: { motionOk: { animation: … } }` emits the intersection.
 - **`base`** is the unconditioned arm of a property-first map; omitting it means "no unconditioned declaration".
-- **Container conditions** reference containers declared via `containerName`/`containerType` declarations or the `container()` helper's named handle.
+- **Container conditions** reference containers declared via `containerName`/`containerType` declarations or the `container()` helper's named handle. One rule queries one container — the substrate emits a single `@container` per rule, and nesting a second is a diagnostic.
+- **Scheme conditions compile to two arms.** `dark:` means "the effective scheme is dark": a rule under a `[data-scheme='dark']` subtree, plus the OS preference outside any `[data-scheme='light']` subtree. Nesting a condition with several arms intersects each arm separately.
 
 ```TS
 export const accordionContent = css({
@@ -243,4 +244,4 @@ export const prose = css.raw`
 - Diagnostics land within the HMR loop — save, and the overlay names the line; never later than the reload.
 - **Setup failures are diagnosed too.** Importing a `*.style.ts` module without the `/vite` plugin registered produces one friendly error naming the missing plugin and the config line to add (`VANE_VITE_PLUGIN_MISSING`) — never a raw Node evaluation stack. The bounce point of a misconfigured first install gets the same message quality as a typo'd property.
 
-**Proposed approach.** lightningcss parses the assembled rules during evaluation in the `/vite` plugin, mapping positions back through the emitter's source map to the `.style.ts` expression.
+**Implementation.** Validation runs at evaluation time in the core, so every bundler gets the same diagnostics. The work is split between two authorities: **lightningcss owns grammar** — a known property whose value fails its typed grammar (and carries no `var()` or unknown function, whose grammar only the browser can decide) is refused, as are unparseable selectors and queries; **the W3C property list owns existence** (`known-css-properties`), so a platform property lightningcss has not learned yet is never blocked (principle 6) — only a name in neither authority errors. Checks memoize per declaration. Diagnostics carry the style module's path today; expression-level line mapping through the emitter's source map lands with the `/vite` plugin work.

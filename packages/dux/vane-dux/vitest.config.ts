@@ -27,6 +27,9 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     typecheck: {
       // The type-shape plane, run via --typecheck (wired into the test scripts).
+      // Vitest forces tsc --incremental into a shared cache under vitest/dist;
+      // the shim delegates to tsc after stripping those cache flags.
+      checker: local('../scripts/vitest-typecheck.cjs'),
       include: ['src/**/*.test-d.ts'],
       tsconfig: './tsconfig.json',
     },

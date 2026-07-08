@@ -8,19 +8,19 @@
  * vanilla-extract substrate — which is never re-exported.
  */
 
+import type { VaneDiagnostic } from '../diagnostics'
 import type { VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
 import type { VaneColorExpr } from './color'
-import type { VaneDiagnostic } from './diagnostics'
 import type { VaneOklch } from './math'
 import type { VaneExprTraits, VaneResolver, VaneScheme } from './resolve'
 import type { VaneGraphInput, VaneTokens, VaneTokensOptions } from './types'
 import { createGlobalTheme, createGlobalThemeContract, globalStyle } from '@vanilla-extract/css'
 import { getFileScope, hasFileScope } from '@vanilla-extract/css/fileScope'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
+import { didYouMean, VaneError } from '../diagnostics'
 import { createHandle } from '../internal/handle'
 import { TextContrastCheck } from './checks'
 import { ColorValue, ContrastValue, handleColorMethods, toExpr } from './color'
-import { didYouMean, VaneError } from './diagnostics'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
 import { kebab, tokenName } from './names'
 import { defaultElevationCurve, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
