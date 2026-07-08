@@ -2,16 +2,16 @@
   "folders": [
     {
       "name": "🌟 VANILLA-EXTRACT (ROOT)",
-      "path": "."
+      "path": ".",
     },
     {
       "name": "🌈 DUX (PACKAGE)",
-      "path": "packages/dux"
-    }
+      "path": "packages/dux",
+    },
   ],
   "settings": {
     "files.exclude": {
-      "packages/dux": true
-    }
-  }
+      "packages/dux": true,
+    },
+  },
 }

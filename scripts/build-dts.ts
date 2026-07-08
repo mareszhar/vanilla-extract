@@ -27,6 +27,10 @@ function resolveEntry<PackageJson>(
   return entryPath;
 }
 
+function hasEntrypoint(pkg: { exports?: unknown; main?: unknown }) {
+  return pkg.exports || pkg.main;
+}
+
 async function buildEntry(packageDir: string, entryPath: string) {
   const dtsEntryPathAbsolute = path
     .join(packageDir, entryPath)
@@ -100,6 +104,11 @@ for await (const packageDir of fs.glob('packages/*')) {
       with: { type: 'json' },
     }
   );
+
+  if (!hasEntrypoint(pkg)) {
+    console.warn('Skipping', packageDir, '(No package entrypoint)');
+    continue;
+  }
 
   if (pkg.exports) {
     const pkgExports = Object.keys(pkg.exports);

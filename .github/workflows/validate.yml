@@ -1,6 +1,14 @@
 name: Validate
 
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - 'packages/dux/**'
+      - '.github/workflows/dux.yml'
+  pull_request:
+    paths-ignore:
+      - 'packages/dux/**'
+      - '.github/workflows/dux.yml'
 permissions: {}
 
 jobs:

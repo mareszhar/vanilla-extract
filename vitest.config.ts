@@ -1,6 +1,12 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import type { PluginOption } from 'vite';
+
+const testExclude = [
+  ...configDefaults.exclude,
+  '.pnpm-store/**',
+  'packages/dux/**',
+];
 
 export default defineConfig(async () => {
   const plugins: PluginOption[] = [];
@@ -25,7 +31,7 @@ export default defineConfig(async () => {
         },
         plugins,
         test: {
-          exclude: ['packages/dux/**'],
+          exclude: testExclude,
         },
       };
     }
@@ -45,7 +51,7 @@ export default defineConfig(async () => {
     },
     plugins,
     test: {
-      exclude: ['packages/dux/**'],
+      exclude: testExclude,
     },
   };
 });
@@ -68,11 +74,25 @@ const sourceAliases = {
   '@vanilla-extract/css/functionSerializer': local(
     './packages/css/src/functionSerializer.ts',
   ),
+  '@vanilla-extract/css/recipe': local('./packages/css/src/recipe.ts'),
   '@vanilla-extract/css/transformCss': local(
     './packages/css/src/transformCss.ts',
   ),
   '@vanilla-extract/css': local('./packages/css/src/index.ts'),
+  '@vanilla-extract/css-utils': local('./packages/utils/src/index.ts'),
+  '@vanilla-extract/dynamic': local('./packages/dynamic/src/index.ts'),
   '@vanilla-extract/integration': local('./packages/integration/src/index.ts'),
   '@vanilla-extract/private': local('./packages/private/src/index.ts'),
+  '@vanilla-extract/recipes/createRuntimeFn': local(
+    './packages/recipes/src/createRuntimeFn.ts',
+  ),
+  '@vanilla-extract/recipes': local('./packages/recipes/src/index.ts'),
+  '@vanilla-extract/sprinkles/createRuntimeSprinkles': local(
+    './packages/sprinkles/src/createRuntimeSprinkles.ts',
+  ),
+  '@vanilla-extract/sprinkles/createUtils': local(
+    './packages/sprinkles/src/createUtils.ts',
+  ),
+  '@vanilla-extract/sprinkles': local('./packages/sprinkles/src/index.ts'),
   '@vanilla-extract/vite-plugin': local('./packages/vite-plugin/src/index.ts'),
 };
