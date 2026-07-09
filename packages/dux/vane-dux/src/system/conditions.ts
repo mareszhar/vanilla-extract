@@ -108,6 +108,26 @@ export function baseConditions(): Record<VaneBaseConditionName, VaneConditionInp
   }
 }
 
+// ─── Introspection ───────────────────────────────────────────────────────────
+
+/** Serialize compiled conditions readably for the manifest: one string per condition. */
+export function describeConditions(conditions: Map<string, readonly VaneConditionArm[]>): Record<string, string> {
+  const described: Record<string, string> = {}
+
+  for (const [name, arms] of conditions) {
+    described[name] = arms
+      .map(arm => [
+        arm.media === undefined ? undefined : `@media ${arm.media}`,
+        arm.supports === undefined ? undefined : `@supports ${arm.supports}`,
+        arm.container === undefined ? undefined : `@container ${arm.container}`,
+        arm.selector,
+      ].filter(part => part !== undefined).join(' '))
+      .join(' | ')
+  }
+
+  return described
+}
+
 // ─── Normalization ───────────────────────────────────────────────────────────
 
 /**

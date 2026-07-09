@@ -24,6 +24,11 @@
  * styles) are watched and mapped back to their dependents, so editing a
  * token file hot-updates every style module built on it.
  *
+ * **The manifest rides the same evaluation** ([dux-spec-introspection.md §2]):
+ * each pass drains the inspection channel, and the projection lands in
+ * `.vane/manifest.json` — debounced in dev, once per build — plus the live
+ * `/__vane/` endpoints (`manifest.json`, and the DevTools view over it).
+ *
  * Two deliberate deviations from the substrate's `processVanillaFile`:
  *
  * - **Substrate imports resolve from vane-dux, not the user's app.** The seam
@@ -33,7 +38,7 @@
  *   from the evaluated file's directory.
  * - **The adapter binds in-process**, not through a `require` inside the
  *   evaluated source, guaranteeing the bundle and the plugin share one css
- *   instance.
+ *   instance ([bundling section] on how instance identity is pinned).
  *
  * The plugin composes two layers:
  * 1. The `*.style.ts` processor described above.
@@ -42,10 +47,10 @@
 
 import type { Adapter } from '@vanilla-extract/css'
 import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from 'vite'
+import type { VaneInspectRecord } from './internal/inspect'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join } from 'node:path'
-import { removeAdapter, setAdapter } from '@vanilla-extract/css/adapter'
 import { transformCss } from '@vanilla-extract/css/transformCss'
 import {
   addFileScope,
@@ -57,6 +62,9 @@ import {
 } from '@vanilla-extract/integration'
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin'
 import { build as esbuild } from 'esbuild'
+import { collectInspection } from './internal/inspect'
+import { devtoolsPage } from './introspect/devtools'
+import { buildManifest } from './introspect/manifest'
 
 export type VaneIdentifierMode = 'debug' | 'short'
 export type VaneCompilerMode = 'transform' | 'emitCss' | 'inlineCssInDev'
@@ -101,6 +109,36 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
   const serializedModules = new Map<string, string>()
   /** Bundled dependency → the style modules built on it, for HMR fan-out. */
   const dependentsByFile = new Map<string, Set<string>>()
+  /** Root-relative style module → what it recorded, replaced per evaluation. */
+  const recordsByFile = new Map<string, VaneInspectRecord[]>()
+
+  /** The manifest as last written, so unchanged builds skip the write. */
+  let writtenManifest: string | undefined
+  let manifestTimer: ReturnType<typeof setTimeout> | undefined
+
+  const manifestJson = (): string => {
+    const records = [...recordsByFile.keys()].sort().flatMap(file => recordsByFile.get(file)!)
+    const css = [...cssByVirtualId.values()].join('\n')
+    return `${JSON.stringify(buildManifest(records, css), null, 2)}\n`
+  }
+
+  const writeManifest = async (): Promise<void> => {
+    const json = manifestJson()
+
+    if (json === writtenManifest)
+      return
+
+    writtenManifest = json
+    const path = join(config.root, '.vane', 'manifest.json')
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, json)
+  }
+
+  /** Dev regenerates on change, debounced across a save's fan-out of transforms. */
+  const scheduleManifest = (): void => {
+    clearTimeout(manifestTimer)
+    manifestTimer = setTimeout(() => void writeManifest().catch(() => {}), 50)
+  }
 
   const identOption = () =>
     options.identifiers ?? (config.mode === 'production' ? 'short' : 'debug')
@@ -170,6 +208,31 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
 
     configureServer(devServer) {
       server = devServer
+
+      // The manifest, live — what the DevTools tab (and any tool) reads.
+      devServer.middlewares.use('/__vane', (req, res, next) => {
+        const [path] = (req.url ?? '/').split('?')
+
+        if (path === '/manifest.json') {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(manifestJson())
+          return
+        }
+
+        if (path === '/' || path === '/index.html') {
+          res.setHeader('Content-Type', 'text/html')
+          res.end(devtoolsPage(config.root))
+          return
+        }
+
+        next()
+      })
+    },
+
+    // Builds write the manifest once, beside the emitted CSS.
+    async buildEnd() {
+      if (!server)
+        await writeManifest()
     },
 
     async transform(_code, id, transformOptions) {
@@ -201,17 +264,29 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
         dependentsByFile.set(watched, dependents)
       }
 
-      const { exports, cssByFileScope, unusedCompositionRegex }
+      const { exports, cssByFileScope, unusedCompositionRegex, records }
         = evaluateStyleModule(source, filePath, identOption())
+
+      // Replace each evaluated file's inspection records — the bundle carries
+      // its whole import graph, so records for dependencies arrive here too.
+      const recordedFiles = new Set<string>()
+
+      for (const record of records)
+        recordedFiles.add(record.file ?? normalizePath(filePath))
+
+      for (const file of recordedFiles)
+        recordsByFile.set(file, records.filter(record => (record.file ?? normalizePath(filePath)) === file))
 
       const cssImports: string[] = []
 
       for (const [serializedFileScope, css] of cssByFileScope) {
         const fileScope = parseFileScope(serializedFileScope)
         const virtualId = `${normalizePath(join(root, fileScope.filePath))}${virtualExt}`
-        const changed = cssByVirtualId.get(virtualId) !== css
+        // Provenance in dev: the stylesheet names its style module up front.
+        const served = server ? `/* ${fileScope.filePath} · vane-dux */\n${css}` : css
+        const changed = cssByVirtualId.get(virtualId) !== served
 
-        cssByVirtualId.set(virtualId, css)
+        cssByVirtualId.set(virtualId, served)
         cssImports.push(`import '${virtualId}';`)
 
         // The id is stable, so the module graph must learn the content moved —
@@ -222,6 +297,9 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
             server.moduleGraph.invalidateModule(virtualModule)
         }
       }
+
+      if (server)
+        scheduleManifest()
 
       let code = serializeVanillaModule(cssImports, exports, unusedCompositionRegex)
 
@@ -291,6 +369,22 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
 
 /** Resolves the substrate from vane-dux's own context — see the module docstring. */
 const substrateRequire = createRequire(import.meta.url)
+
+/**
+ * The substrate state the sandbox shares with this plugin — the adapter above
+ * all — must be one instance, or evaluation silently collects nothing. Two
+ * things break instance identity: a host's static `import` can land on a
+ * different build than the sandbox's `require`, and each substrate CJS entry
+ * picks its dev/prod flavor from `NODE_ENV` *at its own first load* — which
+ * `vite build` mutates after plugins load. Requiring every shared entry here,
+ * in one breath through the same `require` the bundle uses, pins one flavor
+ * family by construction; the sandbox then hits the cache.
+ */
+const { removeAdapter, setAdapter }
+  = substrateRequire('@vanilla-extract/css/adapter') as typeof import('@vanilla-extract/css/adapter')
+
+for (const entry of ['@vanilla-extract/css', '@vanilla-extract/css/fileScope', '@vanilla-extract/css/functionSerializer'])
+  substrateRequire(entry)
 
 interface BundleStyleModuleParams {
   filePath: string
@@ -384,6 +478,8 @@ interface EvaluatedStyleModule {
   /** Serialized file scope → transformed CSS, in evaluation order. */
   cssByFileScope: Map<string, string>
   unusedCompositionRegex: RegExp | null
+  /** What the evaluation recorded for the manifest ([internal/inspect.ts]). */
+  records: VaneInspectRecord[]
 }
 
 /**
@@ -421,7 +517,7 @@ function evaluateStyleModule(source: string, filePath: string, identOption: Vane
   const cssByFileScope = new Map<string, string>()
 
   try {
-    const exports = executeBundle(source, filePath)
+    const { result: exports, records } = collectInspection(() => executeBundle(source, filePath))
 
     for (const [serializedFileScope, cssObjs] of cssObjsByFileScope) {
       const css = transformCss({
@@ -443,6 +539,7 @@ function evaluateStyleModule(source: string, filePath: string, identOption: Vane
       unusedCompositionRegex: unusedCompositions.length > 0
         ? new RegExp(`(${unusedCompositions.join('|')})\\s`, 'g')
         : null,
+      records,
     }
   }
   finally {
@@ -653,6 +750,20 @@ function buildDebugIdReplacement(args: string, commaIndex: number, exportName: s
 
   return `${args}, '${exportName}'`
 }
+
+// ─── Introspection: the manifest and the audits ride the build plane ─────────
+
+export { audit, formatAuditFindings } from './introspect/audit'
+export type { VaneAuditFinding } from './introspect/audit'
+export { buildManifest } from './introspect/manifest'
+export type {
+  VaneManifest,
+  VaneManifestContrast,
+  VaneManifestEscape,
+  VaneManifestPort,
+  VaneManifestRecipe,
+  VaneManifestToken,
+} from './introspect/manifest'
 
 export const vanePlugin = vaneDuxPlugin
 export default vaneDuxPlugin

@@ -10,6 +10,7 @@ test-results
 .pnpm-store
 .turbo
 .dux
+.vane
 .nuxt
 .output
 coverage

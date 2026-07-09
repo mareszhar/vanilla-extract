@@ -7,9 +7,11 @@
  * unit.
  */
 
+import type { AddressInfo } from 'node:net'
 import type { Rollup, ViteDevServer } from 'vite'
 import { Buffer } from 'node:buffer'
 import { cp, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises'
+import { createServer as createHttpServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -107,6 +109,32 @@ describe('the vite build', () => {
     expect(bundle.stackedGap).toMatch(/^atoms_stack__[\w-]+ atoms_gap_sm__[\w-]+$/)
     expect(bundle.atoms({ gap: 'sm' })).toMatch(/^atoms_gap_sm__[\w-]+$/)
   })
+
+  it('writes the manifest beside the CSS — .vane/manifest.json, versioned', async () => {
+    // A copy, so the build artifact never lands in the source tree.
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-manifest-')))
+    await cp(local('./test-support/vite-app'), root, { recursive: true })
+    await writeFile(join(root, 'package.json'), '{ "name": "vane-manifest-fixture", "type": "module" }')
+
+    await build({
+      configFile: false,
+      logLevel: 'silent',
+      root,
+      plugins: [vaneDuxPlugin({ identifiers: 'debug' })],
+      resolve: { alias: aliases },
+      build: {
+        write: false,
+        lib: { entry: join(root, 'entry.ts'), formats: ['es'], fileName: 'entry' },
+      },
+    })
+
+    const manifest = JSON.parse(await readFile(join(root, '.vane', 'manifest.json'), 'utf-8'))
+
+    expect(manifest.version).toBe(1)
+    expect(manifest.tokens['color.brand'].var).toBe('--vane-color-brand')
+    expect(manifest.recipes.button.variants.intent).toEqual(['brand', 'ghost'])
+    expect(Object.keys(manifest.ports)).toContain('progress.fraction')
+  })
 })
 
 describe('hmr', () => {
@@ -182,6 +210,34 @@ describe('hmr', () => {
     const refreshed = await devServer.transformRequest(virtualId)
     expect(refreshed?.code).toContain('block-size: 50%')
     expect(refreshed?.code).not.toContain('block-size: 100%')
+  })
+
+  it('dev CSS names its style module, and /__vane serves the live manifest', async () => {
+    const { root, server: devServer } = await serveFixtureCopy()
+
+    await devServer.transformRequest('/progress.style.ts')
+
+    // Provenance: the served stylesheet opens with its origin.
+    const served = await devServer.transformRequest(`${join(root, 'progress.style.ts')}.vane.css`)
+    expect(served?.code).toContain('progress.style.ts · vane-dux')
+
+    // The manifest endpoint reflects what dev has evaluated so far.
+    const httpServer = createHttpServer(devServer.middlewares)
+    await new Promise<void>(resolve => httpServer.listen(0, resolve))
+
+    try {
+      const { port } = httpServer.address() as AddressInfo
+      const manifest = await (await fetch(`http://localhost:${port}/__vane/manifest.json`)).json()
+
+      expect(manifest.version).toBe(1)
+      expect(Object.keys(manifest.ports)).toContain('progress.fraction')
+
+      const page = await (await fetch(`http://localhost:${port}/__vane/`)).text()
+      expect(page).toContain('<title>vane-dux</title>')
+    }
+    finally {
+      await new Promise(resolve => httpServer.close(resolve))
+    }
   })
 
   it('editing a bundled dependency hot-updates every style module built on it', async () => {

@@ -18,6 +18,7 @@ import { createVar } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { isColorValue, isContrastValue } from '../tokens/color'
 import { tokenKindOf } from '../tokens/graph'
@@ -64,6 +65,13 @@ export function createPort<TValue extends VanePortInput>(
   }
 
   const handle = createPortHandle(meta) as unknown as VanePort<TValue>
+
+  record({
+    kind: 'port',
+    file,
+    ...(options?.label === undefined ? {} : { label: options.label }),
+    meta,
+  })
 
   // Carry the handle across the build/app boundary so `restorePort` rebuilds it.
   addFunctionSerializer(handle as unknown as (...args: unknown[]) => unknown, {

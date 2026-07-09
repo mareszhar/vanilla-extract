@@ -1,0 +1,203 @@
+/**
+ * The DevTools view over the manifest ([dux-spec-vue.md §4]): a token browser
+ * (values per scheme, liveness, usage), the recipe/anatomy inspector, ports,
+ * conditions, and the escape inventory — served by the `/vite` plugin at
+ * `/__vane/` and embedded by the Nuxt module as a DevTools tab. One
+ * self-contained page, no build step: it reads `/__vane/manifest.json` and
+ * re-renders when the manifest changes.
+ */
+
+const PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vane-dux</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: light-dark(oklch(0.25 0.01 285), oklch(0.92 0.01 285));
+    --soft: light-dark(oklch(0.55 0.02 285), oklch(0.72 0.02 285));
+    --line: light-dark(oklch(0.92 0.005 285), oklch(0.28 0.01 285));
+    --card: light-dark(oklch(0.985 0.002 285), oklch(0.21 0.008 285));
+    --accent: oklch(0.58 0.2 285);
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0; padding: 1.25rem 1.5rem 3rem; color: var(--ink);
+    background: light-dark(#fff, oklch(0.17 0.006 285));
+    font: 400 0.875rem/1.5 system-ui, sans-serif;
+  }
+  h1 { font-size: 1rem; margin: 0; display: flex; align-items: baseline; gap: 0.6rem }
+  h1 small { color: var(--soft); font-weight: 400 }
+  h2 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--soft); margin: 2rem 0 0.5rem }
+  table { border-collapse: collapse; width: 100% }
+  th, td { text-align: left; padding: 0.3rem 0.75rem 0.3rem 0; border-bottom: 1px solid var(--line); vertical-align: baseline }
+  th { color: var(--soft); font-weight: 500; font-size: 0.75rem }
+  code, .mono { font-family: var(--mono); font-size: 0.8125rem }
+  .swatch { display: inline-block; inline-size: 0.85em; block-size: 0.85em; border-radius: 3px; border: 1px solid var(--line); vertical-align: -0.08em; margin-inline-end: 0.45em }
+  .badge { font: 500 0.6875rem/1 var(--mono); padding: 0.2em 0.5em; border-radius: 999px; border: 1px solid var(--line); color: var(--soft) }
+  .badge.live { color: var(--accent); border-color: color-mix(in oklab, var(--accent), transparent 55%) }
+  .dim { color: var(--soft) }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 0.75rem; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 0.1em 0.5em; margin: 0.1em 0.25em 0.1em 0 }
+  .file { color: var(--soft); font-size: 0.75rem; text-decoration: none; font-family: var(--mono) }
+  .file:hover { color: var(--accent); text-decoration: underline }
+  .empty { color: var(--soft); padding: 1.5rem 0; text-align: center }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.75rem }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0.75rem 0.9rem }
+  .card h3 { margin: 0 0 0.4rem; font-size: 0.875rem; display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem }
+  .card .axis { color: var(--soft); font-size: 0.75rem; margin-top: 0.35rem }
+  ul { margin: 0; padding: 0; list-style: none }
+  li { padding: 0.3rem 0; border-bottom: 1px solid var(--line) }
+  li .reason { color: var(--soft); font-style: italic }
+</style>
+</head>
+<body>
+<h1>vane-dux <small id="counts"></small></h1>
+<main id="app"><div class="empty">reading the manifest…</div></main>
+<script>
+const ROOT = __VANE_ROOT__
+let last = ''
+
+const esc = (text) => String(text).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+
+function fileLink(file) {
+  if (!file) return ''
+  const name = file.split('/').pop()
+  return '<a class="file" href="#" data-file="' + esc(file) + '">' + esc(name) + '</a>'
+}
+
+function swatch(value) {
+  return '<span class="swatch" style="background:' + esc(value) + '"></span>'
+}
+
+function isColorish(value) {
+  return /^(#|oklch|oklab|rgb|hsl|hwb|lab|lch|color\\(|light-dark|white$|black$)/.test(value)
+}
+
+function tokenRow(path, token) {
+  const paired = token.value.light !== token.value.dark
+  const value = paired
+    ? swatch(token.value.light) + '<span class="mono">' + esc(token.value.light) + '</span> <span class="dim">/</span> '
+      + swatch(token.value.dark) + '<span class="mono">' + esc(token.value.dark) + '</span>'
+    : (isColorish(token.value.light) ? swatch(token.value.light) : '') + '<span class="mono">' + esc(token.value.light) + '</span>'
+
+  return '<tr><td><code>' + esc(path) + '</code></td><td>' + value + '</td>'
+    + '<td><span class="badge' + (token.live ? ' live' : '') + '">' + (token.live ? 'live' : esc(token.mode)) + '</span></td>'
+    + '<td class="dim">' + token.usage + '</td>'
+    + '<td class="dim">' + esc(token.description ?? '') + (token.deprecated ? ' <em>deprecated: ' + esc(token.deprecated) + '</em>' : '') + '</td>'
+    + '<td>' + fileLink(token.file) + '</td></tr>'
+}
+
+function recipeCard(name, recipe) {
+  const axes = Object.entries(recipe.variants)
+    .map(([axis, values]) => '<div class="axis">' + esc(axis) + '</div>'
+      + values.map((v) => '<span class="chip">' + esc(v) + (recipe.defaults[axis] === v ? ' ✓' : '') + '</span>').join(''))
+    .join('')
+  const toggles = recipe.toggles.length
+    ? '<div class="axis">toggles</div>' + recipe.toggles.map((t) => '<span class="chip">' + esc(t) + '</span>').join('')
+    : ''
+  const parts = recipe.parts
+    ? '<div class="axis">parts</div>' + recipe.parts.map((p) => '<span class="chip">' + esc(p) + '</span>').join('')
+    : ''
+  const ports = Object.keys(recipe.ports).length
+    ? '<div class="axis">ports</div>' + Object.keys(recipe.ports).map((p) => '<span class="chip">' + esc(p) + '</span>').join('')
+    : ''
+
+  return '<div class="card"><h3><code>' + esc(name) + '</code>' + fileLink(recipe.file) + '</h3>'
+    + parts + axes + toggles + ports + '</div>'
+}
+
+function render(manifest) {
+  const tokens = Object.entries(manifest.tokens)
+  const recipes = Object.entries(manifest.recipes)
+  const ports = Object.entries(manifest.ports)
+
+  document.getElementById('counts').textContent
+    = tokens.length + ' tokens · ' + recipes.length + ' recipes · ' + ports.length + ' ports'
+
+  const sections = []
+
+  sections.push('<h2>Tokens</h2>')
+  sections.push(tokens.length
+    ? '<table><tr><th>token</th><th>value (light / dark)</th><th>mode</th><th>usage</th><th></th><th></th></tr>'
+      + tokens.map(([path, token]) => tokenRow(path, token)).join('') + '</table>'
+    : '<div class="empty">no tokens yet</div>')
+
+  if (recipes.length) {
+    sections.push('<h2>Recipes &amp; anatomies</h2><div class="cards">'
+      + recipes.map(([name, recipe]) => recipeCard(name, recipe)).join('') + '</div>')
+  }
+
+  if (ports.length) {
+    sections.push('<h2>Ports</h2><table><tr><th>port</th><th>type</th><th>default</th><th></th><th></th></tr>'
+      + ports.map(([name, port]) =>
+        '<tr><td><code>' + esc(name) + '</code></td><td><span class="badge">' + esc(port.type) + '</span></td>'
+        + '<td class="mono">' + esc(port.default) + (port.unit ? '<span class="dim">' + esc(port.unit) + '</span>' : '') + '</td>'
+        + '<td class="dim">' + esc(port.description ?? '') + '</td>'
+        + '<td>' + fileLink(port.file) + '</td></tr>').join('')
+      + '</table>')
+  }
+
+  const conditions = Object.entries(manifest.conditions)
+  if (conditions.length) {
+    sections.push('<h2>Conditions</h2><table>'
+      + conditions.map(([name, arm]) =>
+        '<tr><td style="width:12rem"><code>' + esc(name) + '</code></td><td class="mono dim">' + esc(arm) + '</td></tr>').join('')
+      + '</table>')
+    sections.push('<h2>Layers</h2><div>' + manifest.layers.map((l) => '<span class="chip">' + esc(l) + '</span>').join(' <span class="dim">→</span> ') + '</div>')
+  }
+
+  if (manifest.escapes.length) {
+    sections.push('<h2>Escape inventory</h2><ul>'
+      + manifest.escapes.map((escape) =>
+        '<li><span class="badge">' + esc(escape.form) + '</span> <span class="mono">' + esc(escape.detail) + '</span>'
+        + (escape.reason ? ' <span class="reason">— ' + esc(escape.reason) + '</span>' : '')
+        + ' ' + fileLink(escape.file) + '</li>').join('')
+      + '</ul>')
+  }
+
+  if (manifest.contrast.length) {
+    sections.push('<h2>Contrast</h2><table><tr><th>pairing</th><th>scheme</th><th>measured</th><th>min</th><th></th></tr>'
+      + manifest.contrast.map((entry) =>
+        '<tr><td><code>' + esc(entry.pairing) + '</code></td><td class="dim">' + esc(entry.scheme) + '</td>'
+        + '<td class="mono">' + entry.measured + '</td><td class="mono dim">' + entry.min + '</td>'
+        + '<td>' + (entry.accepted ? '<span class="badge">accepted</span>' : '<span class="badge live">✓</span>') + '</td></tr>').join('')
+      + '</table>')
+  }
+
+  document.getElementById('app').innerHTML = sections.join('')
+}
+
+document.addEventListener('click', (event) => {
+  const link = event.target.closest('[data-file]')
+  if (!link) return
+  event.preventDefault()
+  fetch('/__open-in-editor?file=' + encodeURIComponent(ROOT + '/' + link.dataset.file))
+})
+
+async function refresh() {
+  try {
+    const response = await fetch('/__vane/manifest.json')
+    const text = await response.text()
+    if (text !== last) {
+      last = text
+      render(JSON.parse(text))
+    }
+  }
+  catch {}
+}
+
+refresh()
+setInterval(refresh, 1500)
+</script>
+</body>
+</html>
+`
+
+/** The page, with the project root inlined so file links can open in the editor. */
+export function devtoolsPage(root: string): string {
+  return PAGE.replace('__VANE_ROOT__', JSON.stringify(root))
+}

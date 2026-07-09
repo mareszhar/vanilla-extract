@@ -173,7 +173,7 @@ The work, one spec per domain. This is the status view; each domain's contracts 
 | **Recipes** | variants that compress state: `recipe`, toggles, compound variants, and `anatomy` for multi-part components (parts, not "slots") | [dux-spec-recipes.md](./dux-spec-recipes.md) | ☑ |
 | **Vue + Nuxt** | `usePorts`, the Nuxt module, SSR/HMR polish, the SFC-feature mapping made typed | [dux-spec-vue.md](./dux-spec-vue.md) | ☑ |
 | **Preset** | the hospitable start: default tokens/conditions, `atoms`, a11y and motion helpers, layout patterns — all deletable | [dux-spec-preset.md](./dux-spec-preset.md) | ☑ |
-| **Introspection** | the system explains itself: debug names, the manifest, audits, agent context | [dux-spec-introspection.md](./dux-spec-introspection.md) | ☐ |
+| **Introspection** | the system explains itself: debug names, the manifest, audits, agent context | [dux-spec-introspection.md](./dux-spec-introspection.md) | ☑ |
 
 ---
 
@@ -241,7 +241,7 @@ Sequenced so each phase is independently useful and nothing depends on a surface
 | 5. Preset foundations | `presetTokens`, `presetConditions` — the quickstart becomes real | [preset](./dux-spec-preset.md) | ☑ |
 | 6. Vue + Nuxt | `usePorts`, `useAnatomy`, the Nuxt module, SSR/HMR polish, `demo-minimal` + the Prism demo app | [vue](./dux-spec-vue.md) | ☑ |
 | 7. Preset conveniences | `atoms`, a11y/motion helpers, patterns | [preset](./dux-spec-preset.md) | ☑ |
-| 8. Introspection | manifest, audits | [introspection](./dux-spec-introspection.md) | ☐ |
+| 8. Introspection | manifest, audits | [introspection](./dux-spec-introspection.md) | ☑ |
 | 9. Demo + lock | comparison sandbox complete, publish pipeline, gauntlet green | [workspace](./dux-workspace.md) | ☐ |
 
 Phase 1 validates the most novel bet first; phase 5 sits before the framework overlays because the on-ramp *is* a deliverable — gauntlet moment 12 must be real the day anyone can install this. The flagship demo for phase 6 is gauntlet moment 3 live: a user picks a brand color and the whole scheme follows, both modes, zero runtime JS beyond `applyTheme`.

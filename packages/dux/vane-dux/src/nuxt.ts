@@ -6,8 +6,9 @@
  * no zero-runtime system escapes. One component in an existing Nuxt app can
  * adopt vane-dux with this module and one `.style.ts` file — no migration.
  *
- * The Nuxt DevTools tab reads the manifest and lands with introspection
- * ([dux-spec-introspection.md]) — building it twice would violate DRY.
+ * The Nuxt DevTools tab is the `/vite` plugin's manifest view (`/__vane/`)
+ * embedded — one implementation serves plain Vite and Nuxt alike
+ * ([dux-spec-introspection.md §2]).
  */
 
 import type { Plugin, PluginOption } from 'vite'
@@ -75,6 +76,19 @@ export default defineNuxtModule<VaneNuxtOptions>({
       filename: 'vane-scheme.mjs',
       getContents: () => SCHEME_PLUGIN,
     })
+
+    // The DevTools tab: token browser, recipe/anatomy inspector, ports,
+    // escapes — the manifest view the /vite plugin serves in dev.
+    if (nuxt.options.dev) {
+      nuxt.hook('devtools:customTabs' as never, ((tabs: unknown[]) => {
+        tabs.push({
+          name: 'vane-dux',
+          title: 'vane-dux',
+          icon: 'i-carbon-color-palette',
+          view: { type: 'iframe', src: '/__vane/' },
+        })
+      }) as never)
+    }
   },
 })
 

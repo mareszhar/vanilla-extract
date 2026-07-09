@@ -8,6 +8,7 @@ import type { VaneSystemContext } from './css'
 import type { VaneGlobalCssFunction } from './types'
 import { VaneError } from '../diagnostics'
 import { checkSelector } from '../internal/cssParser'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { emitGlobal } from './emit'
 import { compileRule } from './rule'
@@ -26,10 +27,14 @@ export function bindGlobalCss(system: VaneSystemContext): VaneGlobalCssFunction<
       })
     }
 
-    emitGlobal(selector, compileRule(rule, {
+    const compiled = compileRule(rule, {
       ...system,
       defaultLayer: system.globalDefaultLayer,
       file,
-    }))
+    })
+
+    record({ kind: 'escape', form: 'globalCss', file, detail: selector, layer: compiled.layer })
+
+    emitGlobal(selector, compiled)
   }
 }

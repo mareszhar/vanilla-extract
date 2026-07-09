@@ -46,9 +46,16 @@ export type {
 export { didYouMean, VaneError } from './diagnostics'
 export type { VaneDiagnostic, VaneDiagnosticCode } from './diagnostics'
 
+// ─── Introspection: the audit config the system carries (phase 8) ────────────
+
+export type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from './internal/inspect'
+
 // ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
 
 export { ports } from './ports/ports'
+
+// ─── Recipes: variants, toggles, anatomy, published ports (phase 4) ──────────
+
 export type {
   VanePort,
   VanePortDefault,
@@ -62,7 +69,7 @@ export type {
   VanePortWiden,
 } from './ports/types'
 
-// ─── Recipes: variants, toggles, anatomy, published ports (phase 4) ──────────
+// ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
 
 export type {
   VaneAnatomy,
@@ -80,9 +87,6 @@ export type {
   VaneRecipeProps,
   VaneRecipeSelection,
 } from './recipes/types'
-
-// ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
-
 export { aria, container, data, media, schemeIs, supports } from './system/conditions'
 export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneConditionInput } from './system/conditions'
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'

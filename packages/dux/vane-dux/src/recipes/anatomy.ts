@@ -16,8 +16,9 @@ import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { emitOnto, emitStyle } from '../css/emit'
 import { isPlainObject, splitTopLevel } from '../css/rule'
 import { didYouMean, VaneError } from '../diagnostics'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
-import { checkPorts, checkSelection, compileArm, covers, debugName, finishBuild, mergeCompiled, startBuild } from './compile'
+import { checkPorts, checkSelection, compileArm, covers, debugName, finishBuild, mergeCompiled, recordVariantShape, startBuild } from './compile'
 import { createAnatomyHandle } from './handle'
 
 interface VaneAnatomyOptionsLoose {
@@ -178,6 +179,14 @@ export function bindAnatomy(system: VaneSystemContext) {
     }
 
     const handle = createAnatomyHandle(runtime)
+
+    record({
+      kind: 'anatomy',
+      file,
+      ...(debugId === undefined ? {} : { name: debugId }),
+      parts,
+      ...recordVariantShape(variants, toggles, defaults, ports),
+    })
 
     addFunctionSerializer(handle as unknown as (...args: unknown[]) => unknown, {
       importPath: '@mszr/vane-dux/runtime',

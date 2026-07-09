@@ -7,13 +7,16 @@
  */
 
 import type { VaneDiagnostic } from '../diagnostics'
+import type { VaneFlatNode } from '../internal/cssBlocks'
 import type { VaneSystemContext } from './css'
 import type { VaneRawValue } from './types'
 import { Buffer } from 'node:buffer'
 import { style } from '@vanilla-extract/css'
 import { Features, transform } from 'lightningcss'
 import { VaneError } from '../diagnostics'
+import { parseBlocks } from '../internal/cssBlocks'
 import { checkDeclaration } from '../internal/cssParser'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { emitGlobal } from './emit'
 import { serializeStyleValue } from './values'
@@ -26,11 +29,26 @@ export function bindRaw(system: VaneSystemContext): (strings: TemplateStringsArr
     const text = interpolate(strings, values, system, file)
     const className = style({})
     const flattened = flatten(text, file)
-    const nodes = parseBlocks(flattened, file)
+    const nodes = parseBlocks(flattened)
 
     emitNodes(nodes, className, system, file)
+
+    record({
+      kind: 'escape',
+      form: 'css.raw',
+      file,
+      detail: preview(text),
+      layer: system.defaultLayer,
+    })
+
     return className
   }
+}
+
+/** The block's first meaningful line, clipped — enough to find it in review. */
+function preview(text: string): string {
+  const line = text.split('\n').map(entry => entry.trim()).find(entry => entry.length > 0) ?? ''
+  return line.length > 72 ? `${line.slice(0, 71)}…` : line
 }
 
 function interpolate(strings: TemplateStringsArray, values: VaneRawValue[], system: VaneSystemContext, file: string): string {
@@ -65,63 +83,6 @@ function flatten(text: string, file: string): string {
   }
 }
 
-// ─── The flattened output, re-read ───────────────────────────────────────────
-
-type FlatNode
-  = | { kind: 'rule', selector: string, declarations: Array<[string, string]> }
-    | { kind: 'at', prelude: string, children: FlatNode[] }
-
-/** Parse lightningcss's own flat output — machine-generated, comment-free CSS. */
-function parseBlocks(css: string, file: string): FlatNode[] {
-  const nodes: FlatNode[] = []
-  let cursor = 0
-
-  while (cursor < css.length) {
-    const open = css.indexOf('{', cursor)
-
-    if (open === -1)
-      break
-
-    const prelude = css.slice(cursor, open).trim()
-    const close = matchBrace(css, open)
-    const body = css.slice(open + 1, close)
-    cursor = close + 1
-
-    if (prelude.startsWith('@')) {
-      nodes.push({ kind: 'at', prelude, children: parseBlocks(body, file) })
-    }
-    else {
-      nodes.push({
-        kind: 'rule',
-        selector: prelude,
-        declarations: body
-          .split(';')
-          .map(entry => entry.trim())
-          .filter(entry => entry.length > 0)
-          .map((entry) => {
-            const colon = entry.indexOf(':')
-            return [entry.slice(0, colon).trim(), entry.slice(colon + 1).trim()] as [string, string]
-          }),
-      })
-    }
-  }
-
-  return nodes
-}
-
-function matchBrace(css: string, open: number): number {
-  let depth = 0
-
-  for (let index = open; index < css.length; index++) {
-    if (css[index] === '{')
-      depth++
-    else if (css[index] === '}' && --depth === 0)
-      return index
-  }
-
-  return css.length
-}
-
 // ─── Emission ────────────────────────────────────────────────────────────────
 
 interface RawArm {
@@ -131,7 +92,7 @@ interface RawArm {
   startingStyle?: boolean
 }
 
-function emitNodes(nodes: FlatNode[], className: string, system: VaneSystemContext, file: string): void {
+function emitNodes(nodes: VaneFlatNode[], className: string, system: VaneSystemContext, file: string): void {
   const diagnostics: VaneDiagnostic[] = []
   walkNodes(nodes, {}, className, system, file, diagnostics)
 
@@ -139,7 +100,7 @@ function emitNodes(nodes: FlatNode[], className: string, system: VaneSystemConte
     throw new VaneError(diagnostics)
 }
 
-function walkNodes(nodes: FlatNode[], arm: RawArm, className: string, system: VaneSystemContext, file: string, diagnostics: VaneDiagnostic[]): void {
+function walkNodes(nodes: VaneFlatNode[], arm: RawArm, className: string, system: VaneSystemContext, file: string, diagnostics: VaneDiagnostic[]): void {
   for (const node of nodes) {
     if (node.kind === 'at') {
       const merged = mergeRawArm(arm, node.prelude, file, diagnostics)

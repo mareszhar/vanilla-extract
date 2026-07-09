@@ -1,5 +1,5 @@
-updated: 2026-07-06
-status: spec — contracts settled, implementation pending
+updated: 2026-07-09
+status: spec — contracts settled, implemented (phase 8)
 
 # vane-dux — spec: introspection
 
@@ -9,10 +9,10 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 
 | # | Contract | Status |
 | --- | --- | --- |
-| 1 | Provenance | ☐ |
-| 2 | The manifest | ☐ |
-| 3 | Audits | ☐ |
-| 4 | Agent context | manifest-first; generator deferred |
+| 1 | Provenance | ☑ |
+| 2 | The manifest | ☑ |
+| 3 | Audits | ☑ |
+| 4 | Agent context | ☑ manifest-first; generator deferred |
 
 ---
 
@@ -22,12 +22,12 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 
 **Contract details.**
 
-- Dev class names are stable and legible: `Button_root__h4x`, `Dialog_content--size-lg__h4x` — component, part, variant, then hash.
-- Emitted dev CSS carries source maps and origin comments; a devtools rule points to the `.style.ts` line.
-- Token attribution survives to dev output: a declaration produced by `t.space.md` says so (`/* ← t.space.md */`), so "why is this 16px" reads as *scale unit 4 × 4*.
+- Dev class names are stable and legible: `button__h4x`, `button_intent_ghost__h4x`, `dialog_content__h4x` — export name, then arm, then hash. The `/vite` debug-name transform injects the names from the declarations, so rename-symbol renames the emitted identifiers too.
+- A devtools rule leads to its source in one hop: dev CSS is served under a virtual file named for its style module (`…/AppButton.style.ts.vane.css`) and opens with an origin banner (`/* app/components/AppButton.style.ts · vane-dux */`).
+- Token attribution survives to dev output structurally: a token reference is never folded at its usage site, so a declaration decided by `t.space.md` reads `var(--vane-space-md)` in devtools — the name *is* the attribution, and the computed value sits beside it.
 - Production emits minified boring CSS — provenance is a dev-build artifact with zero shipped cost.
 
-**Proposed approach.** Debug identifiers ride the substrate's identifier machinery (`/vite` sets the debug-id mode); token attribution is emitted by the token proxy during evaluation.
+**Implementation.** Debug identifiers ride the substrate's identifier machinery (`/vite` sets the debug-id mode and injects declaration names); the origin banner is prepended when the dev server stores a virtual stylesheet. Line-level CSS source maps stay off the contract: the virtual-file name plus the class name already lands you in the right file at the right export, which is the navigation the moment actually needs.
 
 ---
 
@@ -35,32 +35,41 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 
 **Why.** Tokens, recipes, ports, and conditions are all data known at build; projecting them once into a machine-readable artifact gives agents, docs, and design tooling one query surface instead of grep.
 
-**Usage.** Built by `/vite` alongside the CSS (`.vane/manifest.json`), regenerated on change in dev.
+**Usage.** Built by `/vite` beside the CSS — `.vane/manifest.json`, regenerated (debounced) on change in dev, written once per build. Dev also serves it live at `/__vane/manifest.json`, and `/__vane/` renders it as the token/recipe/port browser the Nuxt module embeds as its DevTools tab ([dux-spec-vue.md §4](./dux-spec-vue.md#4-the-nuxt-module)).
 
 ```JSON
 {
+  "version": 1,
+  "layers": ["reset", "tokens", "recipes", "utilities", "overrides"],
+  "conditions": { "open": "&[data-state=\"open\"]", "md": "@media (min-width: 768px)" },
   "tokens": {
     "color.brand": {
-      "var": "--prism-color-brand",
+      "var": "--vane-color-brand",
       "value": { "light": "oklch(0.58 0.2 285)", "dark": "oklch(0.58 0.2 285)" },
+      "css": "oklch(0.58 0.2 285)",
+      "mode": "live",
       "live": true,
-      "description": "Primary brand hue. Marketing owns this.",
-      "usage": 41
+      "usage": 41,
+      "description": "Primary brand hue. Marketing owns this."
     }
   },
   "recipes": {
-    "button": { "variants": { "intent": ["brand", "ghost", "danger"], "size": ["sm", "md"] }, "toggles": ["pill"] }
+    "button": { "variants": { "intent": ["brand", "ghost"] }, "toggles": ["pill"], "defaults": { "intent": "brand" }, "ports": { "gap": "--vane-gap__h4x" } }
   },
   "ports": {
-    "Progress.fraction": { "type": "number", "default": 0 }
-  }
+    "Progress.fraction": { "var": "--vane-fraction__h4x", "type": "number", "default": 0 }
+  },
+  "escapes": [],
+  "contrast": []
 }
 ```
 
 **Contract details.**
 
-- Contents: every token (var name, per-scheme values, liveness, metadata, usage count), every recipe/anatomy (variant space, parts), every port (type, default, description), conditions, layers, and the escape inventory (§3).
-- The manifest is a **stable format** — versioned, documented, safe for external tools to build on. An MCP server over it is a deferred intention ([dux-vision.md §8](./dux-vision.md#8-deferred-intentions)).
+- Contents: every token (var name, per-scheme built values, emitted CSS value, mode/liveness, graph edges under `refs`, metadata, usage count — references in emitted CSS, graph-internal edges excluded), every recipe/anatomy (variant space, toggles, defaults, parts, published ports), every port (`Component.export` key, type, default, unit, description), conditions and layers, the escape inventory (§3), and every contrast result — passes and accepted thresholds alike.
+- The manifest is a **stable format** — versioned (`version: 1`, bumped only on breaking shape changes), typed (`VaneManifest` from `/vite`), safe for external tools to build on. An MCP server over it is a deferred intention ([dux-vision.md §8](./dux-vision.md#8-deferred-intentions)).
+
+**Implementation.** Build-time factories record what they define into an inspection channel (`internal/inspect.ts`, shared across module instances via `globalThis`); the plugin drains it per evaluation, replaces each file's records, and projects the whole store through `buildManifest` (exported from `/vite`).
 
 ---
 
@@ -70,13 +79,15 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 
 **Contract details.**
 
-- **Unused tokens:** defined, never referenced (module-graph + manifest usage counts). Fix-it: delete or mark `.deprecated()`.
-- **Near-duplicate values:** a raw value within a perceptual epsilon of an existing token (`#1f2937 appears 3×; t.color.gray800 is ΔE-identical — suggest`).
-- **Contrast findings:** the check results in one place, including consciously-accepted overrides ([dux-spec-tokens.md §5](./dux-spec-tokens.md#5-contrast-and-checks)).
-- **Escape inventory:** every `css.raw`, `unsafe.value(…, reason)`, third-party-targeting `globalCss`, and `overrides`-layer rule, with its reason and location — exceptional CSS made findable, reviewable, removable.
-- **Scale strays:** values outside a declared scale (z-index anarchy).
+- **Unused tokens:** defined, never referenced — not in the emitted CSS, and not (transitively) feeding a token that is. Deprecated tokens are exempt (deprecation *is* the fix-it). Fix-it: delete or mark `.deprecated()`.
+- **Near-duplicate values:** a raw color within a perceptual epsilon (ΔEok) of an existing token — `'#645cff' appears 3× as a raw value — t.color.brand is visually the same color`. Fix-it: use the token.
+- **Contrast findings:** the consciously-accepted `legibleOn` thresholds, surfaced per scheme so acceptance stays a decision ([dux-spec-tokens.md §5](./dux-spec-tokens.md#5-contrast-and-checks)); the full result set (passes included) lives in the manifest.
+- **Escape inventory:** every `css.raw`, `unsafe.value(…, reason)` with its reason, class/id-targeting `globalCss`, and `overrides`-layer rule, with its location — exceptional CSS made findable, reviewable, removable.
+- **Scale strays:** a literal value for a property the system already styles through tokens (z-index anarchy). Data-driven: a property lane only speaks when tokenized declarations dominate it, so a system that never tokenized a property is never lectured about it.
 
-Audits run as part of `pnpm run validate` and print grouped, deep-linked findings; none is a hard gate by default, and each can be promoted to one per system config.
+Audits run as part of `pnpm run validate` (`pnpm run audit`, which builds the fixture app through the real plugin and audits its manifest + CSS; point it at any Vite-rooted style app with `pnpm run audit -- <dir>`). Findings print grouped and deep-linked; none is a hard gate by default, and each lane can be promoted (or silenced) per system: `createSystem({ audit: { unusedTokens: 'error', escapes: 'off' } })` — the config rides the manifest, so any audit runner honors it.
+
+**Implementation.** `audit(manifest, css, config?)` and `formatAuditFindings` are exported from `/vite`; both operate on build artifacts only, so they run anywhere the manifest and CSS exist.
 
 ---
 

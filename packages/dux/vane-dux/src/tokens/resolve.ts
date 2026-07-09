@@ -114,6 +114,33 @@ export function containsContrast(expr: VaneColorExpr): boolean {
   }
 }
 
+/** Collect the token paths an expression references — the graph edges, for introspection. */
+export function collectRefs(expr: VaneColorExpr, into: Set<string>): void {
+  switch (expr.kind) {
+    case 'oklch':
+    case 'parse':
+    case 'elevation':
+      return
+    case 'ref':
+      into.add(expr.handle.path)
+      return
+    case 'alpha':
+    case 'adjust':
+      collectRefs(expr.input, into)
+      return
+    case 'mix':
+      collectRefs(expr.input, into)
+      collectRefs(expr.other, into)
+      return
+    case 'scheme':
+      collectRefs(expr.light, into)
+      collectRefs(expr.dark, into)
+      return
+    case 'contrast':
+      collectRefs(expr.target, into)
+  }
+}
+
 function containsRef(expr: VaneColorExpr): boolean {
   switch (expr.kind) {
     case 'oklch':

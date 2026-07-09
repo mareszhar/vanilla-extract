@@ -15,8 +15,9 @@ import type { VaneCompiled } from '../css/rule'
 import type { VaneRecipe, VaneRecipeRuntime } from './types'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { emitStyle } from '../css/emit'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
-import { checkPorts, checkSelection, compileArm, covers, debugName, finishBuild, mergeCompiled, startBuild } from './compile'
+import { checkPorts, checkSelection, compileArm, covers, debugName, finishBuild, mergeCompiled, recordVariantShape, startBuild } from './compile'
 import { createRecipeHandle } from './handle'
 
 interface VaneRecipeOptionsLoose {
@@ -122,6 +123,13 @@ export function bindRecipe(system: VaneSystemContext) {
     }
 
     const handle = createRecipeHandle(runtime)
+
+    record({
+      kind: 'recipe',
+      file,
+      ...(debugId === undefined ? {} : { name: debugId }),
+      ...recordVariantShape(variants, toggles, defaults, ports),
+    })
 
     addFunctionSerializer(handle as unknown as (...args: unknown[]) => unknown, {
       importPath: '@mszr/vane-dux/runtime',

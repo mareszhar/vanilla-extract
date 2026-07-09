@@ -9,6 +9,7 @@
 
 import type { VaneAtomsFactory } from '../atoms/types'
 import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
+import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
 import type { VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
@@ -20,13 +21,14 @@ import { bindCss } from '../css/css'
 import { bindGlobalCss } from '../css/global'
 import { bindFontFace, bindKeyframes } from '../css/keyframes'
 import { VaneError } from '../diagnostics'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
 import { defineTokens, graphOf } from '../tokens/graph'
 import { theme as standaloneTheme } from '../tokens/theme'
-import { baseConditions, normalizeConditions } from './conditions'
+import { baseConditions, describeConditions, normalizeConditions } from './conditions'
 
 export const VANE_DEFAULT_LAYERS = ['reset', 'tokens', 'recipes', 'utilities', 'overrides'] as const
 
@@ -62,6 +64,12 @@ export interface VaneSystemOptions<
   prefix?: P
   /** Opt out of the built-in base condition set. */
   baseConditions?: B
+  /**
+   * Per-audit promotion ([dux-spec-introspection.md §3]): every audit warns by
+   * default; `'error'` makes one a hard gate, `'off'` silences one. Declared
+   * on the system so the quality bar travels with the design system.
+   */
+  audit?: VaneAuditConfig
 }
 
 /** Inline graphs bind here; a `defineTokens` result passes through untouched. */
@@ -137,6 +145,15 @@ export function createSystem<
     globalDefaultLayer: layers.includes('reset') ? 'reset' : layers[0],
     elevation: graph.resolverConfig,
   }
+
+  record({
+    kind: 'system',
+    file,
+    prefix,
+    layers: [...layers],
+    conditions: describeConditions(conditions),
+    ...(options.audit === undefined ? {} : { audit: options.audit }),
+  })
 
   type Bound = VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]>
 

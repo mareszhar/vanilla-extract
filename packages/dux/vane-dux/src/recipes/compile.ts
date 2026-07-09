@@ -9,6 +9,7 @@
 import type { VaneSystemContext } from '../css/css'
 import type { VaneCompiled, VaneRuleContext } from '../css/rule'
 import type { VaneDiagnostic } from '../diagnostics'
+import type { VaneRecipeRecord } from '../internal/inspect'
 import type { VanePort } from '../ports/types'
 import { armKey, checkLayer, compileRule, isPlainObject } from '../css/rule'
 import { didYouMean, VaneError } from '../diagnostics'
@@ -240,4 +241,21 @@ export function mergeCompiled(into: VaneCompiled, from: VaneCompiled): VaneCompi
 /** Join a debug id with an arm suffix; without one, the suffix still names the arm. */
 export function debugName(debugId: string | undefined, ...suffix: string[]): string {
   return [debugId, ...suffix].filter(Boolean).join('_')
+}
+
+// ─── Introspection ───────────────────────────────────────────────────────────
+
+/** The variant-space shape a recipe or anatomy records for the manifest. */
+export function recordVariantShape(
+  variants: Record<string, Record<string, unknown>>,
+  toggles: Record<string, unknown>,
+  defaults: Record<string, string | boolean>,
+  ports: Record<string, VanePort>,
+): Pick<VaneRecipeRecord, 'variants' | 'toggles' | 'defaults' | 'ports'> {
+  return {
+    variants: Object.fromEntries(Object.entries(variants).map(([axis, values]) => [axis, Object.keys(values)])),
+    toggles: Object.keys(toggles),
+    defaults,
+    ports: Object.fromEntries(Object.entries(ports).map(([name, port]) => [name, port.name])),
+  }
 }

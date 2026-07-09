@@ -1,0 +1,45 @@
+/**
+ * The editor-DX plane for introspection: the audit config completes its lanes
+ * and rejects a typo at the offending key — the same feedback loop as every
+ * other surface ([dux-patterns.md §10]).
+ */
+
+import { cursor } from '@mszr/selenita'
+import { duxProject } from '@test'
+import { describe, expect, it } from 'vitest'
+
+const project = duxProject()
+
+const preamble = `
+import { createSystem } from '@mszr/vane-dux'
+`
+
+describe('the audit config', () => {
+  it('completes the audit lanes', () => {
+    const result = project.query`${preamble}
+      void createSystem({ tokens: {}, audit: { ${cursor} } })
+    `
+    expect(result.completions).toContainCompletions([
+      'unusedTokens',
+      'nearDuplicates',
+      'contrast',
+      'escapes',
+      'scaleStrays',
+    ])
+  })
+
+  it('completes the levels on a lane', () => {
+    const result = project.query`${preamble}
+      void createSystem({ tokens: {}, audit: { escapes: ${cursor} } })
+    `
+    expect(result.completions).toContainCompletions(['off', 'warn', 'error'])
+  })
+
+  it('a typo\'d lane dies at the offending key', () => {
+    const { errors } = project.check`${preamble}
+      void createSystem({ tokens: {}, audit: { unusedToken: 'error' } })
+    `
+    expect(errors).toHaveError(/unusedToken/)
+    expect(errors).toHaveErrorCount(1)
+  })
+})

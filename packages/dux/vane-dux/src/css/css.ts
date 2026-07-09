@@ -8,6 +8,7 @@
 import type { VaneConditionArm } from '../system/conditions'
 import type { VaneResolver } from '../tokens/resolve'
 import type { VaneCssFunction } from './types'
+import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { emitStyle } from './emit'
 import { bindRaw } from './raw'
@@ -27,7 +28,14 @@ export interface VaneSystemContext {
 export function bindCss(system: VaneSystemContext): VaneCssFunction<string, string> {
   const css = (rule: object, debugId?: string): string => {
     const file = requireStyleModule('css')
-    return emitStyle(compileRule(rule, { ...system, file }), debugId)
+    const compiled = compileRule(rule, { ...system, file })
+
+    // An overrides-layer style is a deliberate exception by convention
+    // ([dux-patterns.md §6/§8]) — inventoried, findable, removable.
+    if (compiled.layer === 'overrides')
+      record({ kind: 'escape', form: 'overrides', file, detail: debugId ?? 'css()', layer: compiled.layer })
+
+    return emitStyle(compiled, debugId)
   }
 
   css.raw = bindRaw(system)

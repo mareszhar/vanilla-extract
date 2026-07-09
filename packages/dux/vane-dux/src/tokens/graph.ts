@@ -19,11 +19,12 @@ import { getFileScope, hasFileScope } from '@vanilla-extract/css/fileScope'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { didYouMean, VaneError } from '../diagnostics'
 import { createHandle } from '../internal/handle'
+import { inspecting, record } from '../internal/inspect'
 import { TextContrastCheck } from './checks'
 import { handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
 import { kebab, tokenName } from './names'
-import { defaultElevationCurve, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
+import { collectRefs, defaultElevationCurve, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
 
 export const GRAPH = Symbol.for('vane.graph')
 const NODE = Symbol.for('vane.node')
@@ -140,7 +141,11 @@ export function defineTokens<const T extends object, Prefix extends string = 'va
 
   emitGraph({ prefix, nodes, results, resolverConfig, file })
 
-  Object.defineProperty(tree, GRAPH, { value: { prefix, nodes, results, resolverConfig, file } satisfies TokenGraph })
+  const resolved: TokenGraph = { prefix, nodes, results, resolverConfig, file }
+  Object.defineProperty(tree, GRAPH, { value: resolved })
+
+  if (inspecting())
+    recordGraph(resolved)
 
   return tree as VaneTokens<T, Prefix>
 }
@@ -460,6 +465,17 @@ function runChecks(checks: readonly unknown[], graph: TokenGraph): VaneDiagnosti
         ? Math.abs(apcaContrast(textColor, backgroundColor))
         : wcagContrast(textColor, backgroundColor)
 
+      record({
+        kind: 'contrast',
+        file: graph.file,
+        pairing: `${describeTarget(text)} on ${describeTarget(background)}`,
+        scheme,
+        algorithm,
+        measured: Math.round(measured * 10) / 10,
+        min,
+        accepted: false,
+      })
+
       if (measured < min) {
         diagnostics.push({
           code: 'VANE_TOKENS_CONTRAST',
@@ -504,6 +520,72 @@ function checkResolver(graph: TokenGraph, scheme: VaneScheme): VaneResolver {
   }
 
   return resolver
+}
+
+// ─── Introspection ───────────────────────────────────────────────────────────
+
+/**
+ * Record the resolved graph for the manifest ([dux-spec-introspection.md §2]):
+ * every token with its per-scheme built values and graph edges, plus the
+ * contrast results `legibleOn` pairings measured — passes and consciously-
+ * accepted thresholds included. Runs only under an open collector.
+ */
+function recordGraph(graph: TokenGraph): void {
+  const resolvers = { light: checkResolver(graph, 'light'), dark: checkResolver(graph, 'dark') } as const
+
+  const schemeValue = (node: TokenNode, scheme: VaneScheme): string => {
+    const definition = node.definition
+
+    if (definition.kind === 'literal')
+      return String(definition.value)
+
+    if (definition.kind === 'contrast')
+      return pickLegible(foldExpr(definition.expr.target, scheme, resolvers[scheme])).keyword
+
+    return formatOklch(foldExpr(definition.expr, scheme, resolvers[scheme]))
+  }
+
+  for (const node of graph.nodes.values()) {
+    const result = graph.results.get(node.key)!
+    const refs = new Set<string>()
+
+    if (node.definition.kind !== 'literal')
+      collectRefs(node.definition.expr, refs)
+
+    record({
+      kind: 'token',
+      file: graph.file,
+      path: node.key,
+      var: node.name,
+      mode: result.mode,
+      light: schemeValue(node, 'light'),
+      dark: schemeValue(node, 'dark'),
+      css: result.emitted,
+      ...(result.supportsUpgrade === undefined ? {} : { upgrade: result.supportsUpgrade }),
+      refs: [...refs],
+      ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
+      ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
+    })
+
+    if (node.definition.kind === 'contrast') {
+      const { expr } = node.definition
+
+      for (const scheme of ['light', 'dark'] as const) {
+        const pick = pickLegible(foldExpr(expr.target, scheme, resolvers[scheme]))
+
+        record({
+          kind: 'contrast',
+          file: graph.file,
+          pairing: node.key,
+          scheme,
+          algorithm: 'apca',
+          measured: Math.round(Math.abs(pick.lc) * 10) / 10,
+          min: expr.minLc,
+          accepted: expr.explicitMin,
+        })
+      }
+    }
+  }
 }
 
 // ─── Emission ────────────────────────────────────────────────────────────────
