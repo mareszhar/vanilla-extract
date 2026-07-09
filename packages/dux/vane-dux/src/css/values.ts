@@ -12,7 +12,7 @@ import type { VaneResolver } from '../tokens/resolve'
 import { VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
 import { isPort } from '../ports/port'
-import { ColorValue, ContrastValue } from '../tokens/color'
+import { isColorValue, isContrastValue } from '../tokens/color'
 import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
 
 export interface VaneValueContext {
@@ -40,14 +40,14 @@ export function serializeStyleValue(value: unknown, path: string, ctx: VaneValue
     })
   }
 
-  if (value instanceof ColorValue) {
+  if (isColorValue(value)) {
     if (containsContrast(value.expr))
       throw new VaneError(contrastDiagnostic(path, ctx))
 
     return serializeExpr(value.expr, valueResolver(path, ctx))
   }
 
-  if (value instanceof ContrastValue)
+  if (isContrastValue(value))
     throw new VaneError(contrastDiagnostic(path, ctx))
 
   throw new VaneError({

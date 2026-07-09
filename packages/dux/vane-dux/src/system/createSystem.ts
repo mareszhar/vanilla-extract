@@ -7,12 +7,15 @@
  * condition set is already there. The happy path is one file, one call.
  */
 
+import type { VaneAtomsFactory } from '../atoms/types'
 import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
 import type { VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
+import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
+import { bindAtoms } from '../atoms/atoms'
 import { bindCss } from '../css/css'
 import { bindGlobalCss } from '../css/global'
 import { bindFontFace, bindKeyframes } from '../css/keyframes'
@@ -84,6 +87,8 @@ export interface VaneSystem<T, C extends string, L extends string> {
   readonly anatomy: VaneAnatomyFactory<C, L>
   /** The typed runtime boundary: declare a port with a default, typed by it. */
   readonly port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) => VanePort<VanePortWiden<TValue>>
+  /** The strict utility lane, defined over your token map ([dux-spec-preset.md §3]). */
+  readonly defineAtoms: VaneAtomsFactory<C, L>
 }
 
 export function createSystem<
@@ -137,14 +142,32 @@ export function createSystem<
 
   return {
     t: tokens as Bound['t'],
-    css: bindCss(system) as Bound['css'],
-    keyframes: bindKeyframes(system),
-    fontFace: bindFontFace(),
-    globalCss: bindGlobalCss(system) as Bound['globalCss'],
-    theme: (overrides, debugId) => standaloneTheme(tokens, overrides, debugId),
-    recipe: bindRecipe(system) as Bound['recipe'],
-    anatomy: bindAnatomy(system) as Bound['anatomy'],
-    port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
-      createPort(defaultValue, options, { prefix, elevation: graph.resolverConfig }) as unknown as VanePort<VanePortWiden<TValue>>,
+    css: buildPlane('css', bindCss(system) as Bound['css']),
+    keyframes: buildPlane('keyframes', bindKeyframes(system)),
+    fontFace: buildPlane('fontFace', bindFontFace()),
+    globalCss: buildPlane('globalCss', bindGlobalCss(system) as Bound['globalCss']),
+    theme: buildPlane('theme', (overrides, debugId) => standaloneTheme(tokens, overrides, debugId)),
+    recipe: buildPlane('recipe', bindRecipe(system) as Bound['recipe']),
+    anatomy: buildPlane('anatomy', bindAnatomy(system) as Bound['anatomy']),
+    port: buildPlane('port', <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
+      createPort(defaultValue, options, { prefix, elevation: graph.resolverConfig }) as unknown as VanePort<VanePortWiden<TValue>>),
+    defineAtoms: buildPlane('defineAtoms', bindAtoms(system) as Bound['defineAtoms']),
   }
+}
+
+/**
+ * Let a bound authoring function cross the build/app boundary as a stub:
+ * importing the system module from app code is legal and useful (`t` for
+ * `applyTheme`, published classes), so the build-plane functions beside those
+ * exports serialize into throwing stubs instead of poisoning the module
+ * ([dux-patterns.md §1] — app code never executes styling work at runtime).
+ */
+function buildPlane<F>(name: string, fn: F): F {
+  addFunctionSerializer(fn as Parameters<typeof addFunctionSerializer>[0], {
+    importPath: '@mszr/vane-dux/runtime',
+    importName: 'restoreBuildPlane',
+    args: [{ name }],
+  })
+
+  return fn
 }

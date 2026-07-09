@@ -1,4 +1,4 @@
-updated: 2026-07-07
+updated: 2026-07-09
 status: settled law — referenced by every spec; changes here ripple everywhere
 
 # vane-dux — language
@@ -69,7 +69,7 @@ The words of CSS itself keep their platform meanings: property names are csstype
 
 ## 2. Values vs types
 
-- **Values are unprefixed:** `defineTokens`, `createSystem`, `css`, `recipe`, `anatomy`, `port`, `keyframes`, `globalCss`, `theme`, `applyTheme`, `setScheme`, `usePorts`, `useAnatomy`. The package specifier already namespaces them; a userland clash is one `import { css as vaneCss }` away.
+- **Values are unprefixed:** `defineTokens`, `createSystem`, `css`, `recipe`, `anatomy`, `port`, `keyframes`, `globalCss`, `theme`, `defineAtoms`, `applyTheme`, `setScheme`, `propsOf`, `usePorts`, `useAnatomy`. The package specifier already namespaces them; a userland clash is one `import { css as vaneCss }` away.
 - **Types are `Vane`-prefixed and domain-scoped.** Root nouns may stand alone (`VaneSystem`, `VaneTokens`); supporting types read `Vane<Domain><Thing>` (`VaneStyleRule`, `VaneRecipeProps`, `VanePortValue`). The everyday utility is `VaneProps<typeof button>` — the inferred variant props of a recipe or anatomy.
 - **A standard name stays standard; a name we coin is chosen for precision.** csstype property names, CSS at-rule spellings, and platform terms pass through untouched.
 
@@ -119,7 +119,10 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | `port(default, options?)` | VE `createVar` + `assignInlineVars`; Vue `v-bind()` in CSS; rainbow-sprinkles' inline vars | one typed primitive unifying four mechanisms; typed by its default, named by its export — never a repeated string |
 | `fraction.set(v)` / `ports(…)` | `assignInlineVars({ [x]: v })` | a typed setter returning a style fragment — no string-keyed object literals |
 | `usePorts(fn)` | Vue `useCssVars` (internal) | the reactive binding for ports; a `computed()` around a style object, SSR-safe |
-| `useAnatomy(anatomy, props)` | — (new) | the one composable the no-wrapper rule bends for: a reactive, typed record of part classes ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy)) |
+| `useAnatomy(anatomy, props)` | — (new) | the one composable the no-wrapper rule bends for: a reactive, typed record of part classes ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)) |
+| `propsOf(recipe)` | CVA `VariantProps` + hand-restated `defineProps` | the variant space *is* the props declaration — Vue's SFC compiler can't infer a call's types, so the runtime handle supplies them ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)) |
+| `defineAtoms({ properties, … })` | sprinkles `defineProperties`/`createSprinkles` | one call, system-bound like `recipe`; conditions declared per map keep output bounded |
+| `presetTokens` / `presetConditions` / `presetAtoms` | Tailwind's default theme; Panda presets | the furnished room with receipts: plain data you spread, override, or delete |
 | `'root:open'` part-scoped condition | raw `'[data-state="open"] &'` | a part styled by another part's state, typed over parts × conditions |
 | `hover` / `active` / `hoverFocus` conditions | Panda `_hover` (secretly `:hover, [data-hover]`) | a condition never claims less than it does: `hover` is `:hover`, `active` is `:active`; the affordance pair is named `hoverFocus` |
 | `` [`${button} + &`] `` interpolation | Vue `:deep(.child)` | boundary-crossing as typed class references in the module graph, not string incantations — and visibly a selector, because it is one |

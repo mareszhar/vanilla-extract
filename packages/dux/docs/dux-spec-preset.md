@@ -1,5 +1,5 @@
-updated: 2026-07-07
-status: spec — contracts settled, implementation pending
+updated: 2026-07-09
+status: spec — contracts settled, implemented (phases 5 + 7)
 
 # vane-dux — spec: preset
 
@@ -11,12 +11,12 @@ The preset's law: **opinions live where they're deletable.** Everything here con
 
 | # | Contract | Phase | Status |
 | --- | --- | --- | --- |
-| 1 | Preset tokens | 5 | ☐ |
-| 2 | Preset conditions | 5 | ☐ |
-| 3 | `atoms` | 7 | ☐ |
-| 4 | A11y helpers | 7 | ☐ |
-| 5 | Motion opinions | 7 | ☐ |
-| 6 | Layout patterns | 7 | ☐ |
+| 1 | Preset tokens | 5 | ☑ |
+| 2 | Preset conditions | 5 | ☑ |
+| 3 | `atoms` | 7 | ☑ (the engine is core, bound on the system; the preset ships the default map) |
+| 4 | A11y helpers | 7 | ☑ (the outline-removal *check* lands with the audits, phase 8) |
+| 5 | Motion opinions | 7 | ☑ |
+| 6 | Layout patterns | 7 | ☑ |
 
 ---
 
@@ -71,7 +71,7 @@ The interaction and preference basics (`hover`, `hoverFocus`, `active`, `focusVi
 
 ## 3. `atoms`
 
-**Why.** The strict utility lane: for styling where a recipe is overkill, and the inline-ish sugar that softens the sibling-file cost. Backed by the token map, so it's fast *and* consistent — and dynamic values ride through ports, so CSS output scales with conditions, never with values (the rainbow-sprinkles model, made a core pattern).
+**Why.** The strict utility lane: for styling where a recipe is overkill, and the inline-ish sugar that softens the sibling-file cost. Backed by the token map, so it's fast *and* consistent — and output stays bounded by construction: one class per property value per declared condition, so CSS cost scales with the declaration, never with call sites.
 
 **Usage.**
 
@@ -84,6 +84,7 @@ The interaction and preference basics (`hover`, `hoverFocus`, `active`, `focusVi
 ```
 
 ```TS
+// design/atoms.style.ts — `defineAtoms` comes off the system, like `recipe`
 export const atoms = defineAtoms({
   properties: {
     display: ['none', 'flex', 'grid', 'inline-flex'],
@@ -97,15 +98,16 @@ export const atoms = defineAtoms({
     stack: { display: 'flex', flexDirection: 'column' },
     center: { display: 'grid', placeItems: 'center' },
   },
+  conditions: ['sm', 'md', 'lg'],
 })
 ```
 
 **Contract details.**
 
-- Token keys autocomplete; values outside the map are rejected at the key — *unless* passed through the labeled escape (`unsafe.value('37ch', 'editorial measure')`), which flows through a port and surfaces in the audit.
-- Responsive/conditional maps use the same condition grammar as everything else (principle 5).
-- Static combinations pre-generate bounded CSS; arbitrary values write port vars inline — output cost is predictable by construction.
-- `defineAtoms` is public core-consuming machinery: teams define their own maps; the preset ships a tasteful default instance.
+- Token keys autocomplete; values outside the map are rejected at the key — *unless* passed through the labeled escape (`unsafe.value('37ch', 'editorial measure')`), which surfaces in the audit.
+- Responsive/conditional maps use the same condition grammar as everything else (principle 5), over the conditions the atoms *declare* — declaring them is what keeps pre-generation bounded, and none are declared by default (principle 10).
+- The labeled escape emits its rule at build time, memoized and labeled (style modules are where the compiler is listening); one reaching a *runtime* call gets the lane redirect — runtime data crosses through a port ([dux-patterns.md §4]).
+- `defineAtoms` is bound on the system beside `recipe` and `anatomy` — learn one surface, know the rest, and the condition grammar flows in typed. (The serialization machinery that carries the resolver across the build/app wall is substrate territory, which is why the engine is core, not preset.) The preset ships the tasteful default *map*: `defineAtoms(presetAtoms(t))`, over the preset token shape — spacing, colors, radii, shadows, z order, the breakpoint lane, and the `stack`/`center` toggles.
 
 ---
 
@@ -122,7 +124,7 @@ export const input = css({
 })
 ```
 
-**Contract details.** `focusRing()` (token-driven, `:focus-visible`-scoped), `visuallyHidden()`, `minTarget(px)`, `forcedColors()` mappings to system colors. Each is a plain declaration fragment — spreadable, overridable, deletable. The companion *check*: removing `outline` in an interactive style without a `focusVisible` replacement is a build warning with `focusRing()` as the fix-it.
+**Contract details.** `focusRing()` (token-driven, `:focus-visible`-scoped), `visuallyHidden()`, `minTarget(px)`. Each is a plain declaration fragment — spreadable, overridable, deletable. Forced-colors styling needs no helper: `forcedColors` is already a preset condition, one bare key away — a wrapper would carry nothing (principle 10). The companion *check* — removing `outline` in an interactive style without a `focusVisible` replacement warns with `focusRing()` as the fix-it — lands with the audits ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)).
 
 ---
 
@@ -132,8 +134,9 @@ export const input = css({
 
 **Contract details.**
 
-- Preset motion tokens: durations, easing curves (including a spring-approximation `linear()` easing), and named keyframe fragments (`fade`, `slideUp`, `scaleIn`).
-- Under the preset, `animation`/`transition` declarations in preset-derived helpers are `motionOk`-guarded by default; `.always()` is the explicit opt-out for motion that must run (e.g. a loading spinner).
+- Preset motion tokens ship in `presetTokens` (§1): durations and easing curves, including a spring-approximation `linear()` easing (`t.ease.spring`), computed from the physics rather than hardcoded.
+- Named keyframe fragments (`fade`, `slideUp`, `scaleIn`) feed the system's `keyframes()`: `const fadeIn = keyframes(fade)`.
+- `animate('…')` and `transition('…')` return `motionOk`-guarded fragments — `css({ ...animate(\`${fadeIn} 200ms ease-out\`) })`; `animate.always('…')`/`transition.always('…')` is the explicit opt-out for motion that must run (e.g. a loading spinner).
 - Core `css()` is never silently rewritten — the guard is a preset-helper opinion, not a compiler mutation (principle 10).
 
 ---
@@ -142,4 +145,4 @@ export const input = css({
 
 **Why.** The recurring compositional layouts have names; giving them typed, token-fed implementations removes a whole class of flexbox re-derivation.
 
-**Contract details.** `stack`, `inline`, `cluster`, `center`, `sidebar`, `switcher`, `frame`, `reel` — each a parameterized recipe over preset tokens (`stack({ gap: 'md', align: 'start' })`), returning ordinary classes. Documented with their CSS so they teach, not obscure.
+**Contract details.** `stack`, `inline`, `cluster`, `center`, `sidebar`, `switcher`, `frame`, `reel` — each a parameterized style over the space scale (`stack({ gap: 'md', align: 'start' })`), returning ordinary, memoized classes. Bound once beside the system — `export const { stack, sidebar } = definePatterns({ css, t })` — and called in style modules, where the compiler is listening. Gaps are typed by `t.space`'s keys. Documented with their CSS so they teach, not obscure.

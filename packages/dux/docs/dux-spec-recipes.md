@@ -1,4 +1,4 @@
-updated: 2026-07-08
+updated: 2026-07-09
 status: spec — contracts settled, implemented (phase 4)
 
 # vane-dux — spec: recipes
@@ -185,10 +185,10 @@ d.content // → class string per part; d is a typed record keyed by part
 
 ```vue
 <script setup lang="ts">
+import { propsOf } from '@mszr/vane-dux/vue'
 import { button } from './Button.style'
-import type { VaneProps } from '@mszr/vane-dux'
 
-const props = defineProps<VaneProps<typeof button> & { disabled?: boolean }>()
+const props = defineProps({ ...propsOf(button), disabled: Boolean })
 </script>
 
 <template>
@@ -203,8 +203,9 @@ const props = defineProps<VaneProps<typeof button> & { disabled?: boolean }>()
 - **A wider props object just works.** `button(props)` accepts any object assignable to the variant props; unknown keys are ignored at runtime (resolution reads only declared variants and toggles). No `pick`, no wrapper, no per-component stripping — ever.
 - **Literals stay strict.** `button({ intnet: 'brand' })` is a red squiggle: TypeScript's excess-property checks fire on object literals, so inline typos die at the cursor while spread props flow through. The two behaviors are the same type, used as designed.
 - **Values are always checked.** A declared variant key with an undeclared value (`intent: 'brnd'`) is a type error wherever the object is typed; arriving through an untyped edge it warns once in dev — naming the valid set — and resolves as the default, so a wrong prop never half-styles a component silently.
-- `VaneProps<typeof button>` hovers as the plain optional object (`{ intent?: 'brand' | 'ghost' | 'danger'; size?: 'sm' | 'md'; pill?: boolean }`) — readable public types, no internals wall.
-- **Anatomy in Vue: `useAnatomy`.** An anatomy call returns a record, and the tempting `const d = dialog(props)` in `<script setup>` silently loses reactivity. The `/vue` overlay ships the blessed one-liner — a typed `computed` that keeps part classes reactive and template-clean ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy)):
+- `VaneProps<typeof button>` hovers as the plain optional object (`{ intent?: 'brand' | 'ghost' | 'danger'; size?: 'sm' | 'md'; pill?: boolean }`) — readable public types, no internals wall. It indexes the handle's `props` carrier (`readonly props: TProps`, runtime value the empty selection) rather than a conditional type, so the definition every tool reads is one Vue's SFC compiler could follow too.
+- **In SFCs, `propsOf` declares the props.** Vue's SFC compiler resolves types syntactically and cannot infer a `recipe()` call's instantiation, so the typed macro can't reach the variant space — but the runtime handle carries it, and `defineProps({ ...propsOf(button), disabled: Boolean })` projects it into a Vue props declaration with literal-union types and native boolean casting for toggles ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)).
+- **Anatomy in Vue: `useAnatomy`.** An anatomy call returns a record, and the tempting `const d = dialog(props)` in `<script setup>` silently loses reactivity. The `/vue` overlay ships the blessed one-liner — a typed `computed` that keeps part classes reactive and template-clean ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)):
 
   ```vue
   <script setup lang="ts">

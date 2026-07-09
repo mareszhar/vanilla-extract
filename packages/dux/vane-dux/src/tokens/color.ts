@@ -35,13 +35,21 @@ export interface VaneValueMeta {
   deprecated?: string
 }
 
+// Brand symbols instead of `instanceof`, exactly like `isHandle`/`isPort`:
+// entry bundles may each carry their own copy of these classes (the preset
+// creates values the index classifies), and `Symbol.for` survives copies.
+const COLOR_VALUE = Symbol.for('vane.colorValue')
+const CONTRAST_VALUE = Symbol.for('vane.contrastValue')
+
 // ─── Color values ────────────────────────────────────────────────────────────
 
 export class ColorValue {
   readonly meta: VaneValueMeta = {}
   markedLive = false
 
-  constructor(readonly expr: VaneColorExpr) {}
+  constructor(readonly expr: VaneColorExpr) {
+    Object.defineProperty(this, COLOR_VALUE, { value: true })
+  }
 
   live(): ColorValue {
     this.markedLive = true
@@ -90,7 +98,9 @@ export class ColorValue {
 export class ContrastValue {
   readonly meta: VaneValueMeta = {}
 
-  constructor(readonly expr: Extract<VaneColorExpr, { kind: 'contrast' }>) {}
+  constructor(readonly expr: Extract<VaneColorExpr, { kind: 'contrast' }>) {
+    Object.defineProperty(this, CONTRAST_VALUE, { value: true })
+  }
 
   describe(text: string): ContrastValue {
     this.meta.description = text
@@ -104,16 +114,16 @@ export class ContrastValue {
 }
 
 export function isColorValue(value: unknown): value is ColorValue {
-  return value instanceof ColorValue
+  return typeof value === 'object' && value !== null && COLOR_VALUE in value
 }
 
 export function isContrastValue(value: unknown): value is ContrastValue {
-  return value instanceof ContrastValue
+  return typeof value === 'object' && value !== null && CONTRAST_VALUE in value
 }
 
 /** A colorish input, normalized to an expression: values unwrap, handles become graph edges, strings parse. */
 export function toExpr(color: VaneColorish | ColorValue | ContrastValue): VaneColorExpr {
-  if (color instanceof ColorValue || color instanceof ContrastValue)
+  if (isColorValue(color) || isContrastValue(color))
     return color.expr
 
   if (isHandle(color))

@@ -1,38 +1,26 @@
 /**
- * The opinionated layer — deletable by design ([dux-spec-preset.md]). Phase 5
- * makes these real; the shapes already compose with `createSystem` so the
- * quickstart file parses today. Base conditions (hover, motionOk, dark, …)
- * ship in the system itself; the preset adds the opinions: breakpoints,
- * container sizes, headless states.
+ * The opinionated layer — deletable by design ([dux-spec-preset.md]). The
+ * preset's law: opinions live where they're deletable. Everything here
+ * consumes only the public core surface — replace any piece (or all of it)
+ * with your own, and the core never knows the difference.
  */
 
-import type { VaneConditionInput } from './index'
-import { data, media } from './index'
+// The conveniences (phase 7): the default atoms map, a11y, motion, patterns.
+export { focusRing, minTarget, visuallyHidden } from './preset/a11y'
+export type { VaneFocusRingOptions } from './preset/a11y'
+export { presetAtoms } from './preset/atoms'
+// The foundations (phase 5): the quickstart's tokens and conditions.
+export { presetConditions } from './preset/conditions'
 
-export interface VanePresetTokenOptions {
-  brand?: string
-}
-
-export function presetTokens(options: VanePresetTokenOptions = {}) {
-  return {
-    color: {
-      brand: options.brand ?? '#635bff',
-    },
-  } as const
-}
-
-export function presetConditions(): Record<'sm' | 'md' | 'lg' | 'xl' | 'open' | 'closed' | 'checked', VaneConditionInput> {
-  return {
-    sm: media('(min-width: 40rem)'),
-    md: media('(min-width: 48rem)'),
-    lg: media('(min-width: 64rem)'),
-    xl: media('(min-width: 80rem)'),
-    open: data('state', 'open'),
-    closed: data('state', 'closed'),
-    checked: data('state', 'checked'),
-  }
-}
-
-export function atoms(): never {
-  throw new Error('atoms is specified but not implemented yet; see phase 7 in docs/dux-vision.md.')
-}
+export type { VanePresetConditionName } from './preset/conditions'
+export { animate, fade, scaleIn, slideUp, transition } from './preset/motion'
+export { definePatterns } from './preset/patterns'
+export type { VanePatterns, VanePatternsConfig } from './preset/patterns'
+export { presetTokens } from './preset/tokens'
+export type {
+  VanePresetBrandInput,
+  VanePresetContrast,
+  VanePresetDensity,
+  VanePresetRadius,
+  VanePresetTokensOptions,
+} from './preset/tokens'

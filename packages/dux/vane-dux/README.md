@@ -52,10 +52,10 @@ export const button = recipe({
 ```vue
 <!-- components/AppButton.vue -->
 <script setup lang="ts">
+import { propsOf } from '@mszr/vane-dux/vue'
 import { button } from './AppButton.style'
-import type { VaneProps } from '@mszr/vane-dux'
 
-const props = defineProps<VaneProps<typeof button> & { disabled?: boolean }>()
+const props = defineProps({ ...propsOf(button), disabled: Boolean })
 </script>
 
 <template>
@@ -65,7 +65,7 @@ const props = defineProps<VaneProps<typeof button> & { disabled?: boolean }>()
 </template>
 ```
 
-That's it. `button(props)` takes your component's whole props object — unknown keys are ignored, inline typos still die at the cursor, and `VaneProps` means your prop types can never drift from your variants. Everything below is reachable from here by *adding* keys, never by restructuring: hand-rolled tokens, cascade layers, your own conditions, whole custom presets.
+That's it. `propsOf` projects the recipe's variant space straight into the props declaration — one source of truth, so your props can never drift from your variants, and toggles get native boolean casting (`<AppButton pill>` just works). `button(props)` takes your component's whole props object: unknown keys are ignored, inline typos still die at the cursor. Everything below is reachable from here by *adding* keys, never by restructuring: hand-rolled tokens, cascade layers, your own conditions, whole custom presets.
 
 ## Highlights
 
@@ -105,12 +105,12 @@ One package, a framework-agnostic core, thin overlays on top.
 
 | Entrypoint | What it is |
 | --- | --- |
-| `@mszr/vane-dux` | `createSystem` → `t`, `css`, `recipe`, `anatomy`, `keyframes`, `globalCss`, `port`, `theme`; `defineTokens` for standalone token graphs |
+| `@mszr/vane-dux` | `createSystem` → `t`, `css`, `recipe`, `anatomy`, `keyframes`, `globalCss`, `port`, `theme`, `defineAtoms`; `defineTokens` for standalone token graphs |
 | `@mszr/vane-dux/runtime` | the ~300-byte live plane: `applyTheme`, `setScheme`, port helpers |
 | `@mszr/vane-dux/vite` | the Vite plugin: evaluates `*.style.ts`, emits CSS + the manifest |
-| `@mszr/vane-dux/vue` | `usePorts`, `useAnatomy` |
+| `@mszr/vane-dux/vue` | `propsOf`, `usePorts`, `useAnatomy` |
 | `@mszr/vane-dux/nuxt` | the Nuxt module: auto-imports (style files included), SSR polish, DevTools |
-| `@mszr/vane-dux/preset` | the deletable opinions: `presetTokens`, `presetConditions`, `atoms`, a11y + motion helpers, layout patterns |
+| `@mszr/vane-dux/preset` | the deletable opinions: `presetTokens`, `presetConditions`, `presetAtoms`, a11y + motion helpers, layout patterns |
 
 ## Going further
 
@@ -165,6 +165,18 @@ const fillStyle = usePorts(() => [fraction.set(props.value / 100)])
   </div>
 </template>
 ```
+
+## Coming from SFC styles
+
+Vue's scoped-style machinery is a set of workarounds for CSS-the-global-language. A compiled, module-scoped model doesn't reimplement the workarounds — it removes the problems they work around. Each habit's home:
+
+| SFC feature | Compensates for | In vane-dux |
+| --- | --- | --- |
+| `scoped` + `[data-v-x]` | the global namespace | dissolved — every class is hashed; scoping is automatic and cheaper (no attribute selectors) |
+| `:deep(.child)` | piercing the scope wall to theme children | **ports** for values; typed class interpolation for structure |
+| `:slotted()` | parent markup in child scope | non-issue — you style what you hold a class reference to; slotted markup already carries the parent's classes |
+| `:global()` | escaping the scope wall | `globalCss()` / the `overrides` layer |
+| `v-bind(expr)` in CSS | reactive values in static styles | **ports** + `usePorts` |
 
 ## The one hard contract
 

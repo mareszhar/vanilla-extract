@@ -11,7 +11,7 @@ import type { VaneThemeOverrides } from './types'
 import { style } from '@vanilla-extract/css'
 import { didYouMean, VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
-import { ColorValue, ContrastValue } from './color'
+import { isColorValue, isContrastValue } from './color'
 import { graphOf, resolveGraph } from './graph'
 
 export function theme<T extends object>(tokens: T, overrides: VaneThemeOverrides<T>, debugId?: string): string {
@@ -74,7 +74,7 @@ function collectOverrides(
       continue
     }
 
-    if (typeof value !== 'object' || value === null || value instanceof ColorValue || value instanceof ContrastValue) {
+    if (typeof value !== 'object' || value === null || isColorValue(value) || isContrastValue(value)) {
       throw new VaneError({
         code: 'VANE_TOKENS_INVALID_OVERRIDE',
         message: `${keyPath.join('.')} is a token group — override its tokens individually`,
@@ -88,10 +88,10 @@ function collectOverrides(
 }
 
 function toOverride(value: unknown, key: string, file: string | undefined): VaneOverride {
-  if (value instanceof ContrastValue)
+  if (isContrastValue(value))
     return { kind: 'contrast', expr: value.expr }
 
-  if (value instanceof ColorValue)
+  if (isColorValue(value))
     return { kind: 'color', expr: value.expr, markedLive: value.markedLive }
 
   if (typeof value === 'string' || typeof value === 'number')

@@ -75,6 +75,8 @@ function matches(when: Record<string, string | boolean>, selected: Record<string
 /** The metadata every handle publishes beside its resolver. */
 function describe(runtime: VaneRecipeRuntime | VaneAnatomyRuntime): object {
   return {
+    // The `props` type carrier's runtime value: the empty selection.
+    props: Object.freeze({}),
     variants: Object.fromEntries(
       Object.entries(runtime.variants).map(([axis, values]) => [axis, Object.keys(values)]),
     ),

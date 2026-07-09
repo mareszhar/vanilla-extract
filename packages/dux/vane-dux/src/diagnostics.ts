@@ -25,6 +25,8 @@ export type VaneDiagnosticCode
     | 'VANE_RECIPE_UNKNOWN_VALUE'
     | 'VANE_ANATOMY_UNKNOWN_PART'
     | 'VANE_ANATOMY_INVALID_CONDITION'
+    | 'VANE_ATOMS_UNKNOWN_CONDITION'
+    | 'VANE_ATOMS_KEY_COLLISION'
     | 'VANE_VITE_PLUGIN_MISSING'
 
 export interface VaneDiagnostic {

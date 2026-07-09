@@ -4,15 +4,18 @@
  * ([dux-patterns.md §1]).
  */
 
+import type { VaneAtoms, VaneAtomsRuntime } from './atoms/types'
 import type { VaneRuntimeHandle } from './internal/handle'
 import type { VanePort, VanePortMeta } from './ports/types'
 import type { VaneAnatomy, VaneAnatomyRuntime, VaneRecipe, VaneRecipeRuntime } from './recipes/types'
 import type { VaneLiveOverrides } from './tokens/types'
+import { createAtomsHandle } from './atoms/handle'
 import { createHandle, isHandle } from './internal/handle'
 import { createPortHandle } from './ports/handle'
 import { ports } from './ports/ports'
 import { createAnatomyHandle, createRecipeHandle } from './recipes/handle'
 
+export type { VaneAtomsRuntime } from './atoms/types'
 export type { VaneLiveOverrides }
 export type { VanePort, VanePortMeta, VanePortStyle, VanePortValue } from './ports/types'
 export type { VaneAnatomyRuntime, VaneRecipeRuntime } from './recipes/types'
@@ -119,4 +122,28 @@ export function restoreRecipe(runtime: VaneRecipeRuntime): VaneRecipe<Record<str
  */
 export function restoreAnatomy(runtime: VaneAnatomyRuntime): VaneAnatomy<string, Record<string, unknown>> {
   return createAnatomyHandle(runtime)
+}
+
+/**
+ * Restores an atoms handle from its serialized class tables. Runtime calls
+ * resolve among the precompiled classes; an unsafe value gets the ports-lane
+ * redirect. Generated import target — not for hand-written code.
+ */
+export function restoreAtoms(runtime: VaneAtomsRuntime): VaneAtoms<Record<string, unknown>> {
+  return createAtomsHandle(runtime)
+}
+
+/**
+ * Restores a build-plane authoring function as a throwing stub, so importing a
+ * system style module from app code stays legal (`t`, theme classes) while
+ * calling `css`/`recipe`/`port` there fails with the lane redirect instead of
+ * silently doing nothing. Generated import target — not for hand-written code.
+ */
+export function restoreBuildPlane(meta: { name: string }): () => never {
+  return () => {
+    throw new Error(
+      `[vane] ${meta.name} is build-plane — it runs inside *.style.ts modules the compiler evaluates. `
+      + `App code receives its results (classes, tokens, ports), never the function.`,
+    )
+  }
 }

@@ -20,7 +20,7 @@ import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { didYouMean, VaneError } from '../diagnostics'
 import { createHandle } from '../internal/handle'
 import { TextContrastCheck } from './checks'
-import { ColorValue, ContrastValue, handleColorMethods, toExpr } from './color'
+import { handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
 import { kebab, tokenName } from './names'
 import { defaultElevationCurve, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
@@ -175,7 +175,7 @@ function walk(
 
 function isGroup(value: unknown): value is object {
   return typeof value === 'object' && value !== null
-    && !(value instanceof ColorValue) && !(value instanceof ContrastValue)
+    && !isColorValue(value) && !isContrastValue(value)
 }
 
 /**
@@ -222,7 +222,7 @@ function createNode(path: string[], prefix: string, raw: unknown): TokenNode {
     derived: typeof raw === 'function',
     // Derivations classify after they run; `literal` is a safe placeholder.
     definition: typeof raw === 'function' ? { kind: 'literal', value: '' } : classifyLeafValue(raw, key),
-    meta: raw instanceof ColorValue || raw instanceof ContrastValue ? raw.meta : {},
+    meta: isColorValue(raw) || isContrastValue(raw) ? raw.meta : {},
   }
 
   Object.defineProperty(handle, NODE, { value: node })
@@ -234,10 +234,10 @@ function createNode(path: string[], prefix: string, raw: unknown): TokenNode {
 }
 
 function classifyLeafValue(raw: unknown, key: string): VaneLeafDefinition {
-  if (raw instanceof ContrastValue)
+  if (isContrastValue(raw))
     return { kind: 'contrast', expr: raw.expr }
 
-  if (raw instanceof ColorValue)
+  if (isColorValue(raw))
     return { kind: 'color', expr: raw.expr, markedLive: raw.markedLive }
 
   if (typeof raw === 'string' || typeof raw === 'number')
@@ -255,7 +255,7 @@ function classifyLeaf(result: unknown, node: TokenNode): VaneLeafDefinition {
   if (typeof result === 'function' && nodeOf(result as VaneRuntimeHandle))
     return { kind: 'color', expr: { kind: 'ref', handle: result as VaneRuntimeHandle }, markedLive: false }
 
-  if (result instanceof ColorValue || result instanceof ContrastValue)
+  if (isColorValue(result) || isContrastValue(result))
     node.meta = { ...result.meta, ...node.meta }
 
   return classifyLeafValue(result, node.key)

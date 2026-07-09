@@ -19,7 +19,7 @@ import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
 import { requireStyleModule } from '../internal/styleModule'
-import { ColorValue, ContrastValue } from '../tokens/color'
+import { isColorValue, isContrastValue } from '../tokens/color'
 import { tokenKindOf } from '../tokens/graph'
 import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
 import { createPortHandle, isPort } from './handle'
@@ -84,7 +84,7 @@ function inferKind(defaultValue: VanePortInput): VanePortKind {
   if (isHandle(defaultValue))
     return tokenKindOf(defaultValue) === 'value' ? 'string' : 'color'
 
-  if (defaultValue instanceof ColorValue)
+  if (isColorValue(defaultValue))
     return 'color'
 
   return typeof defaultValue === 'number' ? 'number' : 'string'
@@ -100,7 +100,7 @@ function toMetaDefault(value: VanePortInput, ctx: VanePortContext, file: string)
   if (isPort(value) || isHandle(value))
     return value.var
 
-  if (value instanceof ContrastValue || (value instanceof ColorValue && containsContrast(value.expr))) {
+  if (isContrastValue(value) || (isColorValue(value) && containsContrast(value.expr))) {
     throw new VaneError({
       code: 'VANE_PORT_INVALID_DEFAULT',
       message: 'a port default uses legibleOn, which is graph knowledge — the check needs both endpoints at build time',
@@ -109,7 +109,7 @@ function toMetaDefault(value: VanePortInput, ctx: VanePortContext, file: string)
     })
   }
 
-  if (value instanceof ColorValue)
+  if (isColorValue(value))
     return serializeExpr(value.expr, portResolver(ctx, file))
 
   if (typeof value === 'string' || typeof value === 'number')

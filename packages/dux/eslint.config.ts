@@ -61,6 +61,7 @@ export default antfu(
     files: [
       'vane-dux/src/index.ts',
       'vane-dux/src/diagnostics.ts',
+      'vane-dux/src/atoms/**',
       'vane-dux/src/tokens/**',
       'vane-dux/src/system/**',
       'vane-dux/src/css/**',
@@ -121,15 +122,20 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/preset.ts'],
+    files: ['vane-dux/src/preset.ts', 'vane-dux/src/preset/**'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
           './runtime',
+          '../runtime',
           './vite',
+          '../vite',
           './vue',
+          '../vue',
           './nuxt',
+          '../nuxt',
           './internal/**',
+          '../internal/**',
           ...substrateImports,
         ],
       }],

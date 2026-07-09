@@ -96,6 +96,13 @@ export interface VaneRecipe<
 > {
   /** Props in, classes out — unknown keys ignored, defaults fill the gaps ([dux-spec-recipes.md §4]). */
   (props?: TProps): string
+  /**
+   * The inferred call-site props, carried as a member so Vue's SFC compiler
+   * can resolve them: `defineProps<(typeof button)['props'] & …>()`. The
+   * runtime value is the empty selection (`{}`) — a legitimate inhabitant of
+   * the all-optional props type, so the type stays honest.
+   */
+  readonly props: TProps
   /** The typed variant map: axis → declared values, for prop forwarding and docs. */
   readonly variants: TVariants
   readonly toggles: readonly TToggle[]
@@ -117,10 +124,15 @@ export interface VaneRecipeFactory<C extends string, L extends string> {
   ): VaneRecipe<VaneRecipeProps<V, G>, VaneVariantValues<V>, keyof G & string, P>
 }
 
-/** The everyday utility: the inferred variant props of a recipe or anatomy. */
-export type VaneProps<T> = T extends (props?: infer P) => string | Record<string, string>
-  ? NonNullable<P>
-  : never
+/**
+ * The everyday utility: the inferred variant props of a recipe or anatomy.
+ * Indexed off the handle's `props` carrier — deliberately not a conditional
+ * type, so the definition every tool reads is the same one Vue's SFC compiler
+ * can follow. Inside `defineProps`, spell it `(typeof button)['props']` —
+ * compiler-sfc resolves indexed access over `typeof`, but not (yet) generic
+ * type aliases; the two forms are one type.
+ */
+export type VaneProps<T extends { props: object }> = T['props']
 
 // ─── Anatomy options ─────────────────────────────────────────────────────────
 
@@ -185,6 +197,8 @@ export interface VaneAnatomy<
   TPorts extends VanePortsInput = VaneNoInput,
 > {
   (props?: TProps): Record<TPart, string>
+  /** The inferred call-site props — the same carrier a recipe publishes. */
+  readonly props: TProps
   /** Part → its stable class, for typed cross-file references. */
   readonly parts: Readonly<Record<TPart, string>>
   readonly variants: TVariants

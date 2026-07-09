@@ -13,7 +13,7 @@ import { cp, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { applyDebugNames, vaneDuxPlugin } from '@mszr/vane-dux/vite'
+import { applyDebugNames, styleExportNames, vaneDuxPlugin } from '@mszr/vane-dux/vite'
 import { build, createServer } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -98,6 +98,14 @@ describe('the vite build', () => {
     expect(bundle.button()).toMatch(/^button__[\w-]+ button_intent_brand__[\w-]+$/)
     expect(bundle.button.variants).toEqual({ intent: ['brand', 'ghost'] })
     expect(Object.keys(bundle.themedPadding)[0]).toMatch(/^--vane-paddingX__[\w-]+$/)
+  })
+
+  it('restored atoms resolve at runtime from their precompiled tables', async () => {
+    const { js } = await buildFixture()
+    const bundle = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`)
+
+    expect(bundle.stackedGap).toMatch(/^atoms_stack__[\w-]+ atoms_gap_sm__[\w-]+$/)
+    expect(bundle.atoms({ gap: 'sm' })).toMatch(/^atoms_gap_sm__[\w-]+$/)
   })
 })
 
@@ -195,6 +203,55 @@ describe('hmr', () => {
     await devServer.transformRequest('/progress.style.ts')
     const refreshed = await devServer.transformRequest(`${join(root, 'system.style.ts')}.vane.css`)
     expect(refreshed?.code).toContain('#ff0000')
+  })
+})
+
+describe('auto-imports', () => {
+  it('styleExportNames reads every export form', () => {
+    const source = `
+      import { createSystem } from '@mszr/vane-dux'
+      export const { t, css, recipe: makeRecipe } = createSystem({ tokens: {} })
+      export const brand = '#635bff'
+      export function helper() {}
+      const local = 1
+      export { local, local as alias }
+      export type { VaneProps } from '@mszr/vane-dux'
+    `
+
+    expect(styleExportNames(source).sort())
+      .toEqual(['alias', 'brand', 'css', 'helper', 'local', 'makeRecipe', 't'])
+  })
+
+  it('an unbound css/t in a style module resolves to the configured system', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-auto-')))
+    await cp(local('./test-support/vite-app/system.style.ts'), join(root, 'system.style.ts'))
+    await writeFile(join(root, 'package.json'), '{ "name": "vane-auto-fixture", "type": "module" }')
+    // No imports at all — `css` and `t` arrive through the auto-import shim.
+    await writeFile(join(root, 'card.style.ts'), 'export const card = css({ padding: t.space.sm })\n')
+    await writeFile(join(root, 'entry.ts'), 'export { card } from \'./card.style\'\n')
+
+    const result = await build({
+      configFile: false,
+      logLevel: 'silent',
+      root,
+      plugins: [vaneDuxPlugin({
+        identifiers: 'debug',
+        autoImports: { from: join(root, 'system.style.ts') },
+      })],
+      resolve: { alias: aliases },
+      build: {
+        write: false,
+        minify: false,
+        lib: { entry: join(root, 'entry.ts'), formats: ['es'], fileName: 'entry' },
+      },
+    })
+
+    const { output } = (Array.isArray(result) ? result[0] : result) as Rollup.RollupOutput
+    const asset = output.find(item => item.type === 'asset' && item.fileName.endsWith('.css'))
+    const css = asset?.type === 'asset' ? String(asset.source) : ''
+
+    expect(css).toMatch(/\.card__[\w-]+ \{/)
+    expect(css).toContain('padding: var(--vane-space-sm)')
   })
 })
 

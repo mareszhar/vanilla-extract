@@ -3,6 +3,21 @@
 
 // ─── CSS authoring: the style-rule types (phase 2) ───────────────────────────
 
+export { unsafe } from './atoms/handle'
+
+// ─── Atoms: the strict utility lane (phase 7) ────────────────────────────────
+
+export type {
+  VaneAtomInput,
+  VaneAtomKey,
+  VaneAtoms,
+  VaneAtomsFactory,
+  VaneAtomsOptions,
+  VaneAtomsProps,
+  VaneAtomValue,
+  VaneAtomValues,
+  VaneUnsafeValue,
+} from './atoms/types'
 export type {
   VaneAtRules,
   VaneCssFunction,

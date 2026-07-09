@@ -1,5 +1,5 @@
-updated: 2026-07-08
-status: spec — contracts settled, implementation pending
+updated: 2026-07-09
+status: spec — contracts settled, implemented (phase 6; the DevTools tab lands with introspection)
 
 # vane-dux — spec: vue + nuxt
 
@@ -9,12 +9,12 @@ The framework overlays: where the delight investment goes, because Vue has never
 
 | # | Contract | Status |
 | --- | --- | --- |
-| 1 | `usePorts` | ☐ |
-| 2 | `useAnatomy` | ☐ |
-| 3 | The SFC mapping | ☐ |
-| 4 | The Nuxt module | ☐ |
-| 5 | SSR and HMR | ☐ |
-| 6 | Colocation stance | ☐ |
+| 1 | `usePorts` | ☑ |
+| 2 | `useAnatomy` and `propsOf` | ☑ |
+| 3 | The SFC mapping | ☑ |
+| 4 | The Nuxt module | ☑ (the DevTools tab reads the manifest and lands with introspection) |
+| 5 | SSR and HMR | ☑ |
+| 6 | Colocation stance | ☑ |
 
 ---
 
@@ -51,7 +51,7 @@ const fillStyle = usePorts(() => [
 
 ---
 
-## 2. `useAnatomy`
+## 2. `useAnatomy` and `propsOf`
 
 **Why.** An anatomy call returns a record of part classes, and Vue's reactivity has a trap waiting there: `const d = dialog(props)` in `<script setup>` computes once and silently stops tracking. The correct `computed(() => dialog(props))` works but is the kind of pattern every first-timer discovers via a confused bug. This is the one place the "a typed function needs no wrapper" rule bends — because here the wrapper carries reactivity, not ceremony.
 
@@ -59,11 +59,10 @@ const fillStyle = usePorts(() => [
 
 ```vue
 <script setup lang="ts">
-import { useAnatomy } from '@mszr/vane-dux/vue'
+import { propsOf, useAnatomy } from '@mszr/vane-dux/vue'
 import { dialog } from './Dialog.style'
-import type { VaneProps } from '@mszr/vane-dux'
 
-const props = defineProps<VaneProps<typeof dialog>>()
+const props = defineProps(propsOf(dialog))
 const d = useAnatomy(dialog, props)
 </script>
 
@@ -80,9 +79,10 @@ const d = useAnatomy(dialog, props)
 
 **Contract details.**
 
-- Accepts the reactive props object directly (props are reactive) or a getter (`useAnatomy(dialog, () => ({ size: props.size }))`); returns a reactive, typed record of part classes — `d.content` in the template, no `.value`, no repeated calls.
+- Accepts the reactive props object directly (props are reactive), a getter (`useAnatomy(dialog, () => ({ size: props.size }))`), or nothing — the defaults resolve; returns a reactive, typed record of part classes — `d.content` in the template, no `.value`, no repeated calls.
 - The call-site law applies unchanged: a wider props object flows through; unknown keys are ignored ([dux-spec-recipes.md §4](./dux-spec-recipes.md#4-the-call-site-props-in-classes-out)).
 - Single-class recipes stay wrapper-free: `:class="button(props)"` inline is already reactive, and no `useRecipe` exists (principle 10 — a wrapper must carry something, and there it would carry nothing).
+- **`propsOf` is the component-props bridge.** It projects a recipe's or anatomy's variant space into a Vue runtime props declaration — `defineProps({ ...propsOf(button), disabled: Boolean })` — so component props can never drift from the variants, and toggles get native boolean casting (`<AppButton pill>` just works). The runtime form exists because Vue's SFC compiler resolves types *syntactically*: it cannot infer a `recipe()` call's instantiation, so a typed `defineProps<VaneProps<…>>` macro is structurally out of its reach — while the variant space sits right on the handle at runtime. In plain `.ts` code, `VaneProps<typeof button>` remains the typed utility ([dux-spec-recipes.md §4](./dux-spec-recipes.md#4-the-call-site-props-in-classes-out)).
 
 ---
 
@@ -97,8 +97,9 @@ const d = useAnatomy(dialog, props)
 | `:slotted()` | parent markup in child scope | non-issue — you style what you hold a class reference to; slotted markup already carries the parent's classes |
 | `:global()` | escaping the scope wall | `globalCss()` / the `overrides` layer |
 | `v-bind(expr)` in CSS | reactive values in static styles | **ports** + `usePorts` |
+| typed `defineProps` for style props | restating variant unions by hand | **`propsOf`** — the recipe's variant space *is* the props declaration |
 
-**Contract details.** This table ships in the package docs verbatim; the demo app exercises every row. Recipes bind through plain functions — import the recipe and call it, no wrapper needed; `useAnatomy` ([§2](#2-useanatomy)) is the sole composable beyond `usePorts`, and it exists for reactivity, not style.
+**Contract details.** This table ships in the package docs verbatim; the demo app exercises every row. Recipes bind through plain functions — import the recipe and call it, no wrapper needed; `useAnatomy` ([§2](#2-useanatomy-and-propsof)) is the sole composable beyond `usePorts`, and it exists for reactivity, not style.
 
 ---
 
@@ -120,9 +121,10 @@ export default defineNuxtConfig({
 
 **Contract details.**
 
-- Wires the `/vite` plugin; auto-imports the system's bound functions and `t` per config; registers the manifest emission.
-- **Auto-imports reach `*.style.ts` too.** The two-imports-per-style-file tax (`css` + `t`) is exactly where auto-imports matter most, so the module extends them into evaluated style modules, not just app code. Plain-Vite users get the same via a documented unimport recipe; the explicit imports always remain valid (and are what library code ships with).
-- Nuxt DevTools tab: token browser (values per scheme, usage counts), recipe/anatomy inspector, click-a-node → jump to the `.style.ts` source ([dux-spec-introspection.md](./dux-spec-introspection.md)).
+- Wires the `/vite` plugin; auto-imports the system's exported bound functions and `t` (detected from the configured file), plus `propsOf`/`usePorts`/`useAnatomy` and the runtime helpers (`applyTheme`, `setScheme`, `ports`); manifest emission registers here when introspection lands.
+- **Auto-imports reach `*.style.ts` too.** The two-imports-per-style-file tax (`css` + `t`) is exactly where auto-imports matter most, so the module extends them into evaluated style modules, not just app code — an esbuild `inject` shim resolves unbound identifiers to the system module, explicit imports stay untouched, and files the system itself imports are skipped (a file upstream of the system cannot use its bindings). Plain-Vite users pass the same thing as the `/vite` plugin's `autoImports` option; the explicit imports always remain valid (and are what library code ships with).
+- **Importing the system module from app code is legal.** `t` and theme classes cross the boundary as data; the bound authoring functions cross as build-plane stubs that throw the lane redirect if called — never a poisoned module, never a silent no-op.
+- Nuxt DevTools tab: token browser (values per scheme, usage counts), recipe/anatomy inspector, click-a-node → jump to the `.style.ts` source — reads the manifest, so it lands with introspection ([dux-spec-introspection.md](./dux-spec-introspection.md)).
 - Adoption slope contract: one component in an existing Nuxt app can adopt vane-dux with the module + one `.style.ts` file — no migration, no global buy-in.
 
 ---
@@ -135,7 +137,7 @@ export default defineNuxtConfig({
 
 - **HMR:** editing a `.style.ts` hot-swaps the emitted CSS without a full reload or component state loss. The mechanics live in the `/vite` plugin (landed with phase 4): stable virtual CSS ids swap the style tag in place, style modules self-accept, an edit to a bundled dependency (a token file) hot-updates every style module built on it, and only an export-shape change costs a full reload. This phase locks the contract end-to-end in the Nuxt demos — a regression here is a release blocker.
 - **SSR:** static styles ship as stylesheets; port values as inline style; no FOUC, no hydration style mismatch, no per-request collection.
-- **Scheme flash:** SSR of a user-forced scheme uses the documented cookie + `data-scheme` recipe shipped with the module ([dux-spec-tokens.md §3](./dux-spec-tokens.md#3-schemes)) — the standard dance no zero-runtime system escapes, shipped rather than left to users.
+- **Scheme flash:** SSR of a user-forced scheme uses the cookie + `data-scheme` recipe shipped with the module as a plugin ([dux-spec-tokens.md §3](./dux-spec-tokens.md#3-schemes)): the `vane-scheme` cookie is the state, the `html` attribute follows it reactively, and toggling is one line — `useCookie('vane-scheme').value = 'dark'` (clear it to follow the OS preference). The standard dance no zero-runtime system escapes, shipped rather than left to users.
 
 ---
 

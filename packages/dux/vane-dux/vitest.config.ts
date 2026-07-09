@@ -14,6 +14,8 @@ export default defineConfig({
       '@mszr/vane-dux/runtime': local('./src/runtime.ts'),
       '@mszr/vane-dux/preset': local('./src/preset.ts'),
       '@mszr/vane-dux/vite': local('./src/vite.ts'),
+      '@mszr/vane-dux/vue': local('./src/vue.ts'),
+      '@mszr/vane-dux/nuxt': local('./src/nuxt.ts'),
       '@mszr/vane-dux': local('./src/index.ts'),
     },
   },

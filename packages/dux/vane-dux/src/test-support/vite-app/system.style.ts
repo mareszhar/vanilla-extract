@@ -2,9 +2,14 @@
 
 import { createSystem } from '@mszr/vane-dux'
 
-export const { css, port, recipe, t } = createSystem({
+export const { css, defineAtoms, port, recipe, t } = createSystem({
   tokens: {
     color: { brand: '#635bff', surface: '#f4f4f6' },
     space: { sm: '8px' },
   },
+})
+
+export const atoms = defineAtoms({
+  properties: { gap: t.space },
+  toggles: { stack: { display: 'flex', flexDirection: 'column' } },
 })

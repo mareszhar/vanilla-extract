@@ -42,8 +42,9 @@
 
 import type { Adapter } from '@vanilla-extract/css'
 import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from 'vite'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 import { removeAdapter, setAdapter } from '@vanilla-extract/css/adapter'
 import { transformCss } from '@vanilla-extract/css/transformCss'
 import {
@@ -60,11 +61,25 @@ import { build as esbuild } from 'esbuild'
 export type VaneIdentifierMode = 'debug' | 'short'
 export type VaneCompilerMode = 'transform' | 'emitCss' | 'inlineCssInDev'
 
+export interface VaneAutoImports {
+  /** The module the names come from — an absolute path to the system style module. */
+  from: string
+  /** The exported names to auto-import; detected from the file when omitted. */
+  names?: readonly string[]
+}
+
 export interface VaneViteOptions {
   /** Emitted class/variable naming; defaults to `debug` in dev, `short` in production. */
   identifiers?: VaneIdentifierMode
   /** Forwarded to the composed vanilla-extract plugin — `*.css.ts` coexistence only. */
   unstableMode?: VaneCompilerMode
+  /**
+   * Auto-import the system's bound functions inside evaluated style modules
+   * ([dux-spec-vue.md §4]): an unbound `css` or `t` resolves to the system
+   * module; explicit imports stay untouched and always remain valid. The Nuxt
+   * module wires this from its `system` option; plain-Vite users pass it here.
+   */
+  autoImports?: VaneAutoImports
 }
 
 /** `*.style.ts` (and variants) — vane-dux's authoring file extension. */
@@ -89,6 +104,61 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
 
   const identOption = () =>
     options.identifiers ?? (config.mode === 'production' ? 'short' : 'debug')
+
+  /** The auto-import shim's last written content, so unchanged runs skip the write. */
+  let shimContent: string | undefined
+  /** The system module's own source and import graph — files upstream of the system never get the shim. */
+  let systemSource: string | undefined
+  let systemDeps = new Set<string>()
+
+  /**
+   * Resolve the auto-import inject shim ([dux-spec-vue.md §4]): a one-line
+   * module re-exporting the system's names, handed to esbuild's `inject` so
+   * unbound identifiers resolve to the system while explicit imports stay
+   * untouched. Re-detected per transform, so a new system export is picked up
+   * by the next save. The system module and everything it imports are skipped:
+   * a file upstream of the system cannot use the system's bindings — injecting
+   * there would only manufacture a cycle.
+   */
+  const injectShimFor = async (filePath: string): Promise<string | undefined> => {
+    const autoImports = options.autoImports
+
+    if (!autoImports)
+      return undefined
+
+    const from = normalizePath(isAbsolute(autoImports.from) ? autoImports.from : join(config.root, autoImports.from))
+    const source = await readFile(from, 'utf-8')
+
+    if (source !== systemSource) {
+      const { watchFiles } = await bundleStyleModule({
+        filePath: from,
+        root: config.root,
+        alias: viteAliasToEsbuild(config),
+      })
+
+      systemSource = source
+      systemDeps = new Set([from, ...watchFiles.map(normalizePath)])
+    }
+
+    if (systemDeps.has(filePath))
+      return undefined
+
+    const names = autoImports.names ?? styleExportNames(source)
+
+    if (names.length === 0)
+      return undefined
+
+    const shim = join(config.root, 'node_modules', '.vane-dux', 'auto-imports.mjs')
+    const content = `export { ${names.join(', ')} } from '${from}'\n`
+
+    if (content !== shimContent) {
+      await mkdir(dirname(shim), { recursive: true })
+      await writeFile(shim, content)
+      shimContent = content
+    }
+
+    return shim
+  }
 
   const styleTsPlugin: Plugin = {
     name: 'vane-dux-style-ts',
@@ -115,6 +185,7 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
         filePath,
         root,
         alias: viteAliasToEsbuild(config),
+        inject: await injectShimFor(filePath),
       })
 
       for (const file of watchFiles) {
@@ -225,6 +296,8 @@ interface BundleStyleModuleParams {
   filePath: string
   root: string
   alias: Record<string, string>
+  /** The auto-import shim module, if the system option is configured. */
+  inject?: string
 }
 
 /**
@@ -234,7 +307,7 @@ interface BundleStyleModuleParams {
  * the css adapter instance with this plugin. vane-dux itself is bundled in —
  * it ships ESM-only, and the evaluation sandbox is CommonJS.
  */
-async function bundleStyleModule({ filePath, root, alias }: BundleStyleModuleParams): Promise<{
+async function bundleStyleModule({ filePath, root, alias, inject }: BundleStyleModuleParams): Promise<{
   source: string
   watchFiles: string[]
 }> {
@@ -249,6 +322,7 @@ async function bundleStyleModule({ filePath, root, alias }: BundleStyleModulePar
     write: false,
     absWorkingDir: root,
     alias,
+    inject: inject === undefined ? [] : [inject],
     plugins: [
       {
         name: 'vane-dux-substrate-externals',
@@ -263,7 +337,6 @@ async function bundleStyleModule({ filePath, root, alias }: BundleStyleModulePar
         name: 'vane-dux-filescope',
         setup(build) {
           build.onLoad({ filter: /\.style\.(js|cjs|mjs|jsx|ts|tsx)$/ }, async ({ path }) => {
-            const { readFile } = await import('node:fs/promises')
             const original = await readFile(path, 'utf-8')
 
             const source = addFileScope({
@@ -388,6 +461,48 @@ function executeBundle(source: string, filePath: string): Record<string, unknown
   return module.exports
 }
 
+// ─── Export-name detection ───────────────────────────────────────────────────
+
+/**
+ * The value exports of a style module, for auto-imports — the destructured
+ * system form (`export const { t, css } = createSystem(…)`), plain named
+ * declarations, and export lists. The same light regex posture as the
+ * debug-name transform: when a form can't be read, it's skipped, and explicit
+ * imports always remain valid.
+ */
+export function styleExportNames(source: string): string[] {
+  const names = new Set<string>()
+
+  // export const { t, css: style } = …
+  for (const match of source.matchAll(/export\s+(?:const|let|var)\s*\{([^}]*)\}/g)) {
+    for (const entry of match[1].split(',')) {
+      const name = entry.split(':').pop()?.split('=')[0]?.trim()
+
+      if (name && /^\w+$/.test(name))
+        names.add(name)
+    }
+  }
+
+  // export const t = …, export function …
+  for (const match of source.matchAll(/export\s+(?:const|let|var|function|class)\s+(\w+)/g))
+    names.add(match[1])
+
+  // export { a, b as c } [from '…'] — type-only entries skipped
+  for (const match of source.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const entry of match[1].split(',')) {
+      if (/^\s*type\s/.test(entry))
+        continue
+
+      const name = (entry.split(/\bas\b/).pop() ?? '').trim()
+
+      if (name && /^\w+$/.test(name))
+        names.add(name)
+    }
+  }
+
+  return [...names]
+}
+
 // ─── The debug-name transform ────────────────────────────────────────────────
 
 /**
@@ -409,7 +524,7 @@ export function applyDebugNames(source: string): string {
   let output = source
   let offset = 0
 
-  const pattern = /(?:export\s+)?const\s+(\w+)\s*=\s*(?:\w+\.)?(port|css|recipe|anatomy|keyframes|fontFace)\s*\(/g
+  const pattern = /(?:export\s+)?const\s+(\w+)\s*=\s*(?:\w+\.)?(port|css|recipe|anatomy|keyframes|fontFace|defineAtoms)\s*\(/g
 
   for (const match of source.matchAll(pattern)) {
     const [, name, callee] = match
