@@ -7,6 +7,7 @@
 
 import type { VaneConditionArm } from '../system/conditions'
 import type { VaneCssFunction } from './types'
+import { diagnosticSource } from '../diagnostics'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { emitStyle } from './emit'
@@ -35,9 +36,32 @@ export function bindCss(system: VaneSystemContext): VaneCssFunction<string, stri
     if (compiled.layer === 'overrides')
       record({ kind: 'escape', form: 'overrides', file, detail: debugId ?? 'css()', layer: compiled.layer })
 
-    return emitStyle(compiled, debugId)
+    const className = emitStyle(compiled, debugId)
+    const source = diagnosticSource()
+
+    record({
+      kind: 'style',
+      file,
+      class: className,
+      ...(debugId === undefined ? {} : { name: debugId }),
+      vars: referencedVars(compiled.units.flatMap(unit => Object.values(unit.declarations))),
+      ...(source === undefined ? {} : source),
+    })
+
+    return className
   }
 
   css.raw = bindRaw(system)
   return css as VaneCssFunction<string, string>
+}
+
+function referencedVars(values: Array<string | number | Array<string | number>>): string[] {
+  const vars = new Set<string>()
+
+  for (const value of values.flat()) {
+    for (const match of String(value).matchAll(/var\((--[\w-]+)/g))
+      vars.add(match[1])
+  }
+
+  return [...vars]
 }

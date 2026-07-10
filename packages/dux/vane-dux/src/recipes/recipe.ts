@@ -15,6 +15,7 @@ import type { VaneCompiled } from '../css/rule'
 import type { VaneRecipe, VaneRecipeRuntime } from './types'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { emitStyle } from '../css/emit'
+import { diagnosticSource } from '../diagnostics'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { checkPorts, checkSelection, compileArm, covers, debugName, finishBuild, mergeCompiled, recordVariantShape, startBuild } from './compile'
@@ -127,6 +128,7 @@ export function bindRecipe(system: VaneSystemContext) {
     record({
       kind: 'recipe',
       file,
+      ...diagnosticSource(),
       ...(debugId === undefined ? {} : { name: debugId }),
       ...recordVariantShape(variants, toggles, defaults, ports),
     })

@@ -5,14 +5,14 @@
  * are locked here.
  */
 
-import { createSystem, defineTokens, oklch } from '@mszr/vane-dux'
+import { createSystem, oklch } from '@mszr/vane-dux'
 import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 
 describe('preset tokens, emitted', () => {
   it('both schemes fall out of one subtree: elevation pairs, folded ramp, checked pairing', () => {
-    const { css } = emit(() => defineTokens(presetTokens()))
+    const { css } = emit(() => presetTokens().build())
 
     expect(css).toMatchInlineSnapshot(`
       ":root {
@@ -20,8 +20,6 @@ describe('preset tokens, emitted', () => {
       }
       :root {
         --vane-color-brand: oklch(0.5784 0.2346 278.2909);
-        --vane-color-brand-hover: color-mix(in oklab, var(--vane-color-brand), var(--vane-color-ink) 12%);
-        --vane-color-brand-active: color-mix(in oklab, var(--vane-color-brand), var(--vane-color-ink) 20%);
         --vane-color-brand-soft: oklch(0.5784 0.2346 278.2909 / 0.12);
         --vane-color-on-brand: white;
         --vane-color-canvas: color-mix(in oklab, light-dark(oklch(0.99 0 0), oklch(0.13 0 0)), var(--vane-color-brand) 4%);
@@ -30,6 +28,8 @@ describe('preset tokens, emitted', () => {
         --vane-color-border: color-mix(in oklab, light-dark(oklch(0.7898 0 0), oklch(0.3192 0 0)), var(--vane-color-brand) 4%);
         --vane-color-ink-muted: color-mix(in oklab, light-dark(oklch(0.4258 0 0), oklch(0.6632 0 0)), var(--vane-color-brand) 4%);
         --vane-color-ink: color-mix(in oklab, light-dark(oklch(0.1346 0 0), oklch(0.9384 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-brand-hover: color-mix(in oklab, var(--vane-color-brand), var(--vane-color-ink) 12%);
+        --vane-color-brand-active: color-mix(in oklab, var(--vane-color-brand), var(--vane-color-ink) 20%);
         --vane-space-2xs: 2px;
         --vane-space-xs: 4px;
         --vane-space-sm: 8px;
@@ -90,7 +90,7 @@ describe('preset tokens, emitted', () => {
   })
 
   it('a live brand keeps the ramp alive in the browser', () => {
-    const { css } = emit(() => defineTokens(presetTokens({ brand: oklch(0.58, 0.2, 285).live() })))
+    const { css } = emit(() => presetTokens({ brand: oklch(0.58, 0.2, 285).live() }).build())
 
     // The seed is a runtime input; every downstream ramp step re-derives in CSS.
     expect(css).toContain('--vane-color-brand: oklch(0.58 0.2 285)')
@@ -101,8 +101,8 @@ describe('preset tokens, emitted', () => {
   })
 
   it('the contrast control moves inks and borders as one family', () => {
-    const balanced = emit(() => defineTokens(presetTokens())).css
-    const high = emit(() => defineTokens(presetTokens({ contrast: 'high' }))).css
+    const balanced = emit(() => presetTokens().build()).css
+    const high = emit(() => presetTokens({ contrast: 'high' }).build()).css
 
     const inkOf = (css: string) => css.match(/--vane-color-ink: ([^;]+);/)?.[1]
 

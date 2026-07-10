@@ -12,7 +12,7 @@ import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGl
 import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
-import type { VaneCheck, VaneGraphInput, VaneResolvedTokens, VaneThemeOverrides, VaneTokens } from '../tokens/types'
+import type { VaneCheck, VaneGraphInput, VaneResolvedTokens, VaneThemeOverrides, VaneTokenBuilder, VaneTokens } from '../tokens/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
@@ -20,13 +20,13 @@ import { bindAtoms } from '../atoms/atoms'
 import { bindCss } from '../css/css'
 import { bindGlobalCss } from '../css/global'
 import { bindFontFace, bindKeyframes } from '../css/keyframes'
-import { VaneError } from '../diagnostics'
+import { diagnosticSource, VaneError } from '../diagnostics'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
-import { defineTokens, graphOf } from '../tokens/graph'
+import { defineTokens, graphOf, isTokenBuilder } from '../tokens/graph'
 import { theme as standaloneTheme } from '../tokens/theme'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
 
@@ -55,8 +55,8 @@ export interface VaneSystemOptions<
   P extends string,
   B extends boolean,
 > {
-  /** A raw token graph or a `defineTokens` result — `t` is always returned beside the functions. */
-  tokens: T & (VaneGraphInput | VaneResolvedTokens)
+  /** A static graph, a topological `defineTokens` builder, or built tokens — `t` is always returned. */
+  tokens: T & VaneSystemTokenInput<T>
   conditions?: C & VaneConditionsInput<C>
   /** Cascade-layer order, `['reset', 'tokens', 'recipes', 'utilities', 'overrides']` by default. */
   layers?: L
@@ -74,8 +74,17 @@ export interface VaneSystemOptions<
   audit?: VaneAuditConfig
 }
 
-/** Inline graphs bind here; a `defineTokens` result passes through untouched. */
-export type VaneSystemTokens<T extends object, P extends string> = T extends VaneGraphInput ? VaneTokens<T, P> : T
+type VaneSystemTokenInput<T>
+  = T extends VaneResolvedTokens ? unknown
+    : T extends VaneTokenBuilder<infer _Graph> ? unknown
+      : T extends VaneGraphInput ? unknown
+        : never
+
+/** Static graphs and unfinished builders compile here; built tokens pass through untouched. */
+export type VaneSystemTokens<T extends object, P extends string>
+  = T extends VaneTokenBuilder<infer G> ? VaneTokens<G, P>
+    : T extends VaneGraphInput ? VaneTokens<T, P>
+      : T
 
 export type VaneSystemConditionName<C, B extends boolean>
   = (keyof C & string) | (B extends false ? never : VaneBaseConditionName)
@@ -113,15 +122,17 @@ export function createSystem<
   const file = requireStyleModule('createSystem')
   const prefix = options.prefix ?? 'vane'
 
-  // The inline-graph path forwards the graph options; a `defineTokens` result
-  // already resolved with its own. The cast narrows `checks` to the erased
-  // graph type defineTokens sees — the public signature stays precise.
+  // Static graphs and staged builders finalize exactly once at the system
+  // boundary. A built graph already carries its own prefix and checks.
   const tokens = graphOf(options.tokens)
     ? options.tokens
-    : defineTokens(options.tokens as VaneGraphInput & object, {
-        prefix,
-        ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
-      })
+    : (isTokenBuilder(options.tokens)
+        ? options.tokens as unknown as RuntimeTokenBuilder
+        : defineTokens(options.tokens as VaneGraphInput))
+        .build({
+          prefix,
+          ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
+        })
   const layers = options.layers ?? VANE_DEFAULT_LAYERS
 
   if (layers.length === 0) {
@@ -162,6 +173,7 @@ export function createSystem<
   record({
     kind: 'system',
     file,
+    ...diagnosticSource(),
     prefix,
     layers: [...layers],
     conditions: describeConditions(conditions),
@@ -176,13 +188,24 @@ export function createSystem<
     keyframes: buildPlane('keyframes', bindKeyframes(system)),
     fontFace: buildPlane('fontFace', bindFontFace()),
     globalCss: buildPlane('globalCss', bindGlobalCss(system) as Bound['globalCss']),
-    theme: buildPlane('theme', (overrides, debugId) => standaloneTheme(tokens, overrides, debugId)),
+    theme: buildPlane('theme', (overrides, debugId) => standaloneTheme(
+      tokens as Bound['t'],
+      overrides as VaneThemeOverrides<Bound['t']>,
+      debugId,
+    )),
     recipe: buildPlane('recipe', bindRecipe(system) as Bound['recipe']),
     anatomy: buildPlane('anatomy', bindAnatomy(system) as Bound['anatomy']),
     port: buildPlane('port', <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
       createPort(defaultValue, options, { prefix }) as unknown as VanePort<VanePortWiden<TValue>>),
     defineAtoms: buildPlane('defineAtoms', bindAtoms(system) as Bound['defineAtoms']),
   }
+}
+
+interface RuntimeTokenBuilder {
+  build: (options: {
+    prefix: string
+    checks?: () => readonly VaneCheck[]
+  }) => object
 }
 
 /**

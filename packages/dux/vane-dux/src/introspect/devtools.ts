@@ -63,10 +63,12 @@ let last = ''
 const esc = (text) => String(text).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
-function fileLink(file) {
+function fileLink(file, line, column) {
   if (!file) return ''
   const name = file.split('/').pop()
-  return '<a class="file" href="#" data-file="' + esc(file) + '">' + esc(name) + '</a>'
+  const position = line ? ':' + line + (column ? ':' + column : '') : ''
+  return '<a class="file" href="#" data-file="' + esc(file) + '" data-line="' + esc(line ?? '')
+    + '" data-column="' + esc(column ?? '') + '">' + esc(name + position) + '</a>'
 }
 
 function swatch(value) {
@@ -88,7 +90,7 @@ function tokenRow(path, token) {
     + '<td><span class="badge' + (token.live ? ' live' : '') + '">' + (token.live ? 'live' : esc(token.mode)) + '</span></td>'
     + '<td class="dim">' + token.usage + '</td>'
     + '<td class="dim">' + esc(token.description ?? '') + (token.deprecated ? ' <em>deprecated: ' + esc(token.deprecated) + '</em>' : '') + '</td>'
-    + '<td>' + fileLink(token.file) + '</td></tr>'
+    + '<td>' + fileLink(token.file, token.line, token.column) + '</td></tr>'
 }
 
 function recipeCard(name, recipe) {
@@ -106,7 +108,7 @@ function recipeCard(name, recipe) {
     ? '<div class="axis">ports</div>' + Object.keys(recipe.ports).map((p) => '<span class="chip">' + esc(p) + '</span>').join('')
     : ''
 
-  return '<div class="card"><h3><code>' + esc(name) + '</code>' + fileLink(recipe.file) + '</h3>'
+  return '<div class="card"><h3><code>' + esc(name) + '</code>' + fileLink(recipe.file, recipe.line, recipe.column) + '</h3>'
     + parts + axes + toggles + ports + '</div>'
 }
 
@@ -114,9 +116,10 @@ function render(manifest) {
   const tokens = Object.entries(manifest.tokens)
   const recipes = Object.entries(manifest.recipes)
   const ports = Object.entries(manifest.ports)
+  const styles = Object.entries(manifest.styles ?? {})
 
   document.getElementById('counts').textContent
-    = tokens.length + ' tokens · ' + recipes.length + ' recipes · ' + ports.length + ' ports'
+    = tokens.length + ' tokens · ' + styles.length + ' styles · ' + recipes.length + ' recipes · ' + ports.length + ' ports'
 
   const sections = []
 
@@ -131,13 +134,22 @@ function render(manifest) {
       + recipes.map(([name, recipe]) => recipeCard(name, recipe)).join('') + '</div>')
   }
 
+  if (styles.length) {
+    sections.push('<h2>Class provenance</h2><table><tr><th>class</th><th>tokens</th><th>source</th></tr>'
+      + styles.map(([className, style]) =>
+        '<tr><td><code>.' + esc(className) + '</code>' + (style.name ? ' <span class="dim">' + esc(style.name) + '</span>' : '') + '</td>'
+        + '<td>' + style.tokens.map((token) => '<span class="chip">' + esc(token) + '</span>').join('') + '</td>'
+        + '<td>' + fileLink(style.file, style.line, style.column) + '</td></tr>').join('')
+      + '</table>')
+  }
+
   if (ports.length) {
     sections.push('<h2>Ports</h2><table><tr><th>port</th><th>type</th><th>default</th><th></th><th></th></tr>'
       + ports.map(([name, port]) =>
         '<tr><td><code>' + esc(name) + '</code></td><td><span class="badge">' + esc(port.type) + '</span></td>'
         + '<td class="mono">' + esc(port.default) + (port.unit ? '<span class="dim">' + esc(port.unit) + '</span>' : '') + '</td>'
         + '<td class="dim">' + esc(port.description ?? '') + '</td>'
-        + '<td>' + fileLink(port.file) + '</td></tr>').join('')
+        + '<td>' + fileLink(port.file, port.line, port.column) + '</td></tr>').join('')
       + '</table>')
   }
 
@@ -155,7 +167,7 @@ function render(manifest) {
       + manifest.escapes.map((escape) =>
         '<li><span class="badge">' + esc(escape.form) + '</span> <span class="mono">' + esc(escape.detail) + '</span>'
         + (escape.reason ? ' <span class="reason">— ' + esc(escape.reason) + '</span>' : '')
-        + ' ' + fileLink(escape.file) + '</li>').join('')
+        + ' ' + fileLink(escape.file, escape.line, escape.column) + '</li>').join('')
       + '</ul>')
   }
 
@@ -175,7 +187,8 @@ document.addEventListener('click', (event) => {
   const link = event.target.closest('[data-file]')
   if (!link) return
   event.preventDefault()
-  fetch('/__open-in-editor?file=' + encodeURIComponent(ROOT + '/' + link.dataset.file))
+  const position = link.dataset.line ? ':' + link.dataset.line + (link.dataset.column ? ':' + link.dataset.column : '') : ''
+  fetch('/__open-in-editor?file=' + encodeURIComponent(ROOT + '/' + link.dataset.file + position))
 })
 
 async function refresh() {

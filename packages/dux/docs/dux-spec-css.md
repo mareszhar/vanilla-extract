@@ -1,4 +1,4 @@
-updated: 2026-07-09
+updated: 2026-07-10
 status: spec — contracts settled, implemented (phase 2)
 
 # vane-dux — spec: css authoring
@@ -19,7 +19,7 @@ Contracts here lean on the cross-cutting law: evaluation ([dux-patterns.md §1](
 | 6 | `keyframes` and `fontFace` | ☑ |
 | 7 | `globalCss` | ☑ |
 | 8 | `css.raw` | ☑ |
-| 9 | Value validation | ☑ (file-level diagnostics; line mapping lands with the `/vite` source-map work) |
+| 9 | Value validation | ☑ (stable code, exact property path, and compiler-proven file/line/column) |
 
 ---
 
@@ -112,6 +112,32 @@ export const card = css({
 - **`css()` is open-valued: any valid CSS value is legal with no escape wrapper.** The token map guides; it never gates. (`unsafe.value` exists only in `atoms`, whose property sets are deliberately closed — [dux-spec-preset.md §3](./dux-spec-preset.md#3-atoms). A utility-CSS refugee looking for "arbitrary value syntax" here should find this sentence: there isn't one, because everything is already allowed and still parsed.)
 - Numbers take the property's canonical unit where one exists (`padding: 8` → `8px`; unitless properties like `lineHeight`, `opacity`, `zIndex`, `flexGrow` stay unitless). The number→unit table **is** the substrate's proven table — vane-dux delegates rather than re-deriving it — ships in the manifest, and is locked by the output test plane; it must never be a guess.
 - Nesting depth is unlimited; every non-property key is either a known condition, a selector, or an at-rule — anything else errors at the key.
+
+### 2.1 CSS value composition
+
+**Why.** TypeScript should improve the parts of CSS that are punctuation-heavy or composition-sensitive without wrapping values that already read naturally. One value layer feeds tokens, declarations, keyframes, ports, atoms, and `css.raw`; a utility never traps its result in a special lane.
+
+```TS
+import { calc, channel, clamp, grid, oklch } from '@mszr/vane-dux'
+
+const fluid = clamp('1rem', calc('2vw').add('0.5rem'), '3rem')
+const columns = grid.repeat('auto-fit', grid.minmax('16rem', '1fr'))
+const muted = oklch.from(t.color.brand, {
+  c: channel.multiply(0.5),
+  alpha: 0.72,
+})
+
+export const gallery = css({
+  gap: fluid,
+  gridTemplateColumns: columns,
+  color: muted,
+})
+```
+
+- `calc(value)` is an immutable expression with `add`, `subtract`, `multiply`, `divide`, and `negate`. Nested calculations preserve precedence automatically. Known dimensions flow through the type (`length`, `percentage`, `angle`, `time`, and so on); known-invalid sums such as length + angle fail at the operand. A token's literal `value` and a port's default participate in that inference when known; an arbitrary CSS variable degrades honestly to `unknown`.
+- `min`, `max`, and `clamp` emit their platform functions. `grid.minmax`, `grid.repeat`, `grid.template`, and `grid.areas` compose Grid's punctuation-heavy value grammar.
+- `oklch.from` and `channel.*` are the general relative-color primitive; the token compiler folds static inputs and keeps live graph edges as standards-native relative color syntax. Color constructors cover `oklch`, `oklab`, `lch`, `lab`, `hsl`, `rgb`, and `displayP3`.
+- Every utility returns a `VaneCssValue`: ordinary `toString()` plus a readable `.css` fact. Strings remain first-class and preferred wherever CSS is already the clearest spelling (`'system-ui'`, `'1px solid currentColor'`, or a template interpolation). The utilities are leverage, never ceremony.
 
 ---
 
@@ -245,4 +271,4 @@ export const prose = css.raw`
 - Diagnostics land within the HMR loop — save, and the overlay names the line; never later than the reload.
 - **Setup failures are diagnosed too.** Importing a `*.style.ts` module without the `/vite` plugin registered produces one friendly error naming the missing plugin and the config line to add (`VANE_VITE_PLUGIN_MISSING`) — never a raw Node evaluation stack. The bounce point of a misconfigured first install gets the same message quality as a typo'd property.
 
-**Implementation.** Validation runs at evaluation time in the core, so every bundler gets the same diagnostics. The work is split between two authorities: **lightningcss owns grammar** — a known property whose value fails its typed grammar (and carries no `var()` or unknown function, whose grammar only the browser can decide) is refused, as are unparseable selectors and queries; **the W3C property list owns existence** (`known-css-properties`), so a platform property lightningcss has not learned yet is never blocked (principle 6) — only a name in neither authority errors. Checks memoize per declaration. Diagnostics carry the style module's path today; expression-level line mapping through the emitter's source map lands with the `/vite` plugin work.
+**Implementation.** Validation runs at evaluation time in the core, so every bundler gets the same diagnostics. The work is split between two authorities: **lightningcss owns grammar** — a known property whose value fails its typed grammar (and carries no `var()` or unknown function, whose grammar only the browser can decide) is refused, as are unparseable selectors and queries; **the W3C property list owns existence** (`known-css-properties`), so a platform property lightningcss has not learned yet is never blocked (principle 6) — only a name in neither authority errors. Checks memoize per declaration. The `/vite` compiler injects syntax-tree-derived call/property locations into compiler-owned app modules; diagnostics use only exact or uniquely attributable positions and never guess.

@@ -25,7 +25,9 @@ Nuxt serves the app at `http://localhost:3000` by default.
 
 ## Files
 
-- `app/design/tokens.style.ts` — the Prism token graph; the elevation relationship names `color.brand` explicitly.
+- `app/design/palette.tokens.ts` — independently buildable brand/elevation graph; every relationship names `color.brand` explicitly.
+- `app/design/foundations.tokens.ts` — independently buildable spacing, type, radius, and motion graph.
+- `app/design/tokens.style.ts` — composes both modules and owns the final prefix/emission.
 - `app/design/system.style.ts` — conditions and authoring functions bound once.
 - `app/components/*.style.ts` — recipes, anatomy, ports, and container-query examples.
 - `app/app.style.ts` — the demo shell, authored through vane-dux itself.

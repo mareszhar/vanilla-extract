@@ -13,11 +13,6 @@ export function definePrism() {
   return defineTokens({
     color: {
       brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. Marketing owns this.'),
-      surface: ({ color }) => elevation(color.brand, 0.03),
-      ink: ({ color }) => elevation(color.brand, 0.94),
-      brandSoft: ({ color }) => alpha(color.brand, 0.12),
-      brandHover: ({ color }) => color.brand.lighten(0.06),
-      onBrand: ({ color }) => legibleOn(color.brand),
       canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
     },
     space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
@@ -28,6 +23,16 @@ export function definePrism() {
       title: { fontSize: '1.375rem', lineHeight: 1.25, fontWeight: 600 },
     },
   })
+    .derive(({ color }) => ({
+      color: {
+        surface: elevation(color.brand, 0.03),
+        ink: elevation(color.brand, 0.94),
+        brandSoft: alpha(color.brand, 0.12),
+        brandHover: color.brand.lighten(0.06),
+        onBrand: legibleOn(color.brand),
+      },
+    }))
+    .build()
 }
 
 export type PrismTokens = ReturnType<typeof definePrism>

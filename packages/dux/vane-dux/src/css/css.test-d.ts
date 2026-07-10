@@ -31,7 +31,7 @@ describe('createSystem inference', () => {
   })
 
   it('a defineTokens result passes through untouched', () => {
-    const t = defineTokens({ radius: { sm: '4px' } }, { prefix: 'prism' })
+    const t = defineTokens({ radius: { sm: '4px' } }).build({ prefix: 'prism' })
     const bound = createSystem({ tokens: t })
 
     expectTypeOf(bound.t.radius).toEqualTypeOf<typeof t.radius>()

@@ -27,13 +27,18 @@ const t = defineTokens({
   color: {
     brand: oklch(0.58, 0.2, 285).live(),
     surface: scheme({ light: oklch(0.96, 0.01, 285), dark: oklch(0.16, 0.01, 285) }),
-    brandSoft: ({ color }) => alpha(color.brand, 0.12),
-    brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: ({ color }) => legibleOn(color.brand),
     canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
   },
   radius: { sm: '4px', md: '8px' },
 })
+  .derive(({ color }) => ({
+    color: {
+      brandSoft: alpha(color.brand, 0.12),
+      brandHover: color.brand.lighten(0.06),
+      onBrand: legibleOn(color.brand),
+    },
+  }))
+  .build()
 `
 
 describe('the authoring shape', () => {
@@ -52,16 +57,19 @@ describe('the authoring shape', () => {
     expect(result.completions).not.toContainCompletion('lighten')
   })
 
-  it('the color surface autocompletes inside a derivation', () => {
+  it('prior token names and the color surface autocomplete inside a derivation', () => {
+    const names = project.query`
+      import { defineTokens, oklch } from '@mszr/vane-dux'
+      void defineTokens({ color: { brand: oklch(0.58, 0.2, 285), ink: '#111' } })
+        .derive(({ color }) => ({ color: { soft: color.${cursor} } }))
+    `
     const { completions } = project.query`
       import { defineTokens, oklch } from '@mszr/vane-dux'
-      void defineTokens({
-        color: {
-          brand: oklch(0.58, 0.2, 285),
-          soft: ({ color }) => color.brand.${cursor},
-        },
-      })
+      void defineTokens({ color: { brand: oklch(0.58, 0.2, 285) } })
+        .derive(({ color }) => ({ color: { soft: color.brand.${cursor} } }))
     `
+    expect(names.completions).toContainCompletions(['brand', 'ink'])
+    expect(names.completions).not.toContainCompletion('braaand')
     expect(completions).toContainCompletions(['alpha', 'lighten', 'darken', 'saturate', 'desaturate', 'rotate', 'mix'])
   })
 })
@@ -83,6 +91,28 @@ describe('errors at the cursor', () => {
     `
     expect(errors.length).toBe(1)
     expect(errors).not.toHaveError(/No overload|Overload \d/)
+    expectNoLeak(errors)
+  })
+
+  it('a mistyped derivation reference is one error at the property access', () => {
+    const { errors } = project.check`
+      import { defineTokens, oklch } from '@mszr/vane-dux'
+      void defineTokens({ color: { brand: oklch(0.58, 0.2, 285) } })
+        .derive(({ color }) => ({ color: { soft: color.braaand.alpha(0.12) } }))
+    `
+    expect(errors).toHaveError(/braaand|brand/)
+    expect(errors).toHaveErrorCount(1)
+    expectNoLeak(errors)
+  })
+
+  it('a duplicate stage token is one error at its value', () => {
+    const { errors } = project.check`
+      import { defineTokens } from '@mszr/vane-dux'
+      void defineTokens({ color: { brand: '#fff' } })
+        .derive(() => ({ color: { brand: '#000' } }))
+    `
+    expect(errors).toHaveError(/not assignable to type 'never'/i)
+    expect(errors).toHaveErrorCount(1)
     expectNoLeak(errors)
   })
 

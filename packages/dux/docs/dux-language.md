@@ -42,6 +42,8 @@ These words carry exactly these meanings across every entrypoint, doc, diagnosti
 | --- | --- |
 | **token** | one named design decision in the graph (`t.color.brand`, `t.space.md`) — a typed export, never a string key |
 | **derivation** | a token defined as a function of other tokens (`({ color }) => alpha(color.brand, 0.12)`) — a real dependency edge in the graph |
+| **stage** | one topological `.derive()` step in a token definition — it sees every earlier token; its output becomes visible to the next stage |
+| **token module** | an independently buildable token definition composed into a larger graph with `.compose()` — internal stages and source identity stay intact |
 | **live token** | a token whose value can change in the browser — marked `.live()` or scheme-dependent. Liveness propagates: any derivation of a live token compiles to a live CSS expression instead of a build-time constant ([dux-patterns.md §3](./dux-patterns.md#3-liveness)) |
 | **scheme** | the light/dark (or custom) rendering mode axis. A scheme is a *value pair inside one token* (`scheme({ light, dark })` → `light-dark()`), never a parallel palette |
 | **elevation** | a preset derivation mapping a 0–1 foreground/background plane position to scheme-aware lightness — the hail-styl model, generalized ([dux-spec-tokens.md §4](./dux-spec-tokens.md#4-elevation)) |
@@ -99,6 +101,7 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | --- | --- | --- |
 | `defineTokens(graph)` | VE `createGlobalThemeContract` + `createGlobalTheme` | one call defines names *and* values *and* relationships; "contract" vocabulary retired — the system is the contract |
 | derivation (`({ color }) => …`) | — (new; hail-styl formulas) | tokens as a dependency graph, not a value bag |
+| `.compose(tokenModule)` | hand-merged token objects | independently buildable graphs accumulate with exact inference, duplicate-path diagnostics, and graph-aware rename identity |
 | `.live()` | — (new) | marks a runtime-changeable token; names the consequence (derivations stay live) at the definition site |
 | `scheme({ light, dark })` | "dark mode", `createTheme` pairs | one token, two scheme values, compiled to `light-dark()` — never a parallel palette |
 | preset `elevation(base, n)` | — (hail-styl, generalized) | an explicit base + plane position → scheme-aware color; composed from public `scheme()` + `mix()`, never a core axiom |

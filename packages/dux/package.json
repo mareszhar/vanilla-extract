@@ -29,7 +29,11 @@
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
     "demo:typecheck": "pnpm --dir sandbox/demo-main run typecheck && pnpm --dir sandbox/demo-comparisons run typecheck",
     "demo:build": "pnpm --dir sandbox/demo-main run build && pnpm --dir sandbox/demo-comparisons run build",
-    "demo:e2e": "pnpm run sdk:build && pnpm run demo:build && playwright test",
+    "demo:e2e:prod": "playwright test",
+    "demo:e2e:dev": "playwright test --config playwright.dev.config.ts",
+    "demo:dev:lifecycle": "tsx scripts/dev-lifecycle.ts",
+    "demo:e2e": "pnpm run sdk:build && pnpm run demo:build && pnpm run demo:e2e:prod && pnpm run demo:e2e:dev && pnpm run demo:dev:lifecycle",
+    "fresh:smoke": "tsx scripts/fresh-smoke.ts",
 
     "publish:sdk:dry-run": "tsx scripts/publish.ts dry-run",
     "publish:sdk:patch": "tsx scripts/publish.ts patch",
@@ -45,6 +49,6 @@
     "jiti": "^2.7.0",
     "tsx": "^4.20.6",
     "turbo": "2.10.3",
-    "typescript": "^5.8.3"
+    "typescript": "^6.0.3"
   }
 }

@@ -1,32 +1,31 @@
 /**
  * The runtime plane for the preset foundations ([dux-spec-preset.md §1–2]):
- * the token subtree is plain data with ordinary spread semantics, the controls
- * retune whole families, and the conditions map is the documented contract.
+ * the preset is an extensible public token builder, the controls retune whole
+ * families, and the conditions map is the documented contract.
  */
 
-import { defineTokens, oklch } from '@mszr/vane-dux'
+import { oklch } from '@mszr/vane-dux'
 import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 
 describe('presetTokens', () => {
-  it('is a plain subtree: spread extends, later keys win', () => {
-    const base = presetTokens()
-    const extended = { ...base, radius: { ...base.radius, xl: '32px' } }
+  it('extends through the same typed stage API userland gets', () => {
+    const { returned: extended } = emit(() => presetTokens()
+      .derive(() => ({ radius: { xl: '32px' } }))
+      .build())
 
-    expect(extended.radius.sm).toBe('4px')
-    expect(extended.radius.xl).toBe('32px')
-    expect(extended.color).toBe(base.color)
+    expect(extended.radius.sm.value).toBe('4px')
+    expect(extended.radius.xl.value).toBe('32px')
+    expect(extended.color.brand.name).toBe('--vane-color-brand')
   })
 
   it('ships the documented families', () => {
-    const t = presetTokens()
+    const { returned: t } = emit(() => presetTokens().build())
 
     expect(Object.keys(t)).toEqual(['color', 'space', 'text', 'font', 'radius', 'shadow', 'z', 'duration', 'ease'])
     expect(Object.keys(t.color)).toEqual([
       'brand',
-      'brandHover',
-      'brandActive',
       'brandSoft',
       'onBrand',
       'canvas',
@@ -35,30 +34,32 @@ describe('presetTokens', () => {
       'border',
       'inkMuted',
       'ink',
+      'brandHover',
+      'brandActive',
     ])
   })
 
   it('the radius control retunes the family', () => {
-    expect(presetTokens().radius.md).toBe('8px')
-    expect(presetTokens({ radius: 'sharp' }).radius.md).toBe('4px')
-    expect(presetTokens({ radius: 'round' }).radius.md).toBe('14px')
+    expect(emit(() => presetTokens().build()).returned.radius.md.value).toBe('8px')
+    expect(emit(() => presetTokens({ radius: 'sharp' }).build()).returned.radius.md.value).toBe('4px')
+    expect(emit(() => presetTokens({ radius: 'round' }).build()).returned.radius.md.value).toBe('14px')
   })
 
   it('the density control retunes the spacing unit', () => {
-    expect(presetTokens().space.md).toBe('16px')
-    expect(presetTokens({ density: 'compact' }).space.md).toBe('12px')
-    expect(presetTokens({ density: 'spacious' }).space.md).toBe('20px')
+    expect(emit(() => presetTokens().build()).returned.space.md.value).toBe('16px')
+    expect(emit(() => presetTokens({ density: 'compact' }).build()).returned.space.md.value).toBe('12px')
+    expect(emit(() => presetTokens({ density: 'spacious' }).build()).returned.space.md.value).toBe('20px')
   })
 
   it('the spring easing is a settled linear() ramp', () => {
-    const { ease } = presetTokens()
+    const { ease } = emit(() => presetTokens().build()).returned
 
-    expect(ease.spring).toMatch(/^linear\(0, /)
-    expect(ease.spring).toMatch(/, 1\)$/)
+    expect(ease.spring.value).toMatch(/^linear\(0, /)
+    expect(ease.spring.value).toMatch(/, 1\)$/)
   })
 
-  it('binds through defineTokens with the documented modes', () => {
-    const { returned: t } = emit(() => defineTokens(presetTokens()))
+  it('builds with the documented modes', () => {
+    const { returned: t } = emit(() => presetTokens().build())
 
     expect(t.color.brand.mode).toBe('static')
     expect(t.color.brandSoft.mode).toBe('derived')
@@ -68,7 +69,7 @@ describe('presetTokens', () => {
   })
 
   it('a .live() brand seed stays a runtime input', () => {
-    const { returned: t } = emit(() => defineTokens(presetTokens({ brand: oklch(0.58, 0.2, 285).live() })))
+    const { returned: t } = emit(() => presetTokens({ brand: oklch(0.58, 0.2, 285).live() }).build())
 
     expect(t.color.brand.mode).toBe('live')
   })

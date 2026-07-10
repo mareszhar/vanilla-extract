@@ -21,13 +21,18 @@ function graph() {
     color: {
       brand: oklch(0.58, 0.2, 285).live(),
       surface: scheme({ light: oklch(0.96, 0.01, 285), dark: oklch(0.16, 0.01, 285) }),
-      brandSoft: ({ color }) => alpha(color.brand, 0.12),
-      onBrand: ({ color }) => legibleOn(color.brand),
       canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
     },
     radius: { sm: '4px' },
-    ratio: ({ radius }) => `calc(${radius.sm} * 2)`,
   })
+    .derive(({ color, radius }) => ({
+      color: {
+        brandSoft: alpha(color.brand, 0.12),
+        onBrand: legibleOn(color.brand),
+      },
+      ratio: `calc(${radius.sm} * 2)`,
+    }))
+    .build()
 }
 
 describe('the inferred graph', () => {
@@ -50,7 +55,8 @@ describe('the inferred graph', () => {
     expectTypeOf(t.color.brand).toExtend<VaneColorToken<'live', 'vane-color-brand'>>()
     expectTypeOf(t.color.surface.mode).toEqualTypeOf<'scheme'>()
     expectTypeOf(t.color.brandSoft.mode).toEqualTypeOf<'derived'>()
-    expectTypeOf(t.radius.sm.mode).toEqualTypeOf<'static' | 'derived'>()
+    expectTypeOf(t.radius.sm.mode).toEqualTypeOf<'static'>()
+    expectTypeOf(t.ratio.mode).toEqualTypeOf<'derived'>()
   })
 
   it('plain value leaves keep their literal values for hovers', () => {
@@ -62,7 +68,7 @@ describe('the inferred graph', () => {
   })
 
   it('a custom prefix flows into every literal name', () => {
-    const p = defineTokens({ color: { ink: oklch(0.2, 0, 0) } }, { prefix: 'prism' })
+    const p = defineTokens({ color: { ink: oklch(0.2, 0, 0) } }).build({ prefix: 'prism' })
 
     expectTypeOf(p.color.ink.name).toEqualTypeOf<'--prism-color-ink'>()
   })
@@ -70,6 +76,32 @@ describe('the inferred graph', () => {
   it('a malformed leaf fails at its key', () => {
     // @ts-expect-error — a bigint is not a token value
     void defineTokens({ radius: { sm: 4n } })
+  })
+
+  it('each stage sees every earlier token and no same-stage output', () => {
+    defineTokens({ color: { brand: oklch(0.5, 0.2, 285) } })
+      .derive(({ color }) => {
+        void color.brand
+        // @ts-expect-error — a stage cannot see its own future output
+        void color.brandSoft
+        return { color: { brandSoft: alpha(color.brand, 0.12) } }
+      })
+      .derive(({ color }) => {
+        void color.brandSoft
+        // @ts-expect-error — exact refs reject typos at the cursor
+        void color.braaand
+        return { text: { small: { color: color.brandSoft.var } } }
+      })
+  })
+
+  it('duplicate leaves fail at the returned value', () => {
+    defineTokens({ color: { brand: '#fff' } })
+      .derive(() => ({
+        color: {
+          // @ts-expect-error — earlier stages own their leaf names
+          brand: '#000',
+        },
+      }))
   })
 })
 

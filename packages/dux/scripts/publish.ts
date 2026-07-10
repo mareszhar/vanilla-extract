@@ -5,7 +5,7 @@
  *   pnpm run publish:sdk:<patch|minor|major>   the release
  *   pnpm run publish:subtree:squash       re-push the public mirror, no release
  *
- * One shared gate (build · lint · typecheck · test · audit) runs once, with a
+ * One shared gate (the complete `pnpm run validate`) runs once, with a
  * content-keyed receipt so a resumed release doesn't re-verify unchanged
  * inputs. `VANE_FORCE_VERIFY=1` ignores the receipt; the deliberately awkward
  * `VANE_UNSAFE_PUBLISH_SKIP_CHECKS=1` skips the gate outright.
@@ -62,18 +62,21 @@ function fail(message: string): never {
 /** The inputs that decide the gate: the committed dux tree plus any working-tree drift. */
 function contentKey(): string {
   const tree = run(`git rev-parse HEAD:packages/dux`, { quiet: true })
-  const drift = run(`git status --porcelain -- packages/dux`, { quiet: true })
-  const dirty = drift
-    .split('\n')
-    .filter(line => line.length > 0)
-    .map((line) => {
-      const file = line.slice(3)
+  // The tracked diff covers staged/unstaged edits, deletions, renames, and
+  // mode changes. Untracked files are enumerated separately because porcelain
+  // collapses new directories into unreadable `?? directory/` entries.
+  const tracked = run(`git diff --binary HEAD -- ':(top)packages/dux'`, { quiet: true })
+  const untracked = run(`git ls-files -z --full-name --others --exclude-standard -- ':(top)packages/dux'`, { quiet: true })
+  const added = untracked
+    .split('\0')
+    .filter(file => file.length > 0)
+    .map((file) => {
       const path = join(duxDir, '..', '..', file)
-      return `${file}:${existsSync(path) ? createHash('sha256').update(readFileSync(path)).digest('hex') : 'gone'}`
+      return `${file}:${createHash('sha256').update(readFileSync(path)).digest('hex')}`
     })
-    .join('\n')
+    .join('\0')
 
-  return createHash('sha256').update(`${tree}\n${dirty}`).digest('hex')
+  return createHash('sha256').update(`${tree}\n${tracked}\n${added}`).digest('hex')
 }
 
 function gate(): void {
@@ -93,12 +96,8 @@ function gate(): void {
     }
   }
 
-  step('gate: build · lint · typecheck · test · audit')
-  run('pnpm run sdk:build')
-  run('pnpm run lint')
-  run('pnpm run sdk:typecheck')
-  run('pnpm run sdk:test')
-  run('pnpm run audit')
+  step('gate: full validation, including demos and browser lifecycles')
+  run('pnpm run validate')
 
   mkdirSync(stateDir, { recursive: true })
   writeFileSync(receiptPath, `${JSON.stringify({ key, at: new Date().toISOString() }, null, 2)}\n`)
@@ -189,9 +188,14 @@ function pushMirror(message: string): void {
 
 function dryRun(): void {
   gate()
-  step('packaging rehearsal (nothing is published)')
-  run('npm pack --dry-run', { cwd: packageDir })
+  publicationSmoke()
   console.log('\n✓ dry run complete — the package is release-ready')
+}
+
+function publicationSmoke(): void {
+  step('packed fresh-app + packaging rehearsal')
+  run('pnpm run fresh:smoke')
+  run('npm pack --dry-run', { cwd: packageDir })
 }
 
 function release(bump: Bump): void {
@@ -205,6 +209,7 @@ function release(bump: Bump): void {
   }
 
   gate()
+  publicationSmoke()
 
   step('npm auth')
   const account = run('npm whoami', { quiet: true })

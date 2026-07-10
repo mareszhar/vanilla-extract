@@ -4,7 +4,7 @@
  * escape inventory, scale strays. Advisory by default, promotable per system.
  */
 
-import { createSystem, legibleOn, oklch, unsafe } from '@mszr/vane-dux'
+import { createSystem, defineTokens, legibleOn, oklch, unsafe } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
@@ -35,13 +35,12 @@ describe('unused tokens', () => {
   it('a token feeding a used derivation is used; a deprecated token is already handled', () => {
     const { manifest, css } = built(() => {
       const { t, css: style } = createSystem({
-        tokens: {
+        tokens: defineTokens({
           color: {
             seed: oklch(0.58, 0.2, 285).live(),
-            tint: ({ color }: any) => color.seed.alpha(0.12),
             retired: oklch(0.5, 0.1, 100).deprecated('use color.seed'),
           },
-        },
+        }).derive(({ color }) => ({ color: { tint: color.seed.alpha(0.12) } })),
       })
       return style({ background: t.color.tint }, 'card')
     })
@@ -83,12 +82,8 @@ describe('contrast acceptances', () => {
   it('surfaces a consciously-accepted threshold so it stays a decision', () => {
     const { manifest, css } = built(() => {
       const { t, css: style } = createSystem({
-        tokens: {
-          color: {
-            mid: oklch(0.6, 0.02, 285),
-            onMid: ({ color }: any) => legibleOn(color.mid, { minLc: 40 }),
-          },
-        },
+        tokens: defineTokens({ color: { mid: oklch(0.6, 0.02, 285) } })
+          .derive(({ color }) => ({ color: { onMid: legibleOn(color.mid, { minLc: 40 }) } })),
       })
       return style({ color: t.color.onMid, background: t.color.mid }, 'chip')
     })
@@ -153,6 +148,33 @@ describe('scale strays', () => {
     })
 
     expect(audit(manifest, css).filter(finding => finding.kind === 'scaleStrays')).toEqual([])
+  })
+})
+
+describe('focus visibility', () => {
+  it('flags an erased outline and points to focusRing()', () => {
+    const { manifest, css } = built(() => {
+      const { css: style } = createSystem({ tokens: {} })
+      return style({ outline: 'none' }, 'button')
+    })
+
+    const findings = audit(manifest, css).filter(finding => finding.kind === 'focusVisibility')
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].message).toContain('without a :focus-visible replacement')
+    expect(findings[0].fix).toContain('focusRing()')
+  })
+
+  it('stays silent when the same class supplies a visible focus ring', () => {
+    const { manifest, css } = built(() => {
+      const { css: style } = createSystem({ tokens: {} })
+      return style({
+        outline: 'none',
+        focusVisible: { outline: '2px solid currentColor', outlineOffset: '2px' },
+      }, 'button')
+    })
+
+    expect(audit(manifest, css).filter(finding => finding.kind === 'focusVisibility')).toEqual([])
   })
 })
 

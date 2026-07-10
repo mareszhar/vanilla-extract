@@ -44,6 +44,7 @@ export function audit(manifest: VaneManifest, css: string, config?: VaneAuditCon
     contrast: 'warn',
     escapes: 'warn',
     scaleStrays: 'warn',
+    focusVisibility: 'warn',
     ...manifest.audit,
     ...config,
   }
@@ -57,6 +58,7 @@ export function audit(manifest: VaneManifest, css: string, config?: VaneAuditCon
     contrast: () => acceptedContrast(manifest),
     escapes: () => escapes(manifest),
     scaleStrays: () => scaleStrays(manifest, declarations),
+    focusVisibility: () => focusVisibility(manifest, declarations),
   }
 
   for (const [kind, run] of Object.entries(lanes) as Array<[VaneAuditKind, () => VaneAuditFinding[]]>) {
@@ -343,6 +345,60 @@ function referencesGraph(value: string, graphVars: Set<string>): boolean {
   return false
 }
 
+// ─── Focus visibility ───────────────────────────────────────────────────────
+
+/** Removing the native ring is safe only when the same subject replaces it. */
+function focusVisibility(manifest: VaneManifest, declarations: Declaration[]): VaneAuditFinding[] {
+  const removals = new Map<string, Declaration>()
+  const replacements = new Set<string>()
+
+  for (const declaration of declarations) {
+    for (const subject of focusSubjects(declaration.selector)) {
+      if (removesOutline(declaration))
+        removals.set(subject, declaration)
+
+      if (declaration.selector.includes(':focus-visible') && suppliesOutline(declaration))
+        replacements.add(subject)
+    }
+  }
+
+  return [...removals]
+    .filter(([subject]) => !replacements.has(subject))
+    .map(([subject]) => {
+      const className = subject.startsWith('.') ? subject.slice(1) : undefined
+      const source = className === undefined ? undefined : manifest.styles[className]
+
+      return {
+        kind: 'focusVisibility' as const,
+        level: 'warn' as const,
+        message: `${subject} removes its focus outline without a :focus-visible replacement`,
+        fix: 'spread focusRing(), or add an equally visible focusVisible rule',
+        ...(source?.file === undefined ? {} : { file: source.file }),
+      }
+    })
+}
+
+function focusSubjects(selector: string): string[] {
+  const classes = [...selector.matchAll(/\.([_a-z][\w-]*)/gi)].map(match => `.${match[1]}`)
+
+  if (classes.length > 0)
+    return [...new Set(classes)]
+
+  return selector.split(',')
+    .map(part => part.trim().match(/^[a-z][\w-]*/i)?.[0])
+    .filter((subject): subject is string => subject !== undefined)
+}
+
+function removesOutline({ property, value }: Declaration): boolean {
+  return (property === 'outline' && /^(?:none|0(?:px|rem|em)?)$/i.test(value.trim()))
+    || (property === 'outline-width' && /^0(?:px|rem|em)?$/i.test(value.trim()))
+}
+
+function suppliesOutline({ property, value }: Declaration): boolean {
+  return (property === 'outline' && !/^(?:none|0(?:px|rem|em)?)$/i.test(value.trim()))
+    || (property === 'outline-width' && !/^0(?:px|rem|em)?$/i.test(value.trim()))
+}
+
 // ─── The report ──────────────────────────────────────────────────────────────
 
 const LANE_TITLES: Record<VaneAuditKind, string> = {
@@ -351,6 +407,7 @@ const LANE_TITLES: Record<VaneAuditKind, string> = {
   contrast: 'contrast acceptances',
   escapes: 'escape inventory',
   scaleStrays: 'scale strays',
+  focusVisibility: 'focus visibility',
 }
 
 /** Grouped, deep-linked findings — what `pnpm run audit` prints. */

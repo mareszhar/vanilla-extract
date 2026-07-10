@@ -15,6 +15,7 @@ import { createServer as createHttpServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { VaneError } from '@mszr/vane-dux'
 import { applyDebugNames, styleExportNames, vaneDuxPlugin } from '@mszr/vane-dux/vite'
 import { build, createServer } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -65,6 +66,8 @@ describe('the vite build', () => {
     // transform, and the default rides the var() reference.
     expect(css).toMatch(/inline-size: calc\(var\(--vane-fraction__[\w-]+, 0\) \* 100%\)/)
     expect(css).toMatch(/background: var\(--vane-tint__[\w-]+, var\(--vane-color-brand\)\)/)
+    expect(css).toContain('html {')
+    expect(css).toContain('body {')
   })
 
   it('emits recipe classes per arm, named for the recipe', async () => {
@@ -132,8 +135,131 @@ describe('the vite build', () => {
 
     expect(manifest.version).toBe(1)
     expect(manifest.tokens['color.brand'].var).toBe('--vane-color-brand')
+    expect(manifest.tokens['color.brand']).toMatchObject({
+      file: 'system.style.ts',
+      line: 7,
+      column: 14,
+    })
     expect(manifest.recipes.button.variants.intent).toEqual(['brand', 'ghost'])
     expect(Object.keys(manifest.ports)).toContain('progress.fraction')
+    expect(Object.values(manifest.styles).find((style: any) => style.name === 'track')).toMatchObject({
+      file: 'progress.style.ts',
+      line: 8,
+      column: 22,
+      tokens: ['color.surface', 'space.sm'],
+    })
+  })
+})
+
+describe('source-local build diagnostics', () => {
+  async function buildBrokenFixture(files: Record<string, string>): Promise<unknown> {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-diagnostic-')))
+
+    await writeFile(join(root, 'package.json'), '{ "name": "vane-diagnostic-fixture", "type": "module" }')
+
+    for (const [file, source] of Object.entries(files))
+      await writeFile(join(root, file), source)
+
+    try {
+      await build({
+        configFile: false,
+        logLevel: 'silent',
+        root,
+        plugins: [vaneDuxPlugin({ identifiers: 'debug' })],
+        resolve: { alias: aliases },
+        build: {
+          write: false,
+          lib: { entry: join(root, 'entry.ts'), formats: ['es'], fileName: 'entry' },
+        },
+      })
+    }
+    catch (error) {
+      return error
+    }
+
+    throw new Error('Expected the fixture build to fail')
+  }
+
+  function findVaneError(error: unknown): VaneError | undefined {
+    const pending = [error]
+
+    for (let depth = 0; depth < 16 && pending.length > 0; depth++) {
+      const current = pending.shift()
+
+      if (current === null || typeof current !== 'object')
+        continue
+
+      // The evaluated bundle carries its own ESM copy of vane-dux, so class
+      // identity differs even though the structured public error is intact.
+      if (current instanceof VaneError || ('name' in current && current.name === 'VaneError' && 'diagnostics' in current))
+        return current as VaneError
+
+      if ('cause' in current)
+        pending.push(current.cause)
+
+      if ('errors' in current && Array.isArray(current.errors))
+        pending.push(...current.errors)
+    }
+
+    return undefined
+  }
+
+  it('points an invalid declaration at its authored property', async () => {
+    const error = await buildBrokenFixture({
+      'entry.ts': 'export { broken } from \'./broken.style\'\n',
+      'system.style.ts': `import { createSystem, defineTokens } from '@mszr/vane-dux'
+const tokens = defineTokens({ color: { brand: '#635bff' } }).build()
+export const { css } = createSystem({ tokens })
+`,
+      'broken.style.ts': `import { css } from './system.style'
+
+export const broken = css({
+  borderRadius: '8pxx',
+})
+`,
+    })
+    const diagnostic = findVaneError(error)?.diagnostics[0]
+
+    expect(diagnostic).toMatchObject({
+      code: 'VANE_CSS_INVALID_VALUE',
+      file: 'broken.style.ts',
+      path: 'borderRadius',
+      line: 4,
+      column: 3,
+    })
+    expect(String(error)).toContain('at broken.style.ts:4:3')
+  })
+
+  it('traces a composed token failure to the module that defines it', async () => {
+    const error = await buildBrokenFixture({
+      'entry.ts': 'export { marker } from \'./system.style\'\n',
+      'palette.tokens.ts': `import { defineTokens, legibleOn, oklch } from '@mszr/vane-dux'
+
+export const palette = defineTokens({ color: { base: oklch(0.7, 0, 0) } })
+  .derive(({ color }) => ({
+    color: {
+      onBase: legibleOn(color.base),
+    },
+  }))
+`,
+      'system.style.ts': `import { createSystem, defineTokens } from '@mszr/vane-dux'
+import { palette } from './palette.tokens'
+
+const tokens = defineTokens().compose(palette).build()
+export const { css } = createSystem({ tokens })
+export const marker = css({ color: tokens.color.base })
+`,
+    })
+    const diagnostic = findVaneError(error)?.diagnostics[0]
+
+    expect(diagnostic).toMatchObject({
+      code: 'VANE_TOKENS_CONTRAST',
+      file: 'palette.tokens.ts',
+      path: 'color.onBase',
+      line: 6,
+      column: 7,
+    })
+    expect(String(error)).toContain('at palette.tokens.ts:6:7')
   })
 })
 
@@ -276,11 +402,28 @@ describe('auto-imports', () => {
       export function helper() {}
       const local = 1
       export { local, local as alias }
+      export { external as refracted } from './external'
       export type { VaneProps } from '@mszr/vane-dux'
+      // export const phantom = 1
+      const text = 'export const alsoPhantom = 1'
     `
 
     expect(styleExportNames(source).sort())
-      .toEqual(['alias', 'brand', 'css', 'helper', 'local', 'makeRecipe', 't'])
+      .toEqual(['alias', 'brand', 'css', 'helper', 'local', 'makeRecipe', 'refracted', 't'])
+  })
+
+  it('export discovery follows syntax through multiline destructuring and defaults', () => {
+    const source = `
+      export const {
+        t,
+        css: style,
+        recipe: makeRecipe = fallback,
+      } = createSystem({ tokens: {} })
+      export interface TypesOnly {}
+      export type Alias = string
+    `
+
+    expect(styleExportNames(source).sort()).toEqual(['makeRecipe', 'style', 't'])
   })
 
   it('an unbound css/t in a style module resolves to the configured system', async () => {
@@ -342,6 +485,11 @@ describe('applyDebugNames', () => {
     expect(applyDebugNames(source)).toBe(source)
   })
 
+  it('respects a quoted explicit label key', () => {
+    const source = 'export const x = port(0, { \'label\': \'custom\' })'
+    expect(applyDebugNames(source)).toBe(source)
+  })
+
   it('appends debug ids to css, recipe, anatomy, and keyframes calls', () => {
     expect(applyDebugNames('export const card = css({ padding: 8 })'))
       .toBe('export const card = css({ padding: 8 }, \'card\')')
@@ -372,9 +520,35 @@ describe('applyDebugNames', () => {
   })
 
   it('names several declarations in one module', () => {
-    const source = 'export const a = port(0)\nconst b = css({})\n'
+    const source = 'export const a = port(0), c = recipe({})\nconst b = css({})\n'
     expect(applyDebugNames(source))
-      .toBe('export const a = port(0, { label: \'a\' })\nconst b = css({}, \'b\')\n')
+      .toBe('export const a = port(0, { label: \'a\' }), c = recipe({}, \'c\')\nconst b = css({}, \'b\')\n')
+  })
+
+  it('tracks imported and destructured aliases without touching comments or strings', () => {
+    const source = `import { port as makePort, css as style } from './system.style'
+const { recipe: makeRecipe } = system
+const gap = makePort(0)
+const card = style({ content: 'const fake = port(0)' })
+const button = makeRecipe({})
+// const phantom = port(0)
+`
+    const expected = `import { port as makePort, css as style } from './system.style'
+const { recipe: makeRecipe } = system
+const gap = makePort(0, { label: 'gap' })
+const card = style({ content: 'const fake = port(0)' }, 'card')
+const button = makeRecipe({}, 'button')
+// const phantom = port(0)
+`
+
+    expect(applyDebugNames(source)).toBe(expected)
+  })
+
+  it('handles computed bound calls and preserves non-object option expressions', () => {
+    expect(applyDebugNames('const gap = system[\'port\'](0)'))
+      .toBe('const gap = system[\'port\'](0, { label: \'gap\' })')
+    const source = 'const gap = port(0, options)'
+    expect(applyDebugNames(source)).toBe(source)
   })
 
   it('leaves unrelated calls alone', () => {

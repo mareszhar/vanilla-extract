@@ -1,11 +1,9 @@
-// Exports are ordered by source module. Each group below is one domain:
-// css types → diagnostics → ports → recipes → system → tokens.
-
-// ─── CSS authoring: the style-rule types (phase 2) ───────────────────────────
-
-export { unsafe } from './atoms/handle'
+// Exports are ordered by source module. Each heading names the public domain;
+// the order itself stays alphabetical so lint makes accidental drift visible.
 
 // ─── Atoms: the strict utility lane (phase 7) ────────────────────────────────
+
+export { unsafe } from './atoms/handle'
 
 export type {
   VaneAtomInput,
@@ -18,6 +16,9 @@ export type {
   VaneAtomValues,
   VaneUnsafeValue,
 } from './atoms/types'
+
+// ─── CSS authoring: the style-rule types (phase 2) ───────────────────────────
+
 export type {
   VaneAtRules,
   VaneCssFunction,
@@ -41,7 +42,7 @@ export type {
   VaneVarReference,
 } from './css/types'
 
-// ─── Diagnostics: the error contract every domain shares ─────────────────────
+// ─── Diagnostics: the error contract every domain shares ────────────────────
 
 export { didYouMean, VaneError } from './diagnostics'
 export type { VaneDiagnostic, VaneDiagnosticCode } from './diagnostics'
@@ -53,9 +54,6 @@ export type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from './internal/
 // ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
 
 export { ports } from './ports/ports'
-
-// ─── Recipes: variants, toggles, anatomy, published ports (phase 4) ──────────
-
 export type {
   VanePort,
   VanePortDefault,
@@ -69,7 +67,7 @@ export type {
   VanePortWiden,
 } from './ports/types'
 
-// ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
+// ─── Recipes: variants, toggles, anatomy, published ports (phase 4) ──────────
 
 export type {
   VaneAnatomy,
@@ -87,9 +85,14 @@ export type {
   VaneRecipeProps,
   VaneRecipeSelection,
 } from './recipes/types'
+
+// ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
+
 export { aria, container, data, media, schemeIs, supports } from './system/conditions'
 export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneConditionInput } from './system/conditions'
+
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'
+
 export type {
   VaneDefaultLayers,
   VaneSystem,
@@ -103,18 +106,25 @@ export type {
 export { check } from './tokens/checks'
 export {
   alpha,
+  channel,
   color,
   darken,
   desaturate,
+  displayP3,
+  hsl,
+  lab,
+  lch,
   legibleOn,
   lighten,
   mix,
+  oklab,
   oklch,
+  rgb,
   rotate,
   saturate,
   scheme,
 } from './tokens/color'
-export type { VaneLegibleOptions } from './tokens/color'
+export type { VaneChannelOperation, VaneLegibleOptions, VaneOklchChannels, VaneOklchFunction } from './tokens/color'
 export { defineTokens } from './tokens/graph'
 export { scale } from './tokens/scale'
 export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
@@ -128,15 +138,23 @@ export type {
   VaneContrast,
   VaneContrastGuarantee,
   VaneContrastToken,
-  VaneDerivation,
+  VaneDerived,
   VaneGraphInput,
   VaneLiveOverrides,
   VaneModeOf,
-  VaneRefs,
   VaneResolvedTokens,
   VaneThemeOverrides,
+  VaneTokenBuilder,
   VaneTokenMode,
   VaneTokens,
   VaneTokensOptions,
+  VaneTokenStage,
   VaneValueToken,
 } from './tokens/types'
+
+// ─── CSS values: config-agnostic math and layout composition ─────────────────
+
+export { grid } from './values/grid'
+export { calc, clamp, max, min } from './values/math'
+export type { VaneCalc, VaneDimensionOf, VaneMathDimension, VaneMathValue } from './values/math'
+export type { VaneCssInput, VaneCssReference, VaneCssValue } from './values/types'

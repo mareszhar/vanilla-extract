@@ -14,7 +14,7 @@ The preset's law: **opinions live where they're deletable.** Everything here con
 | 1 | Preset tokens | 5 | ☑ |
 | 2 | Preset conditions | 5 | ☑ |
 | 3 | `atoms` | 7 | ☑ (the engine is core, bound on the system; the preset ships the default map) |
-| 4 | A11y helpers | 7 | ☑ (the outline-removal *check* lands with the audits, phase 8) |
+| 4 | A11y helpers | 7 | ☑ (including the audit for outline removal without a focus-visible replacement) |
 | 5 | Motion opinions | 7 | ☑ |
 | 6 | Layout patterns | 7 | ☑ |
 
@@ -124,7 +124,7 @@ export const input = css({
 })
 ```
 
-**Contract details.** `focusRing()` (token-driven, `:focus-visible`-scoped), `visuallyHidden()`, `minTarget(px)`. Each is a plain declaration fragment — spreadable, overridable, deletable. Forced-colors styling needs no helper: `forcedColors` is already a preset condition, one bare key away — a wrapper would carry nothing (principle 10). The companion *check* — removing `outline` in an interactive style without a `focusVisible` replacement warns with `focusRing()` as the fix-it — lands with the audits ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)).
+**Contract details.** `focusRing()` (token-driven, `:focus-visible`-scoped), `visuallyHidden()`, `minTarget(px)`. Each is a plain declaration fragment — spreadable, overridable, deletable. Forced-colors styling needs no helper: `forcedColors` is already a preset condition, one bare key away — a wrapper would carry nothing (principle 10). The companion audit checks emitted selectors: removing `outline` without a visible `:focus-visible` replacement warns at the class source with `focusRing()` as the fix-it ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)).
 
 ---
 

@@ -46,6 +46,8 @@
  */
 
 import type { Adapter } from '@vanilla-extract/css'
+import type { Loader } from 'esbuild'
+import type { CallExpression, Expression, ObjectExpression, ObjectProperty } from 'oxc-parser'
 import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from 'vite'
 import type { VaneInspectRecord } from './internal/inspect'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -62,6 +64,8 @@ import {
 } from '@vanilla-extract/integration'
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin'
 import { build as esbuild } from 'esbuild'
+import { parseSync, Visitor } from 'oxc-parser'
+import { resetDiagnosticSources } from './diagnostics'
 import { collectInspection } from './internal/inspect'
 import { devtoolsPage } from './introspect/devtools'
 import { buildManifest } from './introspect/manifest'
@@ -92,6 +96,8 @@ export interface VaneViteOptions {
 
 /** `*.style.ts` (and variants) — vane-dux's authoring file extension. */
 const styleFileFilter = /\.style\.(?:js|cjs|mjs|jsx|ts|tsx)(?:\?used)?$/
+const styleSourceFilter = /\.style\.(?:js|cjs|mjs|jsx|ts|tsx)$/
+const authoringSourceFilter = /\.[cm]?[jt]sx?$/
 
 /** The stable virtual stylesheet a compiled style module imports; content lives in the store. */
 const virtualExt = '.vane.css'
@@ -102,11 +108,12 @@ const selfAcceptFooter = '\nif (import.meta.hot) { import.meta.hot.accept() }\n'
 export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
   let config: ResolvedConfig
   let server: ViteDevServer | undefined
+  let clientServer: ViteDevServer | undefined
 
   /** Stable virtual id → the CSS it currently serves. */
   const cssByVirtualId = new Map<string, string>()
-  /** Style module → its last serialized code, for export-shape comparison. */
-  const serializedModules = new Map<string, string>()
+  /** Style module → its sorted top-level exports, for shape comparison. */
+  const exportSignatures = new Map<string, string>()
   /** Bundled dependency → the style modules built on it, for HMR fan-out. */
   const dependentsByFile = new Map<string, Set<string>>()
   /** Root-relative style module → what it recorded, replaced per evaluation. */
@@ -209,6 +216,13 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
     configureServer(devServer) {
       server = devServer
 
+      // Nuxt creates distinct browser and SSR Vite servers from the same
+      // plugin instance. The latter configures last, so a single `server`
+      // reference silently routes CSS updates/full reloads to an HMR channel
+      // no browser listens to. Plain Vite's consumer is `client` too.
+      if (devServer.config.build.ssr !== true)
+        clientServer = devServer
+
       // The manifest, live — what the DevTools tab (and any tool) reads.
       devServer.middlewares.use('/__vane', (req, res, next) => {
         const [path] = (req.url ?? '/').split('?')
@@ -284,17 +298,28 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
         const virtualId = `${normalizePath(join(root, fileScope.filePath))}${virtualExt}`
         // Provenance in dev: the stylesheet names its style module up front.
         const served = server ? `/* ${fileScope.filePath} · vane-dux */\n${css}` : css
-        const changed = cssByVirtualId.get(virtualId) !== served
+        const previousCss = cssByVirtualId.get(virtualId)
+        const changed = previousCss !== undefined && previousCss !== served
 
         cssByVirtualId.set(virtualId, served)
         cssImports.push(`import '${virtualId}';`)
 
-        // The id is stable, so the module graph must learn the content moved —
-        // import analysis then stamps a fresh timestamp on the import and the
-        // client replaces the existing style tag in place.
-        if (changed && server) {
-          for (const virtualModule of server.moduleGraph.getModulesByFile(virtualId) ?? [])
-            server.moduleGraph.invalidateModule(virtualModule)
+        // The id is stable, so update both halves of the HMR contract: mark
+        // Vite's file-change walk already invalidated this virtual module via
+        // its importer before the style transform runs. At that point its
+        // self-accepting metadata is intentionally blank, so `reloadModule`
+        // cannot rediscover an update boundary. Notify the client of the
+        // known-safe CSS module directly; fetching its stable URL re-runs
+        // Vite's CSS wrapper and replaces the existing style tag in place.
+        // Dependency fan-out otherwise refreshes the in-memory bytes without
+        // ever asking the browser to fetch them.
+        if (changed && clientServer) {
+          const url = `/${posix.relative(normalizePath(root), virtualId)}`
+
+          for (const virtualModule of clientServer.moduleGraph.getModulesByFile(virtualId) ?? [])
+            clientServer.moduleGraph.invalidateModule(virtualModule)
+
+          sendCssUpdate(clientServer, url, Date.now())
         }
       }
 
@@ -304,13 +329,17 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
       let code = serializeVanillaModule(cssImports, exports, unusedCompositionRegex)
 
       if (server && !transformOptions?.ssr) {
-        const previous = serializedModules.get(filePath)
-        serializedModules.set(filePath, code)
+        const signature = Object.keys(exports).sort().join('\0')
+        const previous = exportSignatures.get(filePath)
+        exportSignatures.set(filePath, signature)
 
-        // Same exports → the accepted update is sound. New export shape →
-        // importers hold stale bindings; one full reload restores truth.
-        if (previous !== undefined && previous !== code)
-          server.hot.send({ type: 'full-reload' })
+        // Stable export names → values are serialized contracts whose CSS can
+        // update in place. Added/removed/renamed exports leave importers with
+        // stale bindings, so exactly one full reload restores truth.
+        if (previous !== undefined && previous !== signature) {
+          const hotServer = clientServer ?? server
+          hotServer.hot.send({ type: 'full-reload' })
+        }
 
         code += selfAcceptFooter
       }
@@ -368,6 +397,20 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
       unstable_mode: options.unstableMode,
     }),
   ]
+}
+
+function sendCssUpdate(server: ViteDevServer, url: string, timestamp: number): void {
+  server.hot.send({
+    type: 'update',
+    updates: [{
+      type: 'js-update',
+      timestamp,
+      path: url,
+      acceptedPath: url,
+      explicitImportRequired: false,
+      isWithinCircularImport: false,
+    }],
+  })
 }
 
 // Vite rewrites absolute module ids to root-relative browser URLs in dev and
@@ -461,21 +504,35 @@ async function bundleStyleModule({ filePath, root, alias, inject }: BundleStyleM
         },
       },
       {
-        name: 'vane-dux-filescope',
+        name: 'vane-dux-authoring-source',
         setup(build) {
-          build.onLoad({ filter: /\.style\.(js|cjs|mjs|jsx|ts|tsx)$/ }, async ({ path }) => {
-            const original = await readFile(path, 'utf-8')
+          build.onLoad({ filter: authoringSourceFilter }, async ({ path }) => {
+            const normalizedPath = normalizePath(path)
+            const normalizedRoot = `${normalizePath(root).replace(/\/$/, '')}/`
 
-            const source = addFileScope({
-              source: applyDebugNames(original),
-              filePath: path,
-              rootPath: root,
-              packageName,
-            })
+            // Only compiler-owned app source receives provenance metadata.
+            // Dependencies keep their native loader/transform pipeline and
+            // cannot pollute the app's diagnostic source universe.
+            if (!normalizedPath.startsWith(normalizedRoot))
+              return undefined
+
+            const original = await readFile(path, 'utf-8')
+            const isStyleModule = styleSourceFilter.test(path)
+            const named = isStyleModule ? applyDebugNames(original, path) : original
+            const located = applySourceLocations(named, path, root)
+
+            const source = isStyleModule
+              ? addFileScope({
+                  source: located,
+                  filePath: path,
+                  rootPath: root,
+                  packageName,
+                })
+              : located
 
             return {
               contents: source,
-              loader: /\.tsx?$/i.test(path) ? 'ts' : undefined,
+              loader: sourceLoader(path),
               resolveDir: dirname(path),
             }
           })
@@ -493,6 +550,16 @@ async function bundleStyleModule({ filePath, root, alias, inject }: BundleStyleM
     source: outputFiles[0].text,
     watchFiles: Object.keys(metafile.inputs).map(file => join(root, file)),
   }
+}
+
+function sourceLoader(path: string): Loader {
+  if (/\.tsx$/i.test(path))
+    return 'tsx'
+  if (/\.(?:ts|mts|cts)$/i.test(path))
+    return 'ts'
+  if (/\.jsx$/i.test(path))
+    return 'jsx'
+  return 'js'
 }
 
 /** The string-keyed subset of the resolved Vite aliases, for esbuild's resolver. */
@@ -582,6 +649,7 @@ function evaluateStyleModule(source: string, filePath: string, identOption: Vane
 
 /** Execute the CommonJS bundle; externals are absolute paths, so any `require` works. */
 function executeBundle(source: string, filePath: string): Record<string, unknown> {
+  resetDiagnosticSources()
   const module = { exports: {} as Record<string, unknown> }
 
   // eslint-disable-next-line no-new-func
@@ -594,38 +662,23 @@ function executeBundle(source: string, filePath: string): Record<string, unknown
 // ─── Export-name detection ───────────────────────────────────────────────────
 
 /**
- * The value exports of a style module, for auto-imports — the destructured
- * system form (`export const { t, css } = createSystem(…)`), plain named
- * declarations, and export lists. The same light regex posture as the
- * debug-name transform: when a form can't be read, it's skipped, and explicit
- * imports always remain valid.
+ * Every statically enumerable value export, read from Oxc's module record.
+ * Destructuring, aliases, re-exports, comments, and TypeScript-only exports
+ * follow parser semantics instead of source-text guesses.
  */
-export function styleExportNames(source: string): string[] {
+export function styleExportNames(source: string, fileName = 'system.style.ts'): string[] {
+  const parsed = parseSync(fileName, source)
+
+  if (parsed.errors.some(error => error.severity === 'Error'))
+    return []
+
   const names = new Set<string>()
 
-  // export const { t, css: style } = …
-  for (const match of source.matchAll(/export\s+(?:const|let|var)\s*\{([^}]*)\}/g)) {
-    for (const entry of match[1].split(',')) {
-      const name = entry.split(':').pop()?.split('=')[0]?.trim()
+  for (const declaration of parsed.module.staticExports) {
+    for (const entry of declaration.entries) {
+      const name = entry.exportName.name
 
-      if (name && /^\w+$/.test(name))
-        names.add(name)
-    }
-  }
-
-  // export const t = …, export function …
-  for (const match of source.matchAll(/export\s+(?:const|let|var|function|class)\s+(\w+)/g))
-    names.add(match[1])
-
-  // export { a, b as c } [from '…'] — type-only entries skipped
-  for (const match of source.matchAll(/export\s*\{([^}]*)\}/g)) {
-    for (const entry of match[1].split(',')) {
-      if (/^\s*type\s/.test(entry))
-        continue
-
-      const name = (entry.split(/\bas\b/).pop() ?? '').trim()
-
-      if (name && /^\w+$/.test(name))
+      if (!entry.isType && name !== null && entry.exportName.kind === 'Name')
         names.add(name)
     }
   }
@@ -639,8 +692,8 @@ export function styleExportNames(source: string): string[] {
  * Inject declaration names into authoring calls, so emitted identifiers
  * follow the code — rename-symbol renames everything, devtools rules trace
  * back to their export ([dux-spec-ports.md §1], [dux-spec-recipes.md §3]).
- * A light bracket-matching pass, not a Babel plugin; when it can't parse a
- * call it leaves it alone — everything still works with hash-only names.
+ * Oxc identifies declarations and call arguments; edits are insertion-only,
+ * so formatting and comments remain byte-for-byte intact around them.
  *
  * Handles module-scope `const` declarations, exported or not (published
  * ports are typically module-local):
@@ -650,138 +703,306 @@ export function styleExportNames(source: string): string[] {
  *   `fontFace(…)` → the call gains `'X'` as its debug id; an explicit id wins
  * - `IDENT.port(...)` and friends — the system-bound forms
  */
-export function applyDebugNames(source: string): string {
-  let output = source
-  let offset = 0
+export function applyDebugNames(source: string, fileName = 'module.style.ts'): string {
+  const parsed = parseSync(fileName, source, { range: true })
 
-  const pattern = /(?:export\s+)?const\s+(\w+)\s*=\s*(?:\w+\.)?(port|css|recipe|anatomy|keyframes|fontFace|defineAtoms)\s*\(/g
+  if (parsed.errors.some(error => error.severity === 'Error'))
+    return source
 
-  for (const match of source.matchAll(pattern)) {
-    const [, name, callee] = match
-    const callStart = match.index! + match[0].lastIndexOf('(')
-    const callEnd = findMatchingParen(source, callStart)
+  const aliases = authoringAliases(parsed.program)
+  const edits: Array<{ at: number, text: string }> = []
 
-    if (callEnd === -1)
-      continue
+  new Visitor({
+    VariableDeclarator(node) {
+      if (node.id.type !== 'Identifier' || node.init?.type !== 'CallExpression')
+        return
 
-    const args = source.slice(callStart + 1, callEnd)
-    const { hasLabel, commaIndex } = analyzeArgs(args)
+      const callee = authoringCallee(node.init.callee, aliases)
 
-    const replacement = callee === 'port'
-      ? hasLabel ? undefined : buildPortReplacement(args, commaIndex, name)
-      : buildDebugIdReplacement(args, commaIndex, name)
+      if (callee === undefined)
+        return
 
-    if (replacement === undefined)
-      continue
+      const name = node.id.name
+      const args = node.init.arguments
 
-    const before = output.slice(0, callStart + 1 + offset)
-    const after = output.slice(callEnd + offset)
-    output = before + replacement + after
-    offset += replacement.length - args.length
-  }
+      if (callee === 'port') {
+        if (args.length === 1) {
+          edits.push({ at: node.init.end - 1, text: `, { label: '${name}' }` })
+        }
+        else if (args.length >= 2 && args[1].type === 'ObjectExpression' && !hasObjectKey(args[1], 'label')) {
+          edits.push({ at: args[1].start + 1, text: ` label: '${name}',` })
+        }
 
-  return output
+        return
+      }
+
+      if (args.length === 1)
+        edits.push({ at: node.init.end - 1, text: `, '${name}'` })
+    },
+  }).visit(parsed.program)
+
+  return applyInsertions(source, edits)
 }
 
-/** Find the closing paren that matches the opening paren at `start`. */
-function findMatchingParen(text: string, start: number): number {
-  let depth = 0
-  let quote: string | undefined
+const authoringNames = new Set(['port', 'css', 'recipe', 'anatomy', 'keyframes', 'fontFace', 'defineAtoms'])
+const sourceAuthoringNames = new Set([
+  ...authoringNames,
+  'globalCss',
+  'createSystem',
+  'defineTokens',
+  'theme',
+  'derive',
+  'compose',
+  'build',
+])
+const tokenBuilderMethodNames = new Set(['derive', 'compose', 'build'])
 
-  for (let i = start; i < text.length; i++) {
-    const char = text[i]
+function authoringAliases(program: Parameters<Visitor['visit']>[0], names = authoringNames): Map<string, string> {
+  const aliases = new Map([...names].map(name => [name, name]))
 
-    if (quote !== undefined) {
-      if (char === quote && text[i - 1] !== '\\')
-        quote = undefined
-      continue
-    }
+  new Visitor({
+    ImportSpecifier(node) {
+      const imported = node.imported.type === 'Identifier' ? node.imported.name : String(node.imported.value)
 
-    if (char === '\'' || char === '"' || char === '`') {
-      quote = char
-    }
-    else if (char === '(') {
-      depth++
-    }
-    else if (char === ')') {
-      depth--
-      if (depth === 0)
-        return i
-    }
-  }
+      if (names.has(imported))
+        aliases.set(node.local.name, imported)
+    },
+    VariableDeclarator(node) {
+      if (node.id.type !== 'ObjectPattern')
+        return
 
-  return -1
+      for (const property of node.id.properties) {
+        if (property.type !== 'Property' || property.key.type !== 'Identifier')
+          continue
+
+        const imported = property.key.name
+        const local = property.value.type === 'Identifier' ? property.value.name : undefined
+
+        if (local !== undefined && names.has(imported))
+          aliases.set(local, imported)
+      }
+    },
+  }).visit(program)
+
+  return aliases
 }
 
-/** Whether the arguments already contain a `label` key, and where the top-level comma is. */
-function analyzeArgs(args: string): { hasLabel: boolean, commaIndex: number } {
-  let depth = 0
-  let quote: string | undefined
-  let commaIndex = -1
+function authoringCallee(callee: Expression, aliases: Map<string, string>, names = authoringNames): string | undefined {
+  if (callee.type === 'Identifier')
+    return aliases.get(callee.name)
 
-  for (let i = 0; i < args.length; i++) {
-    const char = args[i]
-
-    if (quote !== undefined) {
-      if (char === quote && args[i - 1] !== '\\')
-        quote = undefined
-      continue
-    }
-
-    if (char === '\'' || char === '"' || char === '`') {
-      quote = char
-    }
-    else if (char === '(' || char === '[' || char === '{') {
-      depth++
-    }
-    else if (char === ')' || char === ']' || char === '}') {
-      depth--
-    }
-    else if (char === ',' && depth === 0) {
-      commaIndex = i
-      break
-    }
+  if (callee.type === 'MemberExpression') {
+    const property = callee.property
+    const name = property.type === 'Identifier'
+      ? property.name
+      : property.type === 'Literal' && typeof property.value === 'string' ? property.value : undefined
+    return name !== undefined && names.has(name) ? name : undefined
   }
 
-  const hasLabel = /\blabel\s*:/.test(args)
-  return { hasLabel, commaIndex }
-}
-
-/** Build a `port()` call's replacement arguments with the `label` option injected. */
-function buildPortReplacement(args: string, commaIndex: number, exportName: string): string {
-  const trimmed = args.trim()
-
-  if (trimmed === '')
-    return `{ label: '${exportName}' }`
-
-  // One argument — append the label option.
-  if (commaIndex === -1)
-    return `${args}, { label: '${exportName}' }`
-
-  // Two arguments — inject `label` into the existing options object.
-  const before = args.slice(0, commaIndex)
-  const after = args.slice(commaIndex + 1)
-  const optionsTrimmed = after.trim()
-
-  if (optionsTrimmed.startsWith('{')) {
-    // Add `label` as the first key in the object.
-    const inner = optionsTrimmed.replace(/^\{\s*/, `{ label: '${exportName}', `)
-    return `${before}, ${inner}`
-  }
-
-  // The second argument is not an object literal — wrap it.
-  return `${before}, { label: '${exportName}' }`
+  return undefined
 }
 
 /**
- * Append the declaration name as a debug id — only to single-argument calls,
- * so an explicit id (or any extra argument) always wins.
+ * Wrap compiler-owned authoring calls with source metadata. The wrapper is a
+ * comma expression, so runtime semantics and return types are unchanged; a
+ * VaneError raised synchronously can recover the exact authored property.
+ * Token-builder chains register all seed/stage paths as one source context.
  */
-function buildDebugIdReplacement(args: string, commaIndex: number, exportName: string): string | undefined {
-  if (args.trim() === '' || commaIndex !== -1)
+function applySourceLocations(source: string, fileName: string, root: string): string {
+  const parsed = parseSync(fileName, source, { range: true })
+
+  if (parsed.errors.some(error => error.severity === 'Error'))
+    return source
+
+  const aliases = authoringAliases(parsed.program, sourceAuthoringNames)
+  const calls: Array<{ node: CallExpression, name: string }> = []
+
+  new Visitor({
+    CallExpression(node) {
+      const name = authoringCallee(node.callee, aliases, sourceAuthoringNames)
+      if (name !== undefined && (!tokenBuilderMethodNames.has(name) || isTokenBuilderChain(node, aliases)))
+        calls.push({ node, name })
+    },
+  }).visit(parsed.program)
+
+  const outermost = calls.filter(({ node }) => !calls.some(({ node: other }) =>
+    other !== node && other.start === node.start && other.end > node.end))
+  const relativeFile = normalizePath(posix.relative(normalizePath(root), normalizePath(fileName)))
+  const file = relativeFile.startsWith('..') ? normalizePath(fileName) : relativeFile
+  const pointAt = sourcePointFactory(source)
+  const edits: Array<{ at: number, text: string }> = []
+
+  for (const { node, name } of outermost) {
+    const locations: Record<string, Array<{ line: number, column: number }>> = {}
+    collectCallLocations(node, name, aliases, locations, pointAt)
+    const meta = { file, call: pointAt(node.start), locations }
+    const key = `${file}:${node.start}`
+    const json = JSON.stringify(meta)
+
+    edits.push({
+      at: node.start,
+      text: `globalThis[Symbol.for('vane.withSource')](${json},${JSON.stringify(key)},()=>`,
+    })
+    edits.push({ at: node.end, text: ')' })
+  }
+
+  return applyInsertions(source, edits)
+}
+
+function isTokenBuilderChain(call: CallExpression, aliases: Map<string, string>): boolean {
+  const name = authoringCallee(call.callee, aliases, sourceAuthoringNames)
+
+  if (name === 'defineTokens')
+    return true
+
+  return name !== undefined
+    && tokenBuilderMethodNames.has(name)
+    && call.callee.type === 'MemberExpression'
+    && call.callee.object.type === 'CallExpression'
+    && isTokenBuilderChain(call.callee.object, aliases)
+}
+
+function collectCallLocations(
+  call: CallExpression,
+  name: string,
+  aliases: Map<string, string>,
+  locations: Record<string, Array<{ line: number, column: number }>>,
+  pointAt: (offset: number) => { line: number, column: number },
+): void {
+  if (call.callee.type === 'MemberExpression' && call.callee.object.type === 'CallExpression') {
+    const base = call.callee.object
+    const baseName = authoringCallee(base.callee, aliases, sourceAuthoringNames)
+    if (baseName !== undefined)
+      collectCallLocations(base, baseName, aliases, locations, pointAt)
+  }
+
+  const expression = sourceObjectForCall(call, name)
+  if (expression !== undefined)
+    collectObjectLocations(expression, [], locations, pointAt)
+}
+
+function sourceObjectForCall(call: CallExpression, name: string): ObjectExpression | undefined {
+  const argumentIndex = name === 'globalCss' ? 1 : 0
+  const argument = call.arguments[argumentIndex]
+
+  if (argument === undefined || argument.type === 'SpreadElement')
     return undefined
 
-  return `${args}, '${exportName}'`
+  const expression = unwrapSource(argument)
+
+  if (expression.type === 'ObjectExpression')
+    return expression
+
+  if (name === 'derive' && (expression.type === 'ArrowFunctionExpression' || expression.type === 'FunctionExpression')) {
+    if (expression.body !== null && expression.body.type !== 'BlockStatement') {
+      const body = unwrapSource(expression.body)
+      return body.type === 'ObjectExpression' ? body : undefined
+    }
+
+    if (expression.body === null)
+      return undefined
+
+    for (const statement of expression.body.body) {
+      if (statement.type === 'ReturnStatement' && statement.argument !== null) {
+        const returned = unwrapSource(statement.argument)
+        if (returned.type === 'ObjectExpression')
+          return returned
+      }
+    }
+  }
+
+  return undefined
+}
+
+function collectObjectLocations(
+  object: ObjectExpression,
+  prefix: string[],
+  locations: Record<string, Array<{ line: number, column: number }>>,
+  pointAt: (offset: number) => { line: number, column: number },
+): void {
+  for (const property of object.properties) {
+    if (property.type !== 'Property')
+      continue
+
+    const key = sourcePropertyName(property)
+    if (key === undefined)
+      continue
+
+    const path = [...prefix, key]
+    const joined = path.join('.')
+    const points = locations[joined] ?? []
+    points.push(pointAt(property.key.start))
+    locations[joined] = points
+
+    const value = unwrapSource(property.value)
+    if (value.type === 'ObjectExpression')
+      collectObjectLocations(value, path, locations, pointAt)
+  }
+}
+
+function sourcePropertyName(property: ObjectProperty): string | undefined {
+  const { key } = property
+
+  if (key.type === 'Identifier')
+    return key.name
+
+  if (key.type === 'Literal' && (typeof key.value === 'string' || typeof key.value === 'number'))
+    return String(key.value)
+
+  return undefined
+}
+
+function unwrapSource(expression: Expression): Expression {
+  let value = expression
+  const wrappers = new Set(['ParenthesizedExpression', 'TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSInstantiationExpression'])
+
+  while (wrappers.has(value.type) && 'expression' in value)
+    value = value.expression as Expression
+
+  return value
+}
+
+function sourcePointFactory(source: string): (offset: number) => { line: number, column: number } {
+  const starts = [0]
+
+  for (let index = 0; index < source.length; index++) {
+    if (source.charCodeAt(index) === 10)
+      starts.push(index + 1)
+  }
+
+  return (offset) => {
+    let low = 0
+    let high = starts.length - 1
+
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2)
+      if (starts[middle] <= offset)
+        low = middle
+      else high = middle - 1
+    }
+
+    return { line: low + 1, column: offset - starts[low] + 1 }
+  }
+}
+
+function hasObjectKey(object: ObjectExpression, key: string): boolean {
+  return object.properties.some((property) => {
+    if (property.type !== 'Property')
+      return false
+
+    return property.key.type === 'Identifier'
+      ? property.key.name === key
+      : property.key.type === 'Literal' && property.key.value === key
+  })
+}
+
+function applyInsertions(source: string, edits: Array<{ at: number, text: string }>): string {
+  let output = source
+
+  for (const edit of edits.sort((a, b) => b.at - a.at))
+    output = `${output.slice(0, edit.at)}${edit.text}${output.slice(edit.at)}`
+
+  return output
 }
 
 // ─── Introspection: the manifest and the audits ride the build plane ─────────
@@ -795,6 +1016,8 @@ export type {
   VaneManifestEscape,
   VaneManifestPort,
   VaneManifestRecipe,
+  VaneManifestSource,
+  VaneManifestStyle,
   VaneManifestToken,
 } from './introspect/manifest'
 

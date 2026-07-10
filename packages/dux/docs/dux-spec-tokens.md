@@ -1,4 +1,4 @@
-updated: 2026-07-07
+updated: 2026-07-10
 status: spec — contracts settled, implemented (phase 1)
 
 # vane-dux — spec: tokens
@@ -12,6 +12,7 @@ Each entry is **contract-driven**: the desired behavior and why it matters, the 
 | # | Contract | Status |
 | --- | --- | --- |
 | 1 | `defineTokens` — the graph in plain TS | ☑ |
+| 1a | Token modules and composition | ☑ |
 | 2 | Liveness compilation | ☑ |
 | 3 | Schemes | ☑ |
 | 4 | Elevation | ☑ |
@@ -39,28 +40,64 @@ import { elevation } from '@mszr/vane-dux/preset'
 export const t = defineTokens({
   color: {
     brand: oklch(0.58, 0.2, 285).live(),                  // runtime input — user-themeable
-    surface: ({ color }) => elevation(color.brand, 0.03), // explicit base + plane position
-    ink: ({ color }) => elevation(color.brand, 0.94),
-    brandSoft: ({ color }) => alpha(color.brand, 0.12),   // derivation — a graph edge
-    brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: ({ color }) => legibleOn(color.brand),       // guaranteed-legible pairing
     canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
   },
   space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
   radius: { sm: '4px', md: '8px', pill: '999px' },
   duration: { fast: '120ms', normal: '200ms' },
 })
+  .derive(({ color }) => ({
+    color: {
+      surface: elevation(color.brand, 0.03), // explicit base + plane position
+      ink: elevation(color.brand, 0.94),
+      brandSoft: alpha(color.brand, 0.12),   // derivation — a graph edge
+      brandHover: color.brand.lighten(0.06),
+      onBrand: legibleOn(color.brand),       // guaranteed-legible pairing
+    },
+  }))
+  .build()
 ```
 
 **Contract details.**
 
 - `t` is an ordinary typed export; token references are property accesses, never string paths. Hovering a token reads as facts — its mode and emitted variable name are literal types (`VaneColorToken<'live', 'vane-color-brand'>`), and plain value leaves carry their resolved literal (`VaneValueToken<'4px', …>`).
-- Derivations receive the graph as `VaneRefs` — every token a ref with the color methods one property away — and return values or further expressions; cycles are a build diagnostic naming the loop. Token *names* inside a derivation resolve structurally, not at the cursor: TypeScript fixes the graph's inference before a derivation's own type exists, so a mistyped name is a build diagnostic with a `did you mean`, raised the moment the derivation runs. Everywhere `t` is *consumed*, names stay cursor-checked.
+- **Derivations are explicit topological stages.** Each `.derive()` callback receives the exact graph accumulated by earlier stages: property completions are exhaustive, a typo errors at that property access, `noUncheckedIndexedAccess` adds no `undefined`, and a stage's own output becomes visible only to the next stage. Forward references and cycles are unrepresentable instead of runtime-detected.
+- **Definitions are modules without a second abstraction.** Every `defineTokens()` builder is independently buildable and composable. `defineTokens().compose(colors).compose(metrics)` preserves each module's internal stage order, exact type graph, and rename identity; integration `.derive()` stages see the combined graph. Overlapping groups merge, while a repeated leaf fails at the `.compose(module)` argument and names its dot path. Composition is immutable, so a shared module can branch into multiple designs safely.
+- `.build({ prefix, checks })` resolves and emits the finished graph once. `createSystem({ tokens: builder })` accepts an unfinished builder and finalizes it automatically, so the one-file app path pays no extra ceremony.
+- TypeScript's native language service does not connect object-literal keys through an inferred mapped handle type for rename-symbol. `@mszr/vane-dux/typescript` supplies the missing graph-aware locations, scoped by graph origin and literal token path; Nuxt enables it automatically. Plain TypeScript projects opt in with one `compilerOptions.plugins` entry. Completions, diagnostics, hovers, and every non-rename operation remain TypeScript's own.
 - Plain strings/numbers are valid leaves — the graph machinery is opt-in per token (principle 10).
 - `scale.*` generators (`linear`, `modular`, …) are ordinary functions producing token subtrees; nothing about them is special-cased.
 - The dedicated tokens file is the *library-authoring* form. An app that wants one design file passes the same graph to `createSystem({ tokens: { … } })` and receives `t` back bound ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)) — the split is available, never required.
 
-**Implementation.** `defineTokens` walks the object into a handle tree, runs derivation thunks once against that tree (behind a proxy that raises the unknown-name diagnostic), classifies liveness (§2), and registers one global-theme emission via the vanilla-extract substrate (`createGlobalThemeContract` + `createGlobalTheme` internally; never re-exported). Each handle carries its `var(--…)` reference for interpolation, its mode, its folded value where one exists, and its metadata; handles serialize across the build/app boundary through `/runtime`'s `restoreToken`. `VaneRefs` is named-interface recursion, deliberately — tsc's incremental mode mis-resolves self-intersecting recursive aliases.
+**Implementation.** `defineTokens` stores an immutable ordered contribution list—seed modules and derivation stages—without emitting. `.compose()` concatenates definitions without executing them; `.build()` walks each seed, executes each stage against the current exact handle tree, then classifies liveness and registers one global-theme emission through the vanilla-extract substrate (`createGlobalThemeContract` + `createGlobalTheme` internally; never re-exported). Duplicate leaves fail both at the returned value or compose argument and as a runtime diagnostic if types were escaped. Each handle carries its literal path, `var(--…)` reference, mode, folded value where one exists, and metadata; handles serialize across the build/app boundary through `/runtime`'s `restoreToken`.
+
+### Token modules
+
+```TS
+// design/palette.tokens.ts
+export const palette = defineTokens({
+  color: { brand: oklch(0.58, 0.2, 285).live() },
+}).derive(({ color }) => ({
+  color: { brandSoft: alpha(color.brand, 0.12) },
+}))
+
+// design/foundations.tokens.ts
+export const foundations = defineTokens({
+  space: scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }),
+  radius: { sm: '6px' },
+})
+
+// design/tokens.style.ts — integration + one emission
+export const t = defineTokens()
+  .compose(palette)
+  .compose(foundations)
+  .derive(({ color, space }) => ({
+    control: { quiet: { color: color.brandSoft.var, gap: space.sm.var } },
+  }))
+  .build()
+```
+
+`palette.build()` remains valid on its own. Composing it does not mutate it or eagerly emit CSS; the final graph owns one prefix, one check pass, one manifest projection, and one deterministic emission order.
 
 ---
 
@@ -71,9 +108,14 @@ export const t = defineTokens({
 **Usage → emitted.**
 
 ```TS
-brand: oklch(0.58, 0.2, 285).live(),
-brandSoft: ({ color }) => alpha(color.brand, 0.12),
-brandHover: ({ color }) => color.brand.lighten(0.06),
+const t = defineTokens({ color: { brand: oklch(0.58, 0.2, 285).live() } })
+  .derive(({ color }) => ({
+    color: {
+      brandSoft: alpha(color.brand, 0.12),
+      brandHover: color.brand.lighten(0.06),
+    },
+  }))
+  .build()
 ```
 
 ```css
@@ -87,7 +129,7 @@ brandHover: ({ color }) => color.brand.lighten(0.06),
 **Contract details.**
 
 - Classification per [dux-patterns.md §3](./dux-patterns.md#3-liveness): all-static inputs fold at build; any live input compiles the derivation to relative color syntax, `color-mix()`, `calc()`, or `light-dark()`.
-- **The color-handle surface is finite and documented.** Color handles carry: `alpha`, `lighten`, `darken`, `saturate`, `desaturate`, `rotate` (hue), and `mix(other, amount)`; each exists both as a method (`color.brand.lighten(0.06)`) and a standalone helper (`alpha(color.brand, 0.12)`). Every one has a defined live-CSS serialization, which is what bounds the set — a proposed helper that cannot compile to CSS under liveness doesn't ship. Helpers are equally legal in style rules (`background: alpha(t.color.ink, 0.42)` inside `css()`), where they follow the same static-fold/live-serialize classification.
+- **The color-handle surface is finite and documented.** Color handles carry: `alpha`, `lighten`, `darken`, `saturate`, `desaturate`, `rotate` (hue), and `mix(other, amount)`; each exists both as a method (`color.brand.lighten(0.06)`) and a standalone helper (`alpha(color.brand, 0.12)`). `oklch.from(base, channels)` is the general relative-color form; typed `channel.set/add/subtract/multiply/divide` operations fold over static inputs and serialize to relative OKLCH over live inputs. Constructors cover OKLCH, OKLab, LCH, Lab, HSL, sRGB, and Display-P3; `color(css)` remains the universal CSS-color escape.
 - Build-time color math and emitted CSS color math must agree to the rounding digit, or static and live ramps diverge subtly. This is a locked test fixture, not a hope.
 - A derivation the compiler cannot express as CSS is a build diagnostic at the derivation. The closed helper set makes this structurally absent today — every helper serializes — and it stays the law for any future addition. String-template derivations need no special case: an embedded token interpolates as its `var()` reference, which is live by construction.
 

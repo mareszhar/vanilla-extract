@@ -43,7 +43,7 @@ describe('port type inference', () => {
     const { port, t } = system()
     const tint = port(t.color.brand)
 
-    expectTypeOf(tint).toExtend<VanePort<VaneColorToken<'live', 'vane-color-brand'>>>()
+    expectTypeOf(tint).toExtend<VanePort<VaneColorToken<'live', 'vane-color-brand', 'color.brand'>>>()
   })
 
   it('the var reference includes the default as a string literal', () => {

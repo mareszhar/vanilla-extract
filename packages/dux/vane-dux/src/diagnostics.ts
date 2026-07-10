@@ -7,6 +7,7 @@
 export type VaneDiagnosticCode
   = | 'VANE_TOKENS_CYCLE'
     | 'VANE_TOKENS_CONTRAST'
+    | 'VANE_TOKENS_DUPLICATE'
     | 'VANE_TOKENS_INVALID_COLOR'
     | 'VANE_TOKENS_INVALID_OVERRIDE'
     | 'VANE_TOKENS_UNKNOWN_REF'
@@ -39,6 +40,10 @@ export interface VaneDiagnostic {
   path?: string
   /** The style module being evaluated, when known. */
   file?: string
+  /** One-based source line, present only when the compiler can prove it. */
+  line?: number
+  /** One-based source column, present only when the compiler can prove it. */
+  column?: number
   /** The suggested fix. */
   fix?: string
 }
@@ -49,8 +54,12 @@ function formatDiagnostic(diagnostic: VaneDiagnostic): string {
   for (const detail of diagnostic.detail ?? [])
     lines.push(`    ${detail}`)
 
-  if (diagnostic.file)
-    lines.push(`    at ${diagnostic.file}`)
+  if (diagnostic.file) {
+    const position = diagnostic.line === undefined
+      ? ''
+      : `:${diagnostic.line}${diagnostic.column === undefined ? '' : `:${diagnostic.column}`}`
+    lines.push(`    at ${diagnostic.file}${position}`)
+  }
 
   if (diagnostic.fix)
     lines.push(`  fix: ${diagnostic.fix}`)
@@ -63,12 +72,102 @@ export class VaneError extends Error {
   readonly code: VaneDiagnosticCode
 
   constructor(diagnostics: VaneDiagnostic | readonly VaneDiagnostic[]) {
-    const all = Array.isArray(diagnostics) ? diagnostics as readonly VaneDiagnostic[] : [diagnostics as VaneDiagnostic]
+    const input = Array.isArray(diagnostics) ? diagnostics as readonly VaneDiagnostic[] : [diagnostics as VaneDiagnostic]
+    const all = input.map(enrichDiagnostic)
     super(all.map(formatDiagnostic).join('\n\n'))
     this.name = 'VaneError'
     this.diagnostics = all
     this.code = all[0].code
   }
+}
+
+interface VaneSourcePoint {
+  line: number
+  column: number
+}
+
+export interface VaneSourceLocation extends VaneSourcePoint {
+  file: string
+}
+
+interface VaneSourceContext {
+  file: string
+  call: VaneSourcePoint
+  locations: Record<string, VaneSourcePoint[]>
+}
+
+const SOURCE_MAPS = Symbol.for('vane.sourceMaps')
+const CURRENT_SOURCE = Symbol.for('vane.currentSource')
+const WITH_SOURCE = Symbol.for('vane.withSource')
+
+/** A style-module evaluation is one provenance universe; old graphs cannot leak into it. */
+export function resetDiagnosticSources(): void {
+  const state = globalThis as typeof globalThis & Record<symbol, unknown>
+  state[SOURCE_MAPS] = new Map<string, VaneSourceContext>()
+  state[CURRENT_SOURCE] = undefined
+  state[WITH_SOURCE] = <T>(context: VaneSourceContext, key: string, run: () => T): T => {
+    state[CURRENT_SOURCE] = context
+    const maps = state[SOURCE_MAPS] as Map<string, VaneSourceContext>
+    maps.set(key, context)
+    return run()
+  }
+}
+
+function enrichDiagnostic(diagnostic: VaneDiagnostic): VaneDiagnostic {
+  if (diagnostic.line !== undefined)
+    return diagnostic
+
+  const source = diagnosticSource(diagnostic.path)
+
+  return source === undefined ? diagnostic : { ...diagnostic, ...source }
+}
+
+/** Exact compiler-owned provenance for manifests and diagnostics. */
+export function diagnosticSource(path?: string): VaneSourceLocation | undefined {
+  const state = globalThis as typeof globalThis & Record<symbol, unknown>
+  const current = state[CURRENT_SOURCE] as VaneSourceContext | undefined
+  const direct = current && pointFor(current, path)
+
+  if (direct)
+    return { file: current!.file, ...direct }
+
+  const maps = state[SOURCE_MAPS]
+
+  if (maps instanceof Map) {
+    const matches: Array<{ context: VaneSourceContext, point: VaneSourcePoint }> = []
+
+    for (const context of maps.values()) {
+      const point = pointFor(context as VaneSourceContext, path)
+      if (point)
+        matches.push({ context: context as VaneSourceContext, point })
+    }
+
+    if (matches.length === 1)
+      return { file: matches[0].context.file, ...matches[0].point }
+  }
+
+  // A call site is still trustworthy for diagnostics without a structural
+  // path (setup/whole-call failures); never invent a property location.
+  if (current && path === undefined)
+    return { file: current.file, ...current.call }
+
+  return undefined
+}
+
+function pointFor(context: VaneSourceContext, path: string | undefined): VaneSourcePoint | undefined {
+  if (path === undefined)
+    return undefined
+
+  const exact = context.locations[path] ?? []
+
+  if (exact.length === 1)
+    return exact[0]
+
+  const suffix = Object.entries(context.locations)
+    .filter(([candidate]) => candidate.endsWith(`.${path}`))
+    .flatMap(([, points]) => points)
+
+  return suffix.length === 1 ? suffix[0] : undefined
 }
 
 /** `did you mean 'md'?` — the enumerable-fix suggestion, shared by overrides and checks. */

@@ -109,7 +109,7 @@ The canon. When two pull against each other, the earlier one wins.
 @mszr/vane-dux           the contract + compiled planes: defineTokens, createSystem
                          (→ t, css, recipe, anatomy, keyframes, globalCss, port, theme),
                          checks, the Vane* types
-@mszr/vane-dux/runtime   the live plane's ~300-byte helpers: applyTheme, port glue
+@mszr/vane-dux/runtime   the tree-shakeable live plane: applyTheme, port glue
 @mszr/vane-dux/vite      the build plane: Vite plugin wiring the vanilla-extract
                          compiler to *.style.ts, debug names, manifest emission
 @mszr/vane-dux/vue       the Vue overlay: usePorts, useAnatomy         (peer vue)
@@ -156,7 +156,7 @@ The workspace ESLint config restricts imports per layer — the matrix lives in 
 ### 4.4 Output stance
 
 - **Non-atomic by default.** Rules are emitted per style, in declared `@layer`s; within a layer, ordinary CSS order applies. Atomic output is an optimization, not an authoring model — deferred behind a measured need ([§8](#8-deferred-intentions)).
-- **Provenance in dev.** Dev builds emit stable debug class names (`Button_root__h4x`) and source-mapped CSS; production emits minified boring CSS ([dux-spec-introspection.md](./dux-spec-introspection.md)).
+- **Provenance in dev.** Dev builds emit stable debug class names (`Button_root__h4x`); the manifest and DevTools view map a class to its exact authoring call and token dependencies. Production emits minified boring CSS ([dux-spec-introspection.md](./dux-spec-introspection.md)).
 - **`sideEffects` honesty and disjoint module graphs** keep a Vue-only app paying zero bytes for `/nuxt` or `/preset`.
 
 ---
@@ -270,6 +270,7 @@ One hub (this), one language doc, one patterns doc, one spec per domain, one mai
 | [dux-vision.md](./dux-vision.md) | **the hub** — philosophy, principles, architecture, scope, roadmap, sustainability |
 | [dux-language.md](./dux-language.md) | the words: vocabulary, naming rules, doc style, the naming map |
 | [dux-patterns.md](./dux-patterns.md) | the cross-cutting law: the planes, liveness, ports, conditions, layers, escape-hatch grace, agent legibility |
+| [dux-dx-benchmark.md](./dux-dx-benchmark.md) | maintained comparison against current compiled-TypeScript styling peers |
 | [dux-spec-tokens.md](./dux-spec-tokens.md) | the token graph, schemes, checks, theming |
 | [dux-spec-css.md](./dux-spec-css.md) | the authoring surface: system, `css`, conditions, layers, keyframes, global, raw |
 | [dux-spec-ports.md](./dux-spec-ports.md) | the typed runtime boundary |
@@ -278,6 +279,7 @@ One hub (this), one language doc, one patterns doc, one spec per domain, one mai
 | [dux-spec-preset.md](./dux-spec-preset.md) | the opinionated layer: preset tokens/conditions, atoms, helpers, patterns |
 | [dux-spec-introspection.md](./dux-spec-introspection.md) | provenance, the manifest, audits, agent context |
 | [dux-workspace.md](./dux-workspace.md) | maintainer manual: layout, tooling, testing, fork-rebase, publishing |
-| [dux-review-2026-07.md](./dux-review-2026-07.md) | implementation review: evidence, release blockers, and recommended hardening order |
+| [dux-review-2026-07.md](./dux-review-2026-07.md) | historical implementation review: baseline findings and the hardening order they triggered |
+| [dux-release-initiative.md](./dux-release-initiative.md) | the active publication ledger and delight-gauntlet evidence |
 
 Specs are **contract-driven**: each entry headlines the desired behavior and why it matters, then proposes an implementation. If reality teaches a better implementation, the proposal moves; the contract above it stays.

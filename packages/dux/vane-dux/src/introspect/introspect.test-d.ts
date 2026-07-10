@@ -33,7 +33,7 @@ describe('the audit config', () => {
 
   it('kinds and levels are closed unions', () => {
     expectTypeOf<VaneAuditKind>().toEqualTypeOf<
-      'unusedTokens' | 'nearDuplicates' | 'contrast' | 'escapes' | 'scaleStrays'
+      'unusedTokens' | 'nearDuplicates' | 'contrast' | 'escapes' | 'scaleStrays' | 'focusVisibility'
     >()
     expectTypeOf<VaneAuditLevel>().toEqualTypeOf<'off' | 'warn' | 'error'>()
   })

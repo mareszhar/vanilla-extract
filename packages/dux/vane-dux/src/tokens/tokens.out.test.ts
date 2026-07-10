@@ -18,12 +18,12 @@ describe('the Prism graph, emitted', () => {
       }
       :root {
         --vane-color-brand: oklch(0.58 0.2 285);
+        --vane-color-canvas: light-dark(oklch(0.99 0.005 285), oklch(0.14 0.006 285));
         --vane-color-surface: color-mix(in oklab, light-dark(oklch(0.9627 0 0), oklch(0.1558 0 0)), var(--vane-color-brand) 4%);
         --vane-color-ink: color-mix(in oklab, light-dark(oklch(0.1346 0 0), oklch(0.9384 0 0)), var(--vane-color-brand) 4%);
         --vane-color-brand-soft: oklch(from var(--vane-color-brand) l c h / 0.12);
         --vane-color-brand-hover: oklch(from var(--vane-color-brand) calc(l + 0.06) c h);
         --vane-color-on-brand: white;
-        --vane-color-canvas: light-dark(oklch(0.99 0.005 285), oklch(0.14 0.006 285));
         --vane-space-xs: 4px;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
@@ -58,13 +58,14 @@ describe('the Prism graph, emitted', () => {
 
 describe('liveness compilation', () => {
   it('folds derivations of static inputs into plain values', () => {
-    const { css } = emit(() => defineTokens({
-      color: {
-        base: oklch(0.5, 0.2, 285),
-        soft: ({ color }) => alpha(color.base, 0.12),
-        hover: ({ color }) => color.base.lighten(0.06),
-      },
-    }))
+    const { css } = emit(() => defineTokens({ color: { base: oklch(0.5, 0.2, 285) } })
+      .derive(({ color }) => ({
+        color: {
+          soft: alpha(color.base, 0.12),
+          hover: color.base.lighten(0.06),
+        },
+      }))
+      .build())
 
     expect(css).toContain('--vane-color-soft: oklch(0.5 0.2 285 / 0.12);')
     expect(css).toContain('--vane-color-hover: oklch(0.56 0.2 285);')
@@ -73,25 +74,26 @@ describe('liveness compilation', () => {
 
   it('build math computes exactly the emitted live formula, to the rounding digit', () => {
     // The same operation, folded vs live: `calc(l + 0.06)` over l = 0.58.
-    const folded = emit(() => defineTokens({
-      color: { base: oklch(0.58, 0.2, 285), hover: ({ color }) => color.base.lighten(0.06) },
-    }))
-    const live = emit(() => defineTokens({
-      color: { base: oklch(0.58, 0.2, 285).live(), hover: ({ color }) => color.base.lighten(0.06) },
-    }))
+    const folded = emit(() => defineTokens({ color: { base: oklch(0.58, 0.2, 285) } })
+      .derive(({ color }) => ({ color: { hover: color.base.lighten(0.06) } }))
+      .build())
+    const live = emit(() => defineTokens({ color: { base: oklch(0.58, 0.2, 285).live() } })
+      .derive(({ color }) => ({ color: { hover: color.base.lighten(0.06) } }))
+      .build())
 
     expect(folded.css).toContain('--vane-color-hover: oklch(0.64 0.2 285);')
     expect(live.css).toContain('--vane-color-hover: oklch(from var(--vane-color-base) calc(l + 0.06) c h);')
   })
 
   it('a live input turns downstream derivations into live CSS without touching them', () => {
-    const { css } = emit(() => defineTokens({
-      color: {
-        seed: oklch(0.6, 0.15, 200).live(),
-        mixed: ({ color }) => mix(color.seed, '#ffffff', 0.3),
-        spun: ({ color }) => color.seed.rotate(30).desaturate(0.05),
-      },
-    }))
+    const { css } = emit(() => defineTokens({ color: { seed: oklch(0.6, 0.15, 200).live() } })
+      .derive(({ color }) => ({
+        color: {
+          mixed: mix(color.seed, '#ffffff', 0.3),
+          spun: color.seed.rotate(30).desaturate(0.05),
+        },
+      }))
+      .build())
 
     expect(css).toContain('--vane-color-mixed: color-mix(in oklab, var(--vane-color-seed), oklch(1 0 0) 30%);')
     expect(css).toContain('--vane-color-spun: oklch(from oklch(from var(--vane-color-seed) l c calc(h + 30)) l calc(c - 0.05) h);')
@@ -100,7 +102,7 @@ describe('liveness compilation', () => {
   it('folds a mix of static endpoints with the same math color-mix would run', () => {
     const { css } = emit(() => defineTokens({
       color: { blend: mix(oklch(0.2, 0, 0), oklch(0.8, 0, 0), 0.5) },
-    }))
+    }).build())
 
     expect(css).toContain('--vane-color-blend: oklch(0.5 0 0);')
   })
@@ -108,7 +110,7 @@ describe('liveness compilation', () => {
   it('helpers parse any CSS color literal', () => {
     const { css } = emit(() => defineTokens({
       color: { soft: alpha('#ffffff', 0.5) },
-    }))
+    }).build())
 
     expect(css).toContain('--vane-color-soft: oklch(1 0 0 / 0.5);')
   })
@@ -116,7 +118,7 @@ describe('liveness compilation', () => {
 
 describe('schemes', () => {
   it('emits no scheme machinery for a scheme-free graph', () => {
-    const { css } = emit(() => defineTokens({ radius: { sm: '4px' } }))
+    const { css } = emit(() => defineTokens({ radius: { sm: '4px' } }).build())
 
     expect(css).not.toContain('color-scheme')
     expect(css).not.toContain('data-scheme')
@@ -125,7 +127,7 @@ describe('schemes', () => {
   it('a scheme pair is one token compiled to light-dark(), never a parallel palette', () => {
     const { css } = emit(() => defineTokens({
       color: { canvas: scheme({ light: '#ffffff', dark: oklch(0.14, 0.006, 285) }) },
-    }))
+    }).build())
 
     expect(css).toContain('--vane-color-canvas: light-dark(oklch(1 0 0), oklch(0.14 0.006 285));')
     expect(css).toContain('color-scheme: light dark')
@@ -138,8 +140,7 @@ describe('emitted names', () => {
   it('derives kebab names from paths under a configurable prefix', () => {
     const { css } = emit(() => defineTokens(
       { color: { brandSoft: oklch(0.5, 0.1, 100) } },
-      { prefix: 'prism' },
-    ))
+    ).build({ prefix: 'prism' }))
 
     expect(css).toContain('--prism-color-brand-soft: oklch(0.5 0.1 100);')
   })
@@ -154,12 +155,11 @@ describe('theme()', () => {
   it('re-declares the overridden variable and every re-folded static descendant', () => {
     const { css } = emit(() => {
       const t = defineTokens({
-        color: {
-          base: oklch(0.5, 0.2, 285),
-          soft: ({ color }) => alpha(color.base, 0.12),
-        },
+        color: { base: oklch(0.5, 0.2, 285) },
         radius: { sm: '4px' },
       })
+        .derive(({ color }) => ({ color: { soft: alpha(color.base, 0.12) } }))
+        .build()
 
       return theme(t, { color: { base: oklch(0.45, 0.15, 250) } }, 'midnight')
     })
@@ -172,12 +172,9 @@ describe('theme()', () => {
 
   it('leaves live derivations alone — the cascade re-derives them', () => {
     const { css, returned } = emit(() => {
-      const t = defineTokens({
-        color: {
-          seed: oklch(0.5, 0.2, 285).live(),
-          soft: ({ color }) => alpha(color.seed, 0.12),
-        },
-      })
+      const t = defineTokens({ color: { seed: oklch(0.5, 0.2, 285).live() } })
+        .derive(({ color }) => ({ color: { soft: alpha(color.seed, 0.12) } }))
+        .build()
 
       return theme(t, { color: { seed: oklch(0.4, 0.1, 100) } }, 'dusk')
     })
@@ -190,12 +187,9 @@ describe('theme()', () => {
 
   it('a legible pairing re-folds inside the theme scope and may flip its pick', () => {
     const { css } = emit(() => {
-      const t = defineTokens({
-        color: {
-          base: oklch(0.3, 0.1, 285),
-          onBase: ({ color }) => legibleOn(color.base),
-        },
-      })
+      const t = defineTokens({ color: { base: oklch(0.3, 0.1, 285) } })
+        .derive(({ color }) => ({ color: { onBase: legibleOn(color.base) } }))
+        .build()
 
       return theme(t, { color: { base: oklch(0.92, 0.02, 285) } }, 'paper')
     })

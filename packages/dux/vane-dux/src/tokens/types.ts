@@ -10,6 +10,8 @@
  *   half-clobbering it.
  */
 
+import type { VaneCssValue } from '../values/types'
+
 // ─── Modes ───────────────────────────────────────────────────────────────────
 
 /**
@@ -29,15 +31,14 @@ type VaneJoinMode<A extends VaneColorMode, B extends VaneColorMode>
 
 // ─── Authoring color values ──────────────────────────────────────────────────
 
-/** Anything the color helpers accept: a color value, a color token or ref, or a CSS color literal. */
-export type VaneColorish = VaneColor<any> | VaneColorTokenAny | VaneContrast<any> | VaneRef | string
+/** Anything the color helpers accept: a color value/token, a contrast pick, or a CSS color literal. */
+export type VaneColorish = VaneColor<any> | VaneColorTokenAny | VaneContrast<any> | string
 
 export type VaneModeOf<S extends VaneColorish>
   = S extends VaneContrast<infer G> ? (G extends 'checked' ? 'scheme' : 'live')
     : S extends VaneColor<infer M> ? M
       : S extends VaneColorToken<infer M, any> ? VaneValueMode<M>
-        : S extends VaneRefs ? VaneColorMode
-          : 'static'
+        : 'static'
 
 /** Distributes over mode unions, so an uncertain target claims no guarantee it can't keep. */
 export type VaneGuaranteeOf<M extends VaneColorMode> = M extends 'live' ? 'live' : 'checked'
@@ -76,13 +77,13 @@ export interface VaneContrast<G extends VaneContrastGuarantee = VaneContrastGuar
 
 // ─── Token handles ───────────────────────────────────────────────────────────
 
-export interface VaneTokenBase<Name extends string = string> {
+export interface VaneTokenBase<Name extends string = string, Path extends string = string> {
   /** The emitted custom-property name: `--vane-color-brand`. */
   readonly name: `--${Name}`
   /** The reference form for interpolation: `var(--vane-color-brand)`. */
   readonly var: `var(--${Name})`
   /** The dot path in the graph: `color.brand`. */
-  readonly path: string
+  readonly path: Path
   /** Intent from `.describe()` at the definition site. */
   readonly description?: string
   /** The replacement named by `.deprecated()`. */
@@ -93,7 +94,8 @@ export interface VaneTokenBase<Name extends string = string> {
 export interface VaneColorToken<
   M extends VaneTokenMode = VaneTokenMode,
   Name extends string = string,
-> extends VaneTokenBase<Name> {
+  Path extends string = string,
+> extends VaneTokenBase<Name, Path> {
   readonly mode: M
   alpha: (amount: number) => VaneColor<VaneValueMode<M>>
   lighten: (amount: number) => VaneColor<VaneValueMode<M>>
@@ -109,7 +111,8 @@ type VaneColorTokenAny = VaneColorToken<VaneTokenMode, string>
 export interface VaneContrastToken<
   G extends VaneContrastGuarantee = VaneContrastGuarantee,
   Name extends string = string,
-> extends VaneTokenBase<Name> {
+  Path extends string = string,
+> extends VaneTokenBase<Name, Path> {
   readonly mode: 'derived'
   readonly guarantee: G
 }
@@ -117,55 +120,134 @@ export interface VaneContrastToken<
 export interface VaneValueToken<
   V extends string | number = string | number,
   Name extends string = string,
-> extends VaneTokenBase<Name> {
-  readonly mode: 'static' | 'derived'
+  M extends 'static' | 'derived' = 'static' | 'derived',
+  Path extends string = string,
+> extends VaneTokenBase<Name, Path> {
+  readonly mode: M
   /** The resolved value — hover a token, read its answer. */
   readonly value: V
 }
 
 // ─── The graph: input shape and inferred output ──────────────────────────────
 
-export type VaneLeafInput = VaneColor<any> | VaneContrast<any> | string | number
+export type VaneLeafInput = VaneColor<any> | VaneContrast<any> | VaneCssValue | string | number
 export type VaneDerivedResult
-  = VaneColor<any> | VaneContrast<any> | VaneColorTokenAny | VaneValueToken<any, any> | VaneRefs | string | number
+  = | VaneColor<any>
+    | VaneContrast<any>
+    | VaneColorTokenAny
+    | VaneContrastToken<any, any>
+    | VaneValueToken<any, any, any>
+    | VaneCssValue
+    | string
+    | number
 
 /**
- * What a derivation sees: every token a ref with the full color surface.
- * Non-generic by necessity — TypeScript fixes the graph's inference before a
- * derivation's own type exists — so token names resolve here structurally;
- * a mistyped name inside a derivation is a build diagnostic with a
- * `did you mean`, raised the moment the derivation runs.
- */
-export interface VaneRefs {
-  [token: string]: VaneRef
-}
-
-/**
- * One node of the refs tree — a group or a token, with the color methods one
- * property away. Named-interface recursion, deliberately: tsc's incremental
- * mode mis-resolves self-intersecting recursive aliases.
- */
-export interface VaneRef {
-  [token: string]: VaneRef
-  (amount: number | VaneColorish, second?: number): VaneColor<VaneColorMode>
-  readonly alpha: VaneRef
-  readonly lighten: VaneRef
-  readonly darken: VaneRef
-  readonly saturate: VaneRef
-  readonly desaturate: VaneRef
-  readonly rotate: VaneRef
-  readonly mix: VaneRef
-}
-
-export type VaneDerivation = (refs: VaneRefs) => VaneDerivedResult
-
-/**
- * The authoring shape `defineTokens` accepts, used to contextually type
- * derivations and to reject a malformed leaf at its key. Inference rides the
- * intersected `T`, which carries the literal graph.
+ * The dependency-free seed accepted by `defineTokens`. Derivations live in
+ * explicit `.derive()` stages, where TypeScript has the whole prior graph and
+ * can therefore complete and validate every token path at the cursor.
  */
 export interface VaneGraphInput {
-  [token: string]: VaneLeafInput | VaneDerivation | VaneGraphInput
+  [token: string]: VaneLeafInput | VaneGraphInput
+}
+
+/** A nested set of tokens produced by one topological derivation stage. */
+export interface VaneTokenStage {
+  [token: string]: VaneDerivedResult | VaneTokenStage
+}
+
+/** Type-only marker: a stage-produced leaf is always a graph derivation. */
+declare const VANE_DERIVED_DEFINITION: unique symbol
+
+/** A type-level graph node produced by a `.derive()` stage. */
+export interface VaneDerived<R> {
+  readonly [VANE_DERIVED_DEFINITION]: R
+}
+
+type VaneDefinitionLeaf = VaneLeafInput | VaneDerived<unknown>
+
+type VaneMarkDerived<S> = {
+  [K in keyof S]: S[K] extends VaneDerivedResult
+    ? VaneDerived<S[K]>
+    : S[K] extends object ? VaneMarkDerived<S[K]> : never
+}
+
+type VaneMergeNode<A, B>
+  = A extends VaneDefinitionLeaf ? B
+    : B extends VaneDefinitionLeaf ? B
+      : A extends object
+        ? B extends object ? VaneMergeGraph<A, B> : B
+        : B
+
+type VaneMergeGraph<A, B> = {
+  [K in keyof A | keyof B]: K extends keyof B
+    ? K extends keyof A ? VaneMergeNode<A[K], B[K]> : B[K]
+    : K extends keyof A ? A[K] : never
+}
+
+type VanePath<Prefix extends string, Key extends string>
+  = Prefix extends '' ? Key : `${Prefix}.${Key}`
+
+/** Every path at which two independently authored graphs both own a token. */
+type VaneDuplicatePaths<A, B, Prefix extends string = ''> = {
+  [K in keyof A & keyof B & string]: A[K] extends VaneDefinitionLeaf
+    ? VanePath<Prefix, K>
+    : B[K] extends VaneDefinitionLeaf
+      ? VanePath<Prefix, K>
+      : A[K] extends object
+        ? B[K] extends object
+          ? VaneDuplicatePaths<A[K], B[K], VanePath<Prefix, K>>
+          : VanePath<Prefix, K>
+        : VanePath<Prefix, K>
+}[keyof A & keyof B & string]
+
+/**
+ * A readable, cursor-local composition error. The impossible property makes
+ * TypeScript print every colliding dot path at the `.compose(module)` call.
+ */
+type VaneCompositionGuard<A, B>
+  = [VaneDuplicatePaths<A, B>] extends [never]
+    ? unknown
+    : {
+        readonly [K in `Token module duplicates an existing token: ${VaneDuplicatePaths<A, B>}`]: never
+      }
+
+/**
+ * Let a stage reopen existing groups, but reject an existing leaf at the exact
+ * returned key. The recursive intersection keeps TypeScript's diagnostic on
+ * the typo/duplicate instead of collapsing into an overload wall.
+ */
+type VaneAddition<G, S> = {
+  [K in keyof S]: K extends keyof G
+    ? G[K] extends VaneDefinitionLeaf
+      ? never
+      : S[K] extends VaneDerivedResult
+        ? never
+        : S[K] extends object
+          ? VaneAddition<G[K], S[K]>
+          : never
+    : S[K]
+}
+
+/**
+ * A topological token definition. Each `.derive()` callback sees the exact
+ * graph accumulated by earlier stages; its own output becomes visible only to
+ * the next stage. `.build()` resolves and emits the finished graph once.
+ */
+export interface VaneTokenBuilder<G extends object> {
+  /**
+   * Compose an independently buildable token module into this definition.
+   * Modules retain their internal stage order; later derivations see the
+   * exact combined graph. Duplicate paths fail at this call.
+   */
+  compose: <const M extends object>(
+    module: VaneTokenBuilder<M> & VaneCompositionGuard<G, M>,
+  ) => VaneTokenBuilder<VaneMergeGraph<G, M>>
+  derive: <const S extends VaneTokenStage>(
+    stage: (tokens: VaneTokens<G, string>) => S & VaneAddition<G, S>,
+  ) => VaneTokenBuilder<VaneMergeGraph<G, VaneMarkDerived<S>>>
+  build: <Prefix extends string = 'vane'>(
+    options?: VaneTokensOptions<G, Prefix>,
+  ) => VaneTokens<G, Prefix>
 }
 
 /** Per-character kebab-case, in lockstep with the runtime rule in `names.ts`. */
@@ -184,26 +266,28 @@ export interface VaneResolvedTokens {
   readonly [VANE_RESOLVED_TOKENS]: true
 }
 
-export type VaneTokens<T, Name extends string = 'vane'> = VaneResolvedTokens & VaneTokenGroup<T, Name>
+export type VaneTokens<T, Name extends string = 'vane'> = VaneResolvedTokens & VaneTokenGroup<T, Name, ''>
 
-type VaneTokenGroup<T, Name extends string> = {
-  readonly [K in keyof T & string]: VaneTokenOf<T[K], `${Name}-${VaneKebab<K>}`>
+type VaneTokenGroup<T, Name extends string, Path extends string> = {
+  readonly [K in keyof T & string]: VaneTokenOf<T[K], `${Name}-${VaneKebab<K>}`, Path extends '' ? K : `${Path}.${K}`>
 }
 
-type VaneTokenOf<N, Name extends string>
-  = N extends VaneContrast<infer G> ? VaneContrastToken<G, Name>
-    : N extends VaneColor<infer M> ? VaneColorToken<M, Name>
-      : N extends (refs: never) => infer R ? VaneDerivedTokenOf<R, Name>
-        : N extends string | number ? VaneValueToken<N, Name>
-          : VaneTokenGroup<N, Name>
+type VaneTokenOf<N, Name extends string, Path extends string>
+  = N extends VaneDerived<infer R> ? VaneDerivedTokenOf<R, Name, Path>
+    : N extends VaneContrast<infer G> ? VaneContrastToken<G, Name, Path>
+      : N extends VaneColor<infer M> ? VaneColorToken<M, Name, Path>
+        : N extends VaneCssValue<infer Css> ? VaneValueToken<Css, Name, 'static', Path>
+          : N extends string | number ? VaneValueToken<N, Name, 'static', Path>
+            : VaneTokenGroup<N, Name, Path>
 
-type VaneDerivedTokenOf<R, Name extends string>
-  = R extends VaneContrast<infer G> ? VaneContrastToken<G, Name>
-    : R extends VaneColor<any> | VaneColorTokenAny ? VaneColorToken<'derived', Name>
-      : R extends VaneValueToken<infer V, any> ? VaneValueToken<V, Name>
-        : R extends VaneRefs ? VaneColorToken<'derived', Name>
-          : R extends string | number ? VaneValueToken<R, Name>
-            : never
+type VaneDerivedTokenOf<R, Name extends string, Path extends string>
+  = R extends VaneContrast<infer G> ? VaneContrastToken<G, Name, Path>
+    : R extends VaneContrastToken<infer G, any, any> ? VaneContrastToken<G, Name, Path>
+      : R extends VaneColor<any> | VaneColorTokenAny ? VaneColorToken<'derived', Name, Path>
+        : R extends VaneValueToken<infer V, any, any, any> ? VaneValueToken<V, Name, 'derived', Path>
+          : R extends VaneCssValue<infer Css> ? VaneValueToken<Css, Name, 'derived', Path>
+            : R extends string | number ? VaneValueToken<R, Name, 'derived', Path>
+              : never
 
 // ─── Options ─────────────────────────────────────────────────────────────────
 

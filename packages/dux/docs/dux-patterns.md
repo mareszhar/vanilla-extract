@@ -177,7 +177,7 @@ When you step off the happy path, ergonomics degrade gracefully — never off a 
 
 The emitted artifact is the same shape every mature design system converged on: static CSS, tokens as custom properties, state via `data-*` attributes, plain classes, named layers.
 
-- **Inspectable:** dev builds carry stable debug class names and source maps; a devtools rule leads back to its `.style.ts` line and the token that decided each value ([dux-spec-introspection.md](./dux-spec-introspection.md)).
+- **Inspectable:** dev builds carry stable debug class names and a class-provenance manifest; the DevTools view maps the rendered class to its exact `.style.ts` call and the token paths used by its declarations ([dux-spec-introspection.md](./dux-spec-introspection.md)).
 - **Portable:** consumers of a shipped design system get prebuilt CSS + a typed API; they don't need our build pipeline.
 - **Survivable:** if vane-dux disappeared tomorrow, an app is left holding ordinary CSS custom properties and classes — not a hostage situation.
 

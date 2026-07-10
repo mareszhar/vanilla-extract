@@ -14,10 +14,15 @@ import type { VaneTokenMode } from './handle'
 
 // ─── Records ─────────────────────────────────────────────────────────────────
 
-export interface VaneTokenRecord {
-  kind: 'token'
-  /** The style module that defined it, root-relative. */
+export interface VaneSourceRecord {
+  /** Compiler-owned definition source, when the call was transformed. */
   file?: string
+  line?: number
+  column?: number
+}
+
+export interface VaneTokenRecord extends VaneSourceRecord {
+  kind: 'token'
   /** The dot path in the graph: `color.brand`. */
   path: string
   /** The emitted custom property: `--vane-color-brand`. */
@@ -36,9 +41,8 @@ export interface VaneTokenRecord {
   deprecated?: string
 }
 
-export interface VaneSystemRecord {
+export interface VaneSystemRecord extends VaneSourceRecord {
   kind: 'system'
-  file?: string
   prefix: string
   layers: string[]
   /** Condition name → its compiled arms, serialized readably. */
@@ -46,9 +50,8 @@ export interface VaneSystemRecord {
   audit?: VaneAuditConfig
 }
 
-export interface VaneRecipeRecord {
+export interface VaneRecipeRecord extends VaneSourceRecord {
   kind: 'recipe' | 'anatomy'
-  file?: string
   /** The export name, via the debug-name transform; unnamed recipes stay out of the manifest. */
   name?: string
   parts?: string[]
@@ -59,9 +62,8 @@ export interface VaneRecipeRecord {
   ports: Record<string, string>
 }
 
-export interface VanePortRecord {
+export interface VanePortRecord extends VaneSourceRecord {
   kind: 'port'
-  file?: string
   /** The export name, via the debug-name transform; manual labels pass through too. */
   label?: string
   /** The live declaration record — read at manifest time so late `.describe()` calls still land. */
@@ -77,10 +79,9 @@ export interface VanePortRecord {
 
 export type VaneEscapeForm = 'css.raw' | 'unsafe' | 'globalCss' | 'overrides'
 
-export interface VaneEscapeRecord {
+export interface VaneEscapeRecord extends VaneSourceRecord {
   kind: 'escape'
   form: VaneEscapeForm
-  file?: string
   /** What the escape holds: the selector, the declaration, or the block's first line. */
   detail: string
   /** The stated intent — required on `unsafe`, absent elsewhere. */
@@ -88,7 +89,7 @@ export interface VaneEscapeRecord {
   layer?: string
 }
 
-export interface VaneContrastRecord {
+export interface VaneContrastRecord extends VaneSourceRecord {
   kind: 'contrast'
   file?: string
   /** The token path (a `legibleOn` value) or the check's pairing description. */
@@ -102,6 +103,16 @@ export interface VaneContrastRecord {
   accepted: boolean
 }
 
+export interface VaneStyleRecord extends VaneSourceRecord {
+  kind: 'style'
+  /** The emitted class visible in browser DevTools. */
+  class: string
+  /** The authored declaration name injected by the compiler. */
+  name?: string
+  /** Custom properties referenced by the compiled declarations. */
+  vars: string[]
+}
+
 export type VaneInspectRecord
   = | VaneTokenRecord
     | VaneSystemRecord
@@ -109,10 +120,11 @@ export type VaneInspectRecord
     | VanePortRecord
     | VaneEscapeRecord
     | VaneContrastRecord
+    | VaneStyleRecord
 
 // ─── Audit configuration (recorded by the system, applied by the audit) ──────
 
-export type VaneAuditKind = 'unusedTokens' | 'nearDuplicates' | 'contrast' | 'escapes' | 'scaleStrays'
+export type VaneAuditKind = 'unusedTokens' | 'nearDuplicates' | 'contrast' | 'escapes' | 'scaleStrays' | 'focusVisibility'
 
 export type VaneAuditLevel = 'off' | 'warn' | 'error'
 

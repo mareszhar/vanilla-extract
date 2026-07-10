@@ -4,7 +4,7 @@
 
 vane-dux replaces the CSS-preprocessor stack with the tooling code has had for a decade: autocomplete, real types, rename-symbol, find-references, instant diagnostics. It builds on [vanilla-extract](https://vanilla-extract.style)'s proven build-time compiler and asks one question of every surface: *what would feel most delightful to use?*
 
-> **Status:** v0 — every domain is implemented, locked by a four-plane test suite (runtime behavior, type shapes, editor DX, emitted CSS), and exercised by runnable demos, including a five-stack comparison matrix. The API below is the shipped contract.
+> **Status:** pre-release hardening — the public surface is implemented and exercised by runtime, type, editor-DX, output, integration, and browser tests. Publication waits on the release gate in the workspace docs; this README describes the current contract, not a stability promise.
 
 ## Start here
 
@@ -69,7 +69,7 @@ That's it. `propsOf` projects the recipe's variant space straight into the props
 
 ## Highlights
 
-🕸️ **Tokens are a graph, not a bag of strings** — derive a token from another (`brandSoft: ({ color }) => alpha(color.brand, 0.12)`) and the relationship survives to the browser as live CSS (`oklch(from var(--vane-color-brand) …)`). Rename a token and forty files follow; delete one and every usage turns red.
+🕸️ **Tokens are a composable graph, not a bag of strings** — `.derive(({ color }) => …)` sees the exact graph accumulated by earlier stages: `color.brand` completes, `color.braaand` is an error, and the relationship survives to the browser as live CSS. Split large systems into independently buildable modules and combine them with `.compose()` without losing inference or rename-symbol across files. Nuxt installs the graph-aware TypeScript bridge automatically.
 
 🌗 **Schemes fall out, not pile up** — light/dark is a value pair inside a token (`light-dark()`), and elevation-based surfaces derive both modes from one number. Adding dark mode touches token definitions only — zero component edits.
 
@@ -89,7 +89,7 @@ That's it. `propsOf` projects the recipe's variant space straight into the props
 
 💚 **Vue and Nuxt, first-class** — `usePorts` for reactive values, `useAnatomy` for multi-part components, a Nuxt module whose auto-imports reach your style files and whose DevTools tab browses your tokens, recipes, and ports live, SSR with no style pipeline at all. One component can adopt vane-dux inside an existing app; nothing demands a migration.
 
-🤖 **Built for agents too** — a machine-readable manifest of tokens, recipes, and ports (`.vane/manifest.json`, live at `/__vane/` in dev), audits that flag unused tokens, near-duplicate values, and unaudited escapes, and diagnostics precise enough that a code-generating agent self-corrects before a human ever looks at pixels.
+🤖 **Built for agents too** — a machine-readable manifest of tokens, classes, recipes, and ports (`.vane/manifest.json`, live at `/__vane/` in dev), including exact source positions and class→token provenance; audits flag unused tokens, near-duplicate values, and unaudited escapes, while precise diagnostics let a code-generating agent self-correct before a human ever looks at pixels.
 
 ## Install
 
@@ -97,7 +97,15 @@ That's it. `propsOf` projects the recipe's variant space straight into the props
 npm install @mszr/vane-dux
 ```
 
-`vue`, `nuxt`, and `vite` are optional peers — add only what your entrypoints use.
+`vue`, `nuxt`, `vite`, and `typescript` are optional peers — add only what your entrypoints use. Nuxt enables vane's graph-aware rename bridge automatically. In a plain TypeScript/Vite project, opt into the same F2 rename behavior once:
+
+```JSON
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "@mszr/vane-dux/typescript" }]
+  }
+}
+```
 
 ## The shape
 
@@ -106,10 +114,11 @@ One package, a framework-agnostic core, thin overlays on top.
 | Entrypoint | What it is |
 | --- | --- |
 | `@mszr/vane-dux` | `createSystem` → `t`, `css`, `recipe`, `anatomy`, `keyframes`, `globalCss`, `port`, `theme`, `defineAtoms`; `defineTokens` for standalone token graphs |
-| `@mszr/vane-dux/runtime` | the ~300-byte live plane: `applyTheme`, `setScheme`, port helpers |
+| `@mszr/vane-dux/runtime` | the tree-shakeable live plane: `applyTheme`, `setScheme`, port helpers |
 | `@mszr/vane-dux/vite` | the Vite plugin: evaluates `*.style.ts`, emits CSS + the manifest |
 | `@mszr/vane-dux/vue` | `propsOf`, `usePorts`, `useAnatomy` |
 | `@mszr/vane-dux/nuxt` | the Nuxt module: auto-imports (style files included), SSR polish, DevTools |
+| `@mszr/vane-dux/typescript` | graph-aware rename-symbol across token definitions, derivations, and consumers |
 | `@mszr/vane-dux/preset` | the deletable opinions: `presetTokens`, `presetConditions`, `presetAtoms`, a11y + motion helpers, layout patterns |
 
 ## Going further
@@ -125,16 +134,78 @@ export const t = defineTokens({
     brand: oklch(0.58, 0.2, 285).live(),                // user-themeable at runtime
     surfacePlane: scheme({ light: oklch(0.96, 0, 0), dark: oklch(0.16, 0, 0) }),
     inkPlane: scheme({ light: oklch(0.14, 0, 0), dark: oklch(0.94, 0, 0) }),
-    surface: ({ color }) => mix(color.surfacePlane, color.brand, 0.04), // relationship is explicit
-    ink: ({ color }) => mix(color.inkPlane, color.brand, 0.04),
-    brandSoft: ({ color }) => alpha(color.brand, 0.12), // stays live in the browser
-    brandHover: ({ color }) => color.brand.lighten(0.06),
-    onBrand: ({ color }) => legibleOn(color.brand),     // checked at build (APCA)
   },
   space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
   radius: { sm: '4px', md: '8px', pill: '999px' },
 })
+  .derive(({ color }) => ({
+    color: {
+      surface: mix(color.surfacePlane, color.brand, 0.04), // explicit graph edge
+      ink: mix(color.inkPlane, color.brand, 0.04),
+      brandSoft: alpha(color.brand, 0.12),                 // live in the browser
+      brandHover: color.brand.lighten(0.06),
+      onBrand: legibleOn(color.brand),                     // checked at build (APCA)
+    },
+  }))
+  .build()
 ```
+
+Stages are the topological order. A stage can reference every earlier token and cannot reference its own output; the next stage sees that output with exact completions. Cycles and forward references are therefore unrepresentable. `createSystem` accepts the unfinished builder directly and calls `.build()` for you.
+
+Large systems split without a parallel module API—the same builder is useful alone or as part of a larger graph:
+
+```TS
+// palette.tokens.ts
+export const palette = defineTokens({
+  color: { brand: oklch(0.58, 0.2, 285).live() },
+}).derive(({ color }) => ({
+  color: { brandSoft: alpha(color.brand, 0.12) },
+}))
+
+// foundations.tokens.ts
+export const foundations = defineTokens({
+  space: scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }),
+})
+
+// tokens.style.ts
+export const t = defineTokens()
+  .compose(palette)
+  .compose(foundations)
+  .build()
+```
+
+`palette.build()` remains a complete standalone graph. Composition is immutable, rejects duplicate leaf paths at the `.compose()` call, and keeps rename-symbol connected to the contributing source module.
+
+## Coming from hail-styl
+
+The architectural split survives intact: vane-dux’s root entrypoint is hail-styl’s `src/system`—the use-case-agnostic engine—and `/preset` is `src/design`—one opinionated system assembled entirely from those public foundations. Nothing in `defineTokens` assumes a monochromatic palette, elevation, a base hue, or even a `color` group.
+
+| hail-styl | vane-dux |
+| --- | --- |
+| `dsSetToken('color:accent', value)` | `defineTokens({ color: { accent: value } })` |
+| a later `dsSetToken` using `Var(...)` | a later `.derive(({ color }) => …)` with exact completion |
+| token definitions split across imported Stylus files | independently buildable token modules joined with `.compose()` |
+| `Var('c:primary')` / `UseToken(...)` | the typed handle `t.color.primary` |
+| `dsColor`, `Calc`, size helpers | config-agnostic `oklch`/relative-color, `mix`, `alpha`, `calc`, `clamp`, `grid`, and `scale` helpers |
+| the bundled monochromatic/elevation design | `presetTokens(...)` and `elevation(...)`, with every dependency explicit |
+| registry + final flush | ordinary exported authoring calls; the Vite/Nuxt compiler emits once automatically |
+
+The important migration is conceptual, not syntactic: relationships that were string paths become TypeScript property references; registry order becomes explicit builder stages; optional design opinions become a deletable module. A two-color, triadic, product-specific, or entirely non-color token system uses the exact same engine as the bundled preset.
+
+CSS values use the same config-agnostic primitives everywhere—tokens, styles, keyframes, ports, atoms, and raw interpolation:
+
+```TS
+import { calc, channel, clamp, grid, oklch } from '@mszr/vane-dux'
+
+const fluidSpace = clamp('1rem', calc('2vw').add('0.5rem'), '3rem')
+const cards = grid.repeat('auto-fit', grid.minmax('16rem', '1fr'))
+const quietBrand = oklch.from(t.color.brand, {
+  c: channel.multiply(0.5),
+  alpha: 0.72,
+})
+```
+
+`calc()` tracks known CSS dimensions, preserves precedence across nested expressions, and rejects known-invalid arithmetic such as length + angle at the operand. Strings remain the universal escape for already-natural CSS.
 
 And cross the runtime boundary through a typed port — reactive values, no runtime CSS:
 
@@ -146,7 +217,7 @@ export const fraction = port(0) // typed by its default, named by its export
 
 export const track = css({ background: t.color.surface, borderRadius: t.radius.pill })
 export const fill = css({
-  inlineSize: `calc(${fraction} * 100%)`,
+  inlineSize: `calc(${fraction} * 100%)`, // strings stay natural when the CSS already reads cleanly
   background: t.color.brand,
   motionOk: { transition: 'inline-size 200ms ease' },
 })

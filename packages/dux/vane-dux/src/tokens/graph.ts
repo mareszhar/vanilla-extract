@@ -13,13 +13,14 @@ import type { VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
 import type { VaneColorExpr } from './color'
 import type { VaneOklch } from './math'
 import type { VaneExprTraits, VaneResolver, VaneScheme } from './resolve'
-import type { VaneGraphInput, VaneTokens, VaneTokensOptions } from './types'
+import type { VaneGraphInput, VaneTokenBuilder, VaneTokens, VaneTokensOptions } from './types'
 import { createGlobalTheme, createGlobalThemeContract, globalStyle } from '@vanilla-extract/css'
 import { getFileScope, hasFileScope } from '@vanilla-extract/css/fileScope'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
-import { didYouMean, VaneError } from '../diagnostics'
+import { diagnosticSource, didYouMean, VaneError } from '../diagnostics'
 import { createHandle } from '../internal/handle'
 import { inspecting, record } from '../internal/inspect'
+import { isCssValue } from '../values/types'
 import { TextContrastCheck } from './checks'
 import { handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
@@ -27,6 +28,7 @@ import { kebab, tokenName } from './names'
 import { collectRefs, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
 
 export const GRAPH = Symbol.for('vane.graph')
+export const TOKEN_BUILDER = Symbol.for('vane.tokenBuilder')
 const NODE = Symbol.for('vane.node')
 
 const CONTRAST_COLOR_SUPPORT = '(color: contrast-color(red))'
@@ -88,22 +90,74 @@ export function tokenKindOf(handle: VaneRuntimeHandle): 'color' | 'value' | unde
 
 // ─── defineTokens ────────────────────────────────────────────────────────────
 
-export function defineTokens<const T extends object, Prefix extends string = 'vane'>(
-  graph: T & VaneGraphInput,
+type RuntimeStage = (tokens: Record<string, unknown>) => object
+type RuntimeContribution
+  = { readonly kind: 'seed', readonly graph: VaneGraphInput }
+    | { readonly kind: 'derive', readonly stage: RuntimeStage }
+
+interface RuntimeTokenBuilder {
+  readonly [TOKEN_BUILDER]: true
+  readonly contributions: readonly RuntimeContribution[]
+  compose: (module: RuntimeTokenBuilder) => RuntimeTokenBuilder
+  derive: (stage: RuntimeStage) => RuntimeTokenBuilder
+  build: (options?: VaneTokensOptions<object, string>) => VaneTokens<object, string>
+}
+
+/** Whether a value is the unfinished definition returned by `defineTokens`. */
+export function isTokenBuilder(value: unknown): boolean {
+  return typeof value === 'object' && value !== null
+    && (value as Partial<RuntimeTokenBuilder>)[TOKEN_BUILDER] === true
+}
+
+/**
+ * Start a topological token definition. Derivation stages are immutable: a
+ * shared base can safely branch into independent graphs without stage leakage.
+ */
+export function defineTokens<const T extends VaneGraphInput = Record<never, never>>(seed?: T): VaneTokenBuilder<T> {
+  const graph = seed ?? {} as T
+  return createTokenBuilder([{ kind: 'seed', graph }]) as unknown as VaneTokenBuilder<T>
+}
+
+function createTokenBuilder(contributions: readonly RuntimeContribution[]): RuntimeTokenBuilder {
+  return {
+    [TOKEN_BUILDER]: true,
+    contributions,
+    compose: module => createTokenBuilder([...contributions, ...module.contributions]),
+    derive: stage => createTokenBuilder([...contributions, { kind: 'derive', stage }]),
+    build: options => buildTokens(contributions, options),
+  }
+}
+
+function buildTokens<T extends object, Prefix extends string = 'vane'>(
+  contributions: readonly RuntimeContribution[],
   options: VaneTokensOptions<T, Prefix> = {},
 ): VaneTokens<T, Prefix> {
   const prefix = options.prefix ?? 'vane'
   const file = hasFileScope() ? getFileScope().filePath : undefined
   const nodes = new Map<string, TokenNode>()
-  const derivations: Array<{ node: TokenNode, derive: (refs: unknown) => unknown }> = []
+  const tree: Record<string, unknown> = {}
 
-  const tree = walk(graph as object, [], prefix, nodes, derivations)
+  let stageIndex = 0
 
-  for (const { node, derive } of derivations) {
-    node.definition = classifyLeaf(derive(refsProxy(tree, [], node.key, file)), node)
+  for (const contribution of contributions) {
+    if (contribution.kind === 'seed') {
+      walkInto(contribution.graph, [], prefix, nodes, tree, false, file)
+      continue
+    }
 
-    if (node.definition.kind === 'literal')
-      node.handle.value = node.definition.value
+    stageIndex++
+    const additions = contribution.stage(refsProxy(tree, [], `derivation stage ${stageIndex}`, file))
+
+    if (!isGroup(additions)) {
+      throw new VaneError({
+        code: 'VANE_TOKENS_INVALID_COLOR',
+        message: `derivation stage ${stageIndex} did not return a token group`,
+        file,
+        fix: 'return an object whose leaves are token values',
+      })
+    }
+
+    walkInto(additions, [], prefix, nodes, tree, true, file)
   }
 
   const { results, diagnostics } = resolveGraph({ prefix, nodes, results: new Map(), file })
@@ -143,44 +197,49 @@ export function defineTokens<const T extends object, Prefix extends string = 'va
   return tree as VaneTokens<T, Prefix>
 }
 
-function walk(
+function walkInto(
   group: object,
   path: string[],
   prefix: string,
   nodes: Map<string, TokenNode>,
-  derivations: Array<{ node: TokenNode, derive: (refs: unknown) => unknown }>,
-): Record<string, unknown> {
-  const tree: Record<string, unknown> = {}
-
+  tree: Record<string, unknown>,
+  derived: boolean,
+  file?: string,
+): void {
   for (const [key, raw] of Object.entries(group)) {
     const leafPath = [...path, key]
+    const keyPath = leafPath.join('.')
 
     if (isGroup(raw)) {
-      tree[key] = walk(raw, leafPath, prefix, nodes, derivations)
+      const existing = tree[key]
+
+      if (existing !== undefined && !isGroup(existing))
+        duplicateToken(keyPath, file)
+
+      const child = existing as Record<string, unknown> | undefined ?? {}
+      tree[key] = child
+      walkInto(raw, leafPath, prefix, nodes, child, derived, file)
       continue
     }
 
-    const node = createNode(leafPath, prefix, raw)
+    if (key in tree)
+      duplicateToken(keyPath, file)
+
+    const node = createNode(leafPath, prefix, raw, derived)
     nodes.set(node.key, node)
     tree[key] = node.handle
-
-    if (typeof raw === 'function')
-      derivations.push({ node, derive: raw as (refs: unknown) => unknown })
   }
-
-  return tree
 }
 
 function isGroup(value: unknown): value is object {
   return typeof value === 'object' && value !== null
-    && !isColorValue(value) && !isContrastValue(value)
+    && !isColorValue(value) && !isContrastValue(value) && !isCssValue(value)
 }
 
 /**
- * What a derivation receives: the handle tree behind a proxy, so a mistyped
- * token name fails the build with a `did you mean` the moment the derivation
- * runs — TypeScript cannot type these names at the cursor ([types.ts]
- * `VaneRefs`), so the graph itself keeps the errors-before-pixels promise.
+ * Runtime backstop for JavaScript and escaped TypeScript. The public builder
+ * catches unknown names at the cursor; this proxy preserves the same exact
+ * failure (with a fix) when the type system has been bypassed.
  */
 function refsProxy(tree: Record<string, unknown>, path: string[], context: string, file?: string): Record<string, unknown> {
   return new Proxy(tree, {
@@ -208,7 +267,7 @@ function refsProxy(tree: Record<string, unknown>, path: string[], context: strin
   })
 }
 
-function createNode(path: string[], prefix: string, raw: unknown): TokenNode {
+function createNode(path: string[], prefix: string, raw: unknown, derived: boolean): TokenNode {
   const key = path.join('.')
   const handle = createHandle({ name: tokenName(prefix, path), path: key, mode: 'static' })
   Object.assign(handle, handleColorMethods(handle))
@@ -217,18 +276,28 @@ function createNode(path: string[], prefix: string, raw: unknown): TokenNode {
     key,
     name: handle.name,
     handle,
-    derived: typeof raw === 'function',
-    // Derivations classify after they run; `literal` is a safe placeholder.
-    definition: typeof raw === 'function' ? { kind: 'literal', value: '' } : classifyLeafValue(raw, key),
+    derived,
+    definition: { kind: 'literal', value: '' },
     meta: isColorValue(raw) || isContrastValue(raw) ? raw.meta : {},
   }
 
   Object.defineProperty(handle, NODE, { value: node })
+  node.definition = derived ? classifyLeaf(raw, node) : classifyLeafValue(raw, key)
 
-  if (node.definition.kind === 'literal' && !node.derived)
+  if (node.definition.kind === 'literal')
     handle.value = node.definition.value
 
   return node
+}
+
+function duplicateToken(path: string, file?: string): never {
+  throw new VaneError({
+    code: 'VANE_TOKENS_DUPLICATE',
+    message: `${path} is already defined by an earlier token stage`,
+    path,
+    file,
+    fix: 'give the new token a distinct name',
+  })
 }
 
 function classifyLeafValue(raw: unknown, key: string): VaneLeafDefinition {
@@ -240,6 +309,9 @@ function classifyLeafValue(raw: unknown, key: string): VaneLeafDefinition {
 
   if (typeof raw === 'string' || typeof raw === 'number')
     return { kind: 'literal', value: raw }
+
+  if (isCssValue(raw))
+    return { kind: 'literal', value: raw.css }
 
   throw new VaneError({
     code: 'VANE_TOKENS_INVALID_COLOR',
@@ -546,6 +618,7 @@ function recordGraph(graph: TokenGraph): void {
     record({
       kind: 'token',
       file: graph.file,
+      ...diagnosticSource(node.key),
       path: node.key,
       var: node.name,
       mode: result.mode,
@@ -567,6 +640,7 @@ function recordGraph(graph: TokenGraph): void {
         record({
           kind: 'contrast',
           file: graph.file,
+          ...diagnosticSource(node.key),
           pairing: node.key,
           scheme,
           algorithm: 'apca',

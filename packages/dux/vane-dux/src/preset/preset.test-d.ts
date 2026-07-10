@@ -4,7 +4,7 @@
  * names flow into every bound authoring function.
  */
 
-import type { VaneColor, VaneLiveOverrides } from '@mszr/vane-dux'
+import type { VaneColorToken, VaneLiveOverrides } from '@mszr/vane-dux'
 import type { VaneThemeTarget } from '@mszr/vane-dux/runtime'
 import { createSystem, oklch } from '@mszr/vane-dux'
 import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
@@ -15,9 +15,9 @@ const el = {} as VaneThemeTarget
 
 describe('presetTokens', () => {
   it('a string seed folds static; a .live() seed stays a runtime input', () => {
-    expectTypeOf(presetTokens().color.brand).toEqualTypeOf<VaneColor<'static'>>()
-    expectTypeOf(presetTokens({ brand: '#ff5500' }).color.brand).toEqualTypeOf<VaneColor<'static'>>()
-    expectTypeOf(presetTokens({ brand: oklch(0.58, 0.2, 285).live() }).color.brand).toEqualTypeOf<VaneColor<'live'>>()
+    expectTypeOf(presetTokens().build().color.brand).toExtend<VaneColorToken<'static'>>()
+    expectTypeOf(presetTokens({ brand: '#ff5500' }).build().color.brand).toExtend<VaneColorToken<'static'>>()
+    expectTypeOf(presetTokens({ brand: oklch(0.58, 0.2, 285).live() }).build().color.brand).toExtend<VaneColorToken<'live'>>()
   })
 
   it('control values are typed at the key', () => {
@@ -29,8 +29,8 @@ describe('presetTokens', () => {
   })
 
   it('radius literals ride the control into hovers', () => {
-    expectTypeOf(presetTokens().radius.sm).toEqualTypeOf<'4px'>()
-    expectTypeOf(presetTokens({ radius: 'sharp' }).radius.sm).toEqualTypeOf<'2px'>()
+    expectTypeOf(presetTokens().build().radius.sm.value).toEqualTypeOf<'4px'>()
+    expectTypeOf(presetTokens({ radius: 'sharp' }).build().radius.sm.value).toEqualTypeOf<'2px'>()
   })
 
   it('applyTheme accepts the live brand only', () => {

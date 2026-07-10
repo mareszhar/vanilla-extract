@@ -103,7 +103,7 @@ The output plane is this project's addition to the house methodology: **the emit
 
 SDK tests collocate beside the code they exercise; browser tests live in `tests/`. Prism fixtures live once in `vane-dux/src/test-support/` with the larger app-shaped scenarios in `sandbox/fixtures/`. Fewer tests, higher confidence: assert contracts, never implementation details.
 
-Vitest's typecheck runner normally invokes `tsc --incremental` with a shared `tsconfig.tmp.tsbuildinfo` inside `vitest/dist/`. Dux routes that through `scripts/vitest-typecheck.cjs`, which strips the incremental cache flags before delegating to TypeScript, so the type plane cannot replay stale declarations or trip tsc's incremental recursion bug. Recursive public types are still written as named interfaces (`VaneRefs`/`VaneRef`) because that shape is clearer and remains friendlier to TypeScript's resolver.
+Vitest's typecheck runner normally invokes `tsc --incremental` with a shared `tsconfig.tmp.tsbuildinfo` inside `vitest/dist/`. Dux routes that through `scripts/vitest-typecheck.cjs`, which strips the incremental cache flags before delegating to TypeScript, so the type plane cannot replay stale declarations. Public recursive shapes remain named interfaces where recursion is required because that stays friendlier to TypeScript's resolver.
 
 ---
 
@@ -158,7 +158,8 @@ Run from `packages/dux/`.
 | `pnpm run demo:main` | the Prism Nuxt demo, dev mode |
 | `pnpm run demo:comparisons` | the comparison matrix |
 | `pnpm run demo:build` / `demo:typecheck` | build or typecheck both demos |
-| `pnpm run demo:e2e` | build both demos and run Playwright interaction/network regressions |
+| `pnpm run demo:e2e` | build both demos, then run production/development Playwright and the Nuxt HTTP/HMR process-lifecycle test |
+| `pnpm run fresh:smoke` | pack the SDK; install it into fresh strict Vite/Nuxt apps; check types, production, dev HTTP, and port release |
 | `pnpm run typecheck` / `test` / `build` | turbo across the workspace |
 | `pnpm run validate` / `val` | lint + typecheck + test + audit + demo browser regressions |
 | `pnpm run publish:sdk:dry-run` | gate + packaging rehearsal; nothing published |
@@ -173,9 +174,10 @@ The public `mareszhar/vane-dux` repo is the package + docs face, not the develop
 
 **The flow** (`pnpm run publish:sdk:<patch|minor|major>`), following the house release machinery:
 
-1. **Shared gate**, once — build · lint · typecheck · test · audit, with a content-keyed receipt so a resumed release doesn't re-verify unchanged inputs. `VANE_FORCE_VERIFY=1` ignores the receipt; the deliberately awkward `VANE_UNSAFE_PUBLISH_SKIP_CHECKS=1` skips the gate outright — no flag for that, on purpose.
-2. **npm auth check**, then bump `vane-dux/package.json` directly (never `npm version` — it would try to reify the outer pnpm workspace).
-3. **Build, then `npm publish --access public`.** Failure up to here restores the manifest; nothing is recorded.
-4. Once published, the bump is permanent; the remaining steps are guarded by a resumable release record (gitignored under `.dux/`): registry propagation wait → commit `🔖 release v<version>` + tag → subtree squash-push with the same message.
+1. **Shared gate**, once — the complete `pnpm run validate`, including both demo browser modes and Nuxt process lifecycle, with a content-keyed receipt so a resumed release doesn't re-verify unchanged inputs. `VANE_FORCE_VERIFY=1` ignores the receipt; the deliberately awkward `VANE_UNSAFE_PUBLISH_SKIP_CHECKS=1` skips the gate outright — no flag for that, on purpose.
+2. **Publication smoke:** pack the real tarball, install it into fresh strict Vite and Nuxt apps, run their type/build/dev lifecycles, then inspect `npm pack --dry-run` contents.
+3. **npm auth check**, then bump `vane-dux/package.json` directly (never `npm version` — it would try to reify the outer pnpm workspace).
+4. **Build, then `npm publish --access public`.** Failure up to here restores the manifest; nothing is recorded.
+5. Once published, the bump is permanent; the remaining steps are guarded by a resumable release record (gitignored under `.dux/`): registry propagation wait → commit `🔖 release v<version>` + tag → subtree squash-push with the same message.
 
 The gitmoji convention, squash-to-public-repo model, and resumable release-state machinery follow the same maintainer mechanics as every dux fork.

@@ -1,30 +1,10 @@
-// The Prism token graph — the library-authoring form ([dux-spec-tokens.md §1]):
-// a live brand seed, elevation surfaces, derivations, a checked pairing.
-import { alpha, defineTokens, legibleOn, oklch, scale } from '@mszr/vane-dux'
-import { elevation } from '@mszr/vane-dux/preset'
+// The Prism graph composes independently buildable modules. Each module is
+// useful alone; this file owns only integration and final emission.
+import { defineTokens } from '@mszr/vane-dux'
+import { foundationTokens } from './foundations.tokens'
+import { paletteTokens } from './palette.tokens'
 
-export const t = defineTokens({
-  color: {
-    brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. The theme picker owns this at runtime.'),
-    brandSoft: ({ color }) => alpha(color.brand, 0.12),
-    brandHover: ({ color }) => color.brand.mix(color.ink, 0.12),
-    onBrand: ({ color }) => legibleOn(color.brand),
-    canvas: ({ color }) => elevation(color.brand, 0),
-    surface: ({ color }) => elevation(color.brand, 0.03),
-    surfaceRaised: ({ color }) => elevation(color.brand, 0.08),
-    border: ({ color }) => elevation(color.brand, 0.2),
-    inkMuted: ({ color }) => elevation(color.brand, 0.62),
-    ink: ({ color }) => elevation(color.brand, 0.94),
-    scrim: ({ color }) => alpha(color.ink, 0.42),
-  },
-  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
-  radius: { sm: '6px', md: '10px', pill: '999px' },
-  duration: { fast: '120ms', normal: '200ms' },
-  font: { sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
-  text: {
-    small: { fontSize: '0.875rem', lineHeight: 1.45, fontWeight: 400 },
-    body: { fontSize: '1rem', lineHeight: 1.5, fontWeight: 400 },
-    title: { fontSize: '1.375rem', lineHeight: 1.25, fontWeight: 600 },
-    display: { fontSize: '2.25rem', lineHeight: 1.1, fontWeight: 700 },
-  },
-}, { prefix: 'prism' })
+export const t = defineTokens()
+  .compose(paletteTokens)
+  .compose(foundationTokens)
+  .build({ prefix: 'prism' })

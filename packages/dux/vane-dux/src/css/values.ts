@@ -14,6 +14,7 @@ import { isHandle } from '../internal/handle'
 import { isPort } from '../ports/port'
 import { isColorValue, isContrastValue } from '../tokens/color'
 import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
+import { isCssValue } from '../values/types'
 
 export interface VaneValueContext {
   file?: string
@@ -26,6 +27,9 @@ export function serializeStyleValue(value: unknown, path: string, ctx: VaneValue
 
   if (isPort(value) || isHandle(value))
     return value.var
+
+  if (isCssValue(value))
+    return value.css
 
   // The lane redirect ([dux-patterns.md §10]): a callable in a value position
   // is a Stitches-style dynamic value — runtime data, which never crosses here.
@@ -54,7 +58,7 @@ export function serializeStyleValue(value: unknown, path: string, ctx: VaneValue
     message: `${path} is not a CSS value`,
     path,
     file: ctx.file,
-    fix: 'give it a string, number, token, or color expression',
+    fix: 'give it a string, number, token, or CSS expression',
   })
 }
 

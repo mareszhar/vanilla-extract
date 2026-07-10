@@ -16,13 +16,14 @@ import type { VaneResolver } from '../tokens/resolve'
 import type { VanePort, VanePortInput, VanePortKind, VanePortMeta, VanePortOptions, VanePortValue } from './types'
 import { createVar } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
-import { VaneError } from '../diagnostics'
+import { diagnosticSource, VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { isColorValue, isContrastValue } from '../tokens/color'
 import { tokenKindOf } from '../tokens/graph'
 import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
+import { isCssValue } from '../values/types'
 import { createPortHandle, isPort } from './handle'
 
 /** Re-exported so `css/values.ts` can detect ports without a second import. */
@@ -68,6 +69,7 @@ export function createPort<TValue extends VanePortInput>(
   record({
     kind: 'port',
     file,
+    ...diagnosticSource(),
     ...(options?.label === undefined ? {} : { label: options.label }),
     meta,
   })
@@ -94,6 +96,9 @@ function inferKind(defaultValue: VanePortInput): VanePortKind {
   if (isColorValue(defaultValue))
     return 'color'
 
+  if (isCssValue(defaultValue))
+    return 'string'
+
   return typeof defaultValue === 'number' ? 'number' : 'string'
 }
 
@@ -118,6 +123,9 @@ function toMetaDefault(value: VanePortInput, file: string): VanePortValue {
 
   if (isColorValue(value))
     return serializeExpr(value.expr, portResolver(file))
+
+  if (isCssValue(value))
+    return value.css
 
   if (typeof value === 'string' || typeof value === 'number')
     return value

@@ -1,5 +1,7 @@
 updated: 2026-07-10
-status: implementation review — release blockers and recommended sequence
+status: historical implementation review — baseline findings and the hardening sequence they triggered
+
+> Historical baseline: the findings below describe the state at review time, not the current SDK. The graph-typed derivation blocker is closed by the staged builder and graph-aware TypeScript rename bridge; the strict Nuxt demo no longer disables `noUncheckedIndexedAccess`. Config-agnostic math/Grid/color utilities now share one CSS-value layer across tokens, styles, ports, atoms, keyframes, and raw interpolation. Current execution state lives in [dux-release-initiative.md](./dux-release-initiative.md); the remaining sections preserve the review that established the gate.
 
 # vane-dux implementation review — July 2026
 

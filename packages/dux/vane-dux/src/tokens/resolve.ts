@@ -52,6 +52,7 @@ export function exprTraits(expr: VaneColorExpr, resolver: VaneResolver): VaneExp
       return resolver.refTraits(expr.handle)
     case 'alpha':
     case 'adjust':
+    case 'channels':
       return exprTraits(expr.input, resolver)
     case 'mix':
       return join(exprTraits(expr.input, resolver), exprTraits(expr.other, resolver))
@@ -93,6 +94,7 @@ export function containsContrast(expr: VaneColorExpr): boolean {
       return true
     case 'alpha':
     case 'adjust':
+    case 'channels':
       return containsContrast(expr.input)
     case 'mix':
       return containsContrast(expr.input) || containsContrast(expr.other)
@@ -112,6 +114,7 @@ export function collectRefs(expr: VaneColorExpr, into: Set<string>): void {
       return
     case 'alpha':
     case 'adjust':
+    case 'channels':
       collectRefs(expr.input, into)
       return
     case 'mix':
@@ -136,6 +139,7 @@ function containsRef(expr: VaneColorExpr): boolean {
       return true
     case 'alpha':
     case 'adjust':
+    case 'channels':
       return containsRef(expr.input)
     case 'mix':
       return containsRef(expr.input) || containsRef(expr.other)
@@ -172,6 +176,17 @@ export function foldExpr(expr: VaneColorExpr, scheme: VaneScheme, resolver: Vane
       // browser wouldn't do, so folded and live ramps agree to the rounding digit.
       return { ...input, [expr.channel]: input[expr.channel] + expr.delta }
     }
+    case 'channels': {
+      const input = foldExpr(expr.input, scheme, resolver)
+      return {
+        l: applyChannel(input.l, expr.channels.l),
+        c: applyChannel(input.c, expr.channels.c),
+        h: applyChannel(input.h, expr.channels.h),
+        ...('alpha' in input || expr.channels.alpha !== undefined
+          ? { alpha: applyChannel(input.alpha ?? 1, expr.channels.alpha) }
+          : {}),
+      }
+    }
     case 'mix':
       return mixOklch(foldExpr(expr.input, scheme, resolver), foldExpr(expr.other, scheme, resolver), expr.amount)
     case 'scheme':
@@ -200,6 +215,8 @@ export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver): stri
       return `oklch(from ${serializeExpr(expr.input, resolver)} l c h / ${formatNumber(expr.amount)})`
     case 'adjust':
       return serializeAdjust(expr, resolver)
+    case 'channels':
+      return serializeChannels(expr, resolver)
     case 'mix': {
       const amount = formatNumber(expr.amount * 100)
       return `color-mix(in oklab, ${serializeExpr(expr.input, resolver)}, ${serializeExpr(expr.other, resolver)} ${amount}%)`
@@ -212,6 +229,36 @@ export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver): stri
       // (the graph emits that `@supports` rule).
       return serializeContrastPick(expr, resolver)
   }
+}
+
+function applyChannel(current: number, operation: number | import('./color').VaneChannelOperation | undefined): number {
+  if (operation === undefined)
+    return current
+  if (typeof operation === 'number' || operation.kind === 'set')
+    return typeof operation === 'number' ? operation : operation.value
+
+  switch (operation.kind) {
+    case 'add': return current + operation.value
+    case 'subtract': return current - operation.value
+    case 'multiply': return current * operation.value
+    case 'divide': return current / operation.value
+  }
+}
+
+function serializeChannels(expr: Extract<VaneColorExpr, { kind: 'channels' }>, resolver: VaneResolver): string {
+  const value = (name: 'l' | 'c' | 'h' | 'alpha', operation: number | import('./color').VaneChannelOperation | undefined): string => {
+    if (operation === undefined)
+      return name
+    if (typeof operation === 'number' || operation.kind === 'set')
+      return formatNumber(typeof operation === 'number' ? operation : operation.value)
+
+    const operator = operation.kind === 'add' ? '+' : operation.kind === 'subtract' ? '-' : operation.kind === 'multiply' ? '*' : '/'
+    return `calc(${name} ${operator} ${formatNumber(operation.value)})`
+  }
+
+  const { channels } = expr
+  const alpha = channels.alpha === undefined ? '' : ` / ${value('alpha', channels.alpha)}`
+  return `oklch(from ${serializeExpr(expr.input, resolver)} ${value('l', channels.l)} ${value('c', channels.c)} ${value('h', channels.h)}${alpha})`
 }
 
 function serializeAdjust(expr: Extract<VaneColorExpr, { kind: 'adjust' }>, resolver: VaneResolver): string {

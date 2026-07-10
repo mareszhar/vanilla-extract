@@ -25,6 +25,7 @@ export type VaneColorExpr
     | { kind: 'ref', handle: VaneRuntimeHandle }
     | { kind: 'alpha', input: VaneColorExpr, amount: number }
     | { kind: 'adjust', input: VaneColorExpr, channel: 'l' | 'c' | 'h', delta: number }
+    | { kind: 'channels', input: VaneColorExpr, channels: VaneOklchChannels }
     | { kind: 'mix', input: VaneColorExpr, other: VaneColorExpr, amount: number }
     | { kind: 'scheme', light: VaneColorExpr, dark: VaneColorExpr }
     | { kind: 'contrast', target: VaneColorExpr, minLc: number, explicitMin: boolean }
@@ -32,6 +33,15 @@ export type VaneColorExpr
 export interface VaneValueMeta {
   description?: string
   deprecated?: string
+}
+
+export interface VaneChannelOperation { kind: 'set' | 'add' | 'subtract' | 'multiply' | 'divide', value: number }
+
+export interface VaneOklchChannels {
+  l?: number | VaneChannelOperation
+  c?: number | VaneChannelOperation
+  h?: number | VaneChannelOperation
+  alpha?: number | VaneChannelOperation
 }
 
 // Brand symbols instead of `instanceof`, exactly like `isHandle`/`isPort`:
@@ -154,9 +164,81 @@ export function toExpr(color: VaneColorish | ColorValue | ContrastValue): VaneCo
 // ─── Definition-site builders ────────────────────────────────────────────────
 
 /** A color in oklch — the graph's native space. */
-export function oklch(l: number, c: number, h: number, alpha?: number): VaneColor<'static'> {
+function createOklch(l: number, c: number, h: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('oklch', [l, c, h, alpha])
   return new ColorValue({ kind: 'oklch', l, c, h, ...(alpha === undefined || alpha === 1 ? {} : { alpha }) }) as unknown as VaneColor<'static'>
 }
+
+export interface VaneOklchFunction {
+  (l: number, c: number, h: number, alpha?: number): VaneColor<'static'>
+  /** CSS relative-color syntax with foldable channel operations. */
+  from: <S extends VaneColorish>(base: S, channels: VaneOklchChannels) => VaneColor<VaneModeOf<S>>
+}
+
+/**
+ * OKLCH constructor plus typed relative-color composition:
+ * `oklch.from(base, { c: channel.multiply(0.5), alpha: 0.2 })`.
+ */
+export const oklch: VaneOklchFunction = Object.assign(createOklch, {
+  from<S extends VaneColorish>(base: S, channels: VaneOklchChannels): VaneColor<VaneModeOf<S>> {
+    validateChannels(channels)
+    return overExpr(base, input => ({ kind: 'channels', input, channels })) as unknown as VaneColor<VaneModeOf<S>>
+  },
+})
+
+/** CIE LCH: lightness 0–100, chroma, hue in degrees, optional alpha 0–1. */
+export function lch(l: number, c: number, h: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('lch', [l, c, h, alpha])
+  return color(`lch(${number(l)} ${number(c)} ${number(h)}${slashAlpha(alpha)})`)
+}
+
+/** CIE Lab: lightness 0–100, a/b axes, optional alpha 0–1. */
+export function lab(l: number, a: number, b: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('lab', [l, a, b, alpha])
+  return color(`lab(${number(l)} ${number(a)} ${number(b)}${slashAlpha(alpha)})`)
+}
+
+/** OKLab: lightness 0–1, a/b axes, optional alpha 0–1. */
+export function oklab(l: number, a: number, b: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('oklab', [l, a, b, alpha])
+  return color(`oklab(${number(l)} ${number(a)} ${number(b)}${slashAlpha(alpha)})`)
+}
+
+/** HSL: hue in degrees, saturation/lightness as percentages 0–100. */
+export function hsl(h: number, s: number, l: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('hsl', [h, s, l, alpha])
+  return color(`hsl(${number(h)} ${number(s)}% ${number(l)}%${slashAlpha(alpha)})`)
+}
+
+/** sRGB channels 0–255, optional alpha 0–1. */
+export function rgb(r: number, g: number, b: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('rgb', [r, g, b, alpha])
+  return color(`rgb(${number(r)} ${number(g)} ${number(b)}${slashAlpha(alpha)})`)
+}
+
+/** Display-P3 channels 0–1, optional alpha 0–1. */
+export function displayP3(r: number, g: number, b: number, alpha?: number): VaneColor<'static'> {
+  finiteChannels('displayP3', [r, g, b, alpha])
+  return color(`color(display-p3 ${number(r)} ${number(g)} ${number(b)}${slashAlpha(alpha)})`)
+}
+
+function operation(kind: VaneChannelOperation['kind'], value: number): VaneChannelOperation {
+  finiteChannels(`channel.${kind}`, [value])
+
+  if (kind === 'divide' && value === 0)
+    throw new RangeError('[vane] channel.divide() cannot divide by zero')
+
+  return { kind, value }
+}
+
+/** Numeric operations for `oklch.from()` channels. Plain numbers mean `set`. */
+export const channel = {
+  set: (value: number): VaneChannelOperation => operation('set', value),
+  add: (value: number): VaneChannelOperation => operation('add', value),
+  subtract: (value: number): VaneChannelOperation => operation('subtract', value),
+  multiply: (value: number): VaneChannelOperation => operation('multiply', value),
+  divide: (value: number): VaneChannelOperation => operation('divide', value),
+} as const
 
 /** Any CSS color literal, joined to the graph: `color('#635bff')`. */
 export function color(css: string): VaneColor<'static'> {
@@ -255,4 +337,29 @@ export function handleColorMethods(handle: VaneRuntimeHandle): Record<string, (.
     rotate: (degrees: number) => new ColorValue({ kind: 'adjust', input: ref(), channel: 'h', delta: degrees }),
     mix: (other: VaneColorish, amount: number) => new ColorValue({ kind: 'mix', input: ref(), other: toExpr(other), amount }),
   }
+}
+
+function validateChannels(channels: VaneOklchChannels): void {
+  for (const [name, value] of Object.entries(channels)) {
+    const numeric = typeof value === 'number' ? value : value.value
+    finiteChannels(`oklch.from ${name}`, [numeric])
+
+    if (typeof value !== 'number' && value.kind === 'divide' && value.value === 0)
+      throw new RangeError(`[vane] oklch.from ${name} cannot divide by zero`)
+  }
+}
+
+function finiteChannels(name: string, values: Array<number | undefined>): void {
+  for (const value of values) {
+    if (value !== undefined && !Number.isFinite(value))
+      throw new RangeError(`[vane] ${name} channels must be finite; received ${value}`)
+  }
+}
+
+function number(value: number): string {
+  return String(Object.is(value, -0) ? 0 : value)
+}
+
+function slashAlpha(alpha: number | undefined): string {
+  return alpha === undefined || alpha === 1 ? '' : ` / ${number(alpha)}`
 }

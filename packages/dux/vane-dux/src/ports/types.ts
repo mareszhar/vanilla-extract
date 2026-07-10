@@ -15,6 +15,7 @@
 
 import type { VaneVarReference } from '../css/types'
 import type { VaneColor } from '../tokens/types'
+import type { VaneCssValue } from '../values/types'
 
 /** The primitive values a port can hold and `set()` can return. */
 export type VanePortValue = string | number
@@ -23,7 +24,7 @@ export type VanePortValue = string | number
 export type VanePortStyle = Record<`--${string}`, VanePortValue>
 
 /** Anything acceptable as a port default: a primitive, a token/port reference, or a color expression. */
-export type VanePortInput = VanePortValue | VaneVarReference | VaneColor<any>
+export type VanePortInput = VanePortValue | VaneVarReference | VaneColor<any> | VaneCssValue
 
 /**
  * Widen literal primitives to their base type — `0` → `number`, `'4px'` →
@@ -63,7 +64,7 @@ export interface VanePortOptions {
  * token ports also take plain strings (a CSS literal is their currency).
  */
 export type VanePortSetValue<TValue extends VanePortInput>
-  = (TValue extends VaneVarReference | VaneColor<any> ? string : TValue) | VaneVarReference
+  = (TValue extends VaneVarReference | VaneColor<any> | VaneCssValue ? string : TValue) | VaneVarReference
 
 /**
  * What the handle stores as its default: references and color expressions
@@ -72,7 +73,7 @@ export type VanePortSetValue<TValue extends VanePortInput>
  * written.
  */
 export type VanePortDefault<TValue extends VanePortInput>
-  = TValue extends VaneVarReference | VaneColor<any> ? string : TValue
+  = TValue extends VaneVarReference | VaneColor<any> | VaneCssValue ? string : TValue
 
 /**
  * A port — a declared, typed, defaulted CSS custom property
@@ -99,7 +100,7 @@ export interface VanePort<TValue extends VanePortInput = VanePortInput> {
    * The union is spelled inline so a wrong value's error names it plainly
    * (`string | VaneVarReference`), not through the alias.
    */
-  set: (value: (TValue extends VaneVarReference | VaneColor<any> ? string : TValue) | VaneVarReference) => VanePortStyle
+  set: (value: (TValue extends VaneVarReference | VaneColor<any> | VaneCssValue ? string : TValue) | VaneVarReference) => VanePortStyle
   /** Intent at the definition site — surfaced by the manifest and audits. */
   describe: (text: string) => VanePort<TValue>
   /** Name the replacement — flows into the manifest and audits. */

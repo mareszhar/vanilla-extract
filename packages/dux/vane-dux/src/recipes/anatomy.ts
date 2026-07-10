@@ -15,7 +15,7 @@ import { style } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { emitOnto, emitStyle } from '../css/emit'
 import { isPlainObject, splitTopLevel } from '../css/rule'
-import { didYouMean, VaneError } from '../diagnostics'
+import { diagnosticSource, didYouMean, VaneError } from '../diagnostics'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { checkPorts, checkSelection, compileArm, covers, debugName, finishBuild, mergeCompiled, recordVariantShape, startBuild } from './compile'
@@ -183,6 +183,7 @@ export function bindAnatomy(system: VaneSystemContext) {
     record({
       kind: 'anatomy',
       file,
+      ...diagnosticSource(),
       ...(debugId === undefined ? {} : { name: debugId }),
       parts,
       ...recordVariantShape(variants, toggles, defaults, ports),

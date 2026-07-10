@@ -65,7 +65,7 @@ describe('token handles', () => {
     const adjusted = seed.live().lighten(0.06).describe('Themeable interaction color.')
     const softened = alpha(seed.live(), 0.12)
     const blended = mix('#ffffff', seed.live(), 0.2)
-    const t = emit(() => defineTokens({ color: { seed, adjusted, softened, blended } })).returned
+    const t = emit(() => defineTokens({ color: { seed, adjusted, softened, blended } }).build()).returned
 
     expect(t.color.seed.mode).toBe('static')
     expect(t.color.seed.description).toBeUndefined()
@@ -83,40 +83,33 @@ describe('token handles', () => {
 })
 
 describe('diagnostics', () => {
-  it('a derivation cycle names the loop', () => {
+  it('a duplicate stage token names the exact path', () => {
     expectVaneError(
-      () => emit(() => defineTokens({
-        color: {
-          a: ({ color }) => color.b.lighten(0.1),
-          b: ({ color }) => color.a.darken(0.1),
-        },
-      })),
-      'VANE_TOKENS_CYCLE',
-      /color\.[ab] → color\.[ba] → color\.[ab]/,
+      () => emit(() => (defineTokens({ color: { brand: '#fff' } }) as any)
+        .derive(() => ({ color: { brand: '#000' } }))
+        .build()),
+      'VANE_TOKENS_DUPLICATE',
+      /color\.brand is already defined by an earlier token stage/,
     )
   })
 
   it('an unknown token inside a derivation fails the build with a did-you-mean', () => {
     const error = expectVaneError(
-      () => emit(() => defineTokens({
-        color: {
-          brand: oklch(0.5, 0.2, 285),
-          soft: ({ color }) => color.brnad.alpha(0.12),
-        },
-      })),
+      () => emit(() => (defineTokens({ color: { brand: oklch(0.5, 0.2, 285) } }) as any)
+        .derive(({ color }: any) => ({ color: { soft: color.brnad.alpha(0.12) } }))
+        .build()),
       'VANE_TOKENS_UNKNOWN_REF',
       /color\.brnad is not a token in this graph — did you mean 'brand'\?/,
     )
 
-    expect(error.message).toContain('while deriving color.soft')
+    expect(error.message).toContain('while deriving derivation stage 1')
   })
 
   it('a non-color used as one is named, with the offending value', () => {
     expectVaneError(
-      () => emit(() => defineTokens({
-        radius: { sm: '4px' },
-        color: { odd: ({ radius }) => radius.sm.alpha(0.5) },
-      })),
+      () => emit(() => (defineTokens({ radius: { sm: '4px' } }) as any)
+        .derive(({ radius }: any) => ({ color: { odd: radius.sm.alpha(0.5) } }))
+        .build()),
       'VANE_TOKENS_INVALID_COLOR',
       /'4px', which is not a color/,
     )
@@ -125,12 +118,9 @@ describe('diagnostics', () => {
   it('a failing legible pairing is one diagnostic with the measurement and the fix', () => {
     // Mid-gray: neither white nor black reaches Lc 60.
     const error = expectVaneError(
-      () => emit(() => defineTokens({
-        color: {
-          base: oklch(0.7, 0, 0),
-          onBase: ({ color }) => legibleOn(color.base),
-        },
-      })),
+      () => emit(() => defineTokens({ color: { base: oklch(0.7, 0, 0) } })
+        .derive(({ color }) => ({ color: { onBase: legibleOn(color.base) } }))
+        .build()),
       'VANE_TOKENS_CONTRAST',
       /color\.onBase \/ color\.base fails APCA Lc 60/,
     )
@@ -141,12 +131,9 @@ describe('diagnostics', () => {
   })
 
   it('an explicit threshold is a conscious acceptance', () => {
-    const { returned: t } = emit(() => defineTokens({
-      color: {
-        base: oklch(0.7, 0, 0),
-        onBase: ({ color }) => legibleOn(color.base, { minLc: 40 }),
-      },
-    }))
+    const { returned: t } = emit(() => defineTokens({ color: { base: oklch(0.7, 0, 0) } })
+      .derive(({ color }) => ({ color: { onBase: legibleOn(color.base, { minLc: 40 }) } }))
+      .build())
 
     expect(t.color.onBase.mode).toBe('derived')
   })
@@ -158,7 +145,7 @@ describe('diagnostics', () => {
           ink: oklch(0.6, 0, 0),
           canvas: oklch(0.7, 0, 0),
         },
-      }, {
+      }).build({
         checks: ({ color }) => [check.textContrast(color.ink, color.canvas).aa()],
       })),
       'VANE_TOKENS_CONTRAST',
@@ -171,7 +158,7 @@ describe('theme()', () => {
   it('an unknown override key dies with a did-you-mean', () => {
     expectVaneError(
       () => emit(() => {
-        const t = defineTokens({ color: { brand: oklch(0.5, 0.2, 285) } })
+        const t = defineTokens({ color: { brand: oklch(0.5, 0.2, 285) } }).build()
         return theme(t, { color: { brnad: oklch(0.4, 0.1, 100) } } as never)
       }),
       'VANE_TOKENS_INVALID_OVERRIDE',
@@ -190,12 +177,9 @@ describe('theme()', () => {
   it('a failing pairing inside a theme names the theme', () => {
     expectVaneError(
       () => emit(() => {
-        const t = defineTokens({
-          color: {
-            base: oklch(0.2, 0, 0),
-            onBase: ({ color }) => legibleOn(color.base),
-          },
-        })
+        const t = defineTokens({ color: { base: oklch(0.2, 0, 0) } })
+          .derive(({ color }) => ({ color: { onBase: legibleOn(color.base) } }))
+          .build()
         return theme(t, { color: { base: oklch(0.7, 0, 0) } }, 'muted')
       }),
       'VANE_TOKENS_CONTRAST',

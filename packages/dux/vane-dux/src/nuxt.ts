@@ -15,6 +15,7 @@ import type { Plugin, PluginOption } from 'vite'
 import type { VaneAutoImports, VaneViteOptions } from './vite'
 import { readFileSync } from 'node:fs'
 import { addImportsSources, addPluginTemplate, addVitePlugin, defineNuxtModule, resolveAlias } from '@nuxt/kit'
+import { protectRelativeColorSyntax } from './nuxt/postcss'
 import { styleExportNames, vaneDuxPlugin } from './vite'
 
 export interface VaneNuxtOptions extends Omit<VaneViteOptions, 'autoImports'> {
@@ -70,6 +71,16 @@ export default defineNuxtModule<VaneNuxtOptions>({
     addImportsSources({ from: '@mszr/vane-dux/vue', imports: ['propsOf', 'useAnatomy', 'usePorts'] })
     addImportsSources({ from: '@mszr/vane-dux/runtime', imports: ['applyTheme', 'setScheme', 'ports'] })
 
+    // TypeScript cannot natively connect an inferred mapped token handle back
+    // to its object-literal definition for rename-symbol. The bundled plugin
+    // supplies those graph-aware locations; Nuxt users pay no setup tax.
+    installTypescriptPlugin(nuxt.options.typescript.tsConfig as VaneTsConfig)
+
+    // Nuxt's production cssnano default uses a calc parser that rejects CSS
+    // relative-color channel identifiers. Keep every safe minification pass,
+    // but preserve these standards-valid expressions byte-for-byte.
+    protectRelativeColorSyntax(nuxt.options.postcss)
+
     addVitePlugin(toVitePlugins(vaneDuxPlugin({ ...viteOptions, autoImports })))
 
     addPluginTemplate({
@@ -91,6 +102,22 @@ export default defineNuxtModule<VaneNuxtOptions>({
     }
   },
 })
+
+interface VaneTsConfig {
+  compilerOptions?: {
+    plugins?: Array<{ name: string } & Record<string, unknown>>
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+function installTypescriptPlugin(tsconfig: VaneTsConfig): void {
+  const compilerOptions = tsconfig.compilerOptions ??= {}
+  const plugins = compilerOptions.plugins ??= []
+
+  if (!plugins.some(plugin => plugin.name === '@mszr/vane-dux/typescript'))
+    plugins.push({ name: '@mszr/vane-dux/typescript' })
+}
 
 function readSystemModule(from: string): string {
   try {

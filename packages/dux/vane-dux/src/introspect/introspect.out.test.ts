@@ -4,7 +4,7 @@
  * like the CSS it travels with. A shape change here is a format change.
  */
 
-import { createSystem, oklch } from '@mszr/vane-dux'
+import { createSystem, defineTokens, oklch } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
@@ -14,13 +14,12 @@ describe('the manifest artifact', () => {
   it('locks the format: version, layers, conditions, tokens, recipes, ports', () => {
     const { records, result } = collectInspection(() => emit(() => {
       const { t, css, recipe, port } = createSystem({
-        tokens: {
+        tokens: defineTokens({
           color: {
             brand: oklch(0.58, 0.2, 285).live().describe('the seed'),
-            brandSoft: ({ color }: any) => color.brand.alpha(0.12),
           },
           space: { sm: '8px' },
-        },
+        }).derive(({ color }) => ({ color: { brandSoft: color.brand.alpha(0.12) } })),
         conditions: { open: '&[data-state="open"]' },
         baseConditions: false,
       })
@@ -83,6 +82,15 @@ describe('the manifest artifact', () => {
                 "ghost",
               ],
             },
+          },
+        },
+        "styles": {
+          "chip__hash": {
+            "file": "src/test-support/prism.style.ts",
+            "name": "chip",
+            "tokens": [
+              "color.brandSoft",
+            ],
           },
         },
         "tokens": {

@@ -9,8 +9,8 @@
  * tokens without editing them individually.
  */
 
-import type { VaneColor, VaneColorish, VaneColorMode, VaneRefs } from '@mszr/vane-dux'
-import { alpha, color, legibleOn, mix, oklch, scheme } from '@mszr/vane-dux'
+import type { VaneColor, VaneColorish, VaneColorMode, VaneContrast, VaneDerived, VaneTokenBuilder } from '@mszr/vane-dux'
+import { alpha, color, defineTokens, legibleOn, mix, oklch, scale, scheme } from '@mszr/vane-dux'
 
 // ─── The controls ────────────────────────────────────────────────────────────
 
@@ -108,45 +108,55 @@ const easings = {
 } as const
 
 /** The brand seed keeps the mode it arrived with; a literal folds at build. */
-type VanePresetBrand<B> = B extends VaneColor<infer M extends VaneColorMode> ? VaneColor<M> : VaneColor<'static'>
+export type VanePresetBrand<B> = B extends VaneColor<infer M extends VaneColorMode> ? VaneColor<M> : VaneColor<'static'>
+
+/** The preset's definition graph — public because the builder carries it. */
+export interface VanePresetTokenGraph<B extends VanePresetBrandInput, R extends VanePresetRadius> {
+  color: {
+    brand: VanePresetBrand<B>
+    brandSoft: VaneDerived<VaneColor<VaneColorMode>>
+    onBrand: VaneDerived<VaneContrast>
+    canvas: VaneDerived<VaneColor<VaneColorMode>>
+    surface: VaneDerived<VaneColor<VaneColorMode>>
+    surfaceRaised: VaneDerived<VaneColor<VaneColorMode>>
+    border: VaneDerived<VaneColor<VaneColorMode>>
+    inkMuted: VaneDerived<VaneColor<VaneColorMode>>
+    ink: VaneDerived<VaneColor<VaneColorMode>>
+    brandHover: VaneDerived<VaneColor<VaneColorMode>>
+    brandActive: VaneDerived<VaneColor<VaneColorMode>>
+  }
+  space: { [K in keyof typeof spaceSteps]: `${number}px` }
+  text: typeof textStyles
+  font: typeof fontFamilies
+  radius: (typeof radiusFamilies)[R]
+  shadow: typeof shadows
+  z: typeof zLayers
+  duration: typeof durations
+  ease: typeof easings
+}
 
 // ─── presetTokens ────────────────────────────────────────────────────────────
 
 /**
  * The furnished room: brand ramp, elevation surfaces, type, spacing, radii,
- * shadows, z order, and motion — every piece an ordinary token to override or
- * delete. Pass the result straight to `createSystem({ tokens: … })`, or spread
- * it into `defineTokens` to extend ([dux-spec-css.md §1.1]).
+ * shadows, z order, and motion. The result is the same public topological
+ * builder userland authors: pass it straight to `createSystem({ tokens: … })`,
+ * extend it with another `.derive()` stage, or call `.build()` standalone.
  */
 export function presetTokens<
   B extends VanePresetBrandInput = string,
   R extends VanePresetRadius = 'calm',
->(options: VanePresetTokensOptions<B, R> = {}) {
+>(options: VanePresetTokensOptions<B, R> = {}): VaneTokenBuilder<VanePresetTokenGraph<B, R>> {
   const seed = options.brand ?? '#635bff'
   const brand = (typeof seed === 'string' ? color(seed) : seed) as VanePresetBrand<B>
   const unit = densityUnits[options.density ?? 'comfortable']
   const plane = contrastPlanes[options.contrast ?? 'balanced']
 
-  return {
-    color: {
-      brand,
-      // Mixing toward ink makes hover/active scheme-aware for free: ink is
-      // dark over a light scheme and light over a dark one, so interaction
-      // always deepens toward the reader.
-      brandHover: ({ color }: VaneRefs) => color.brand.mix(color.ink, 0.12),
-      brandActive: ({ color }: VaneRefs) => color.brand.mix(color.ink, 0.2),
-      brandSoft: ({ color }: VaneRefs) => alpha(color.brand, 0.12),
-      onBrand: ({ color }: VaneRefs) => legibleOn(color.brand),
-      // The relationship is explicit: every plane is a composition over the
-      // brand seed. A live seed therefore retints the entire system in CSS.
-      canvas: ({ color }: VaneRefs) => elevation(color.brand, 0),
-      surface: ({ color }: VaneRefs) => elevation(color.brand, 0.03),
-      surfaceRaised: ({ color }: VaneRefs) => elevation(color.brand, 0.08),
-      border: ({ color }: VaneRefs) => elevation(color.brand, plane.border),
-      inkMuted: ({ color }: VaneRefs) => elevation(color.brand, plane.inkMuted),
-      ink: ({ color }: VaneRefs) => elevation(color.brand, plane.ink),
-    },
-    space: linearSpace(unit),
+  // The preset is a real composition of independently buildable public token
+  // modules. It exercises the same foundation userland receives; there is no
+  // private preset merge path or privileged graph operation.
+  const foundations = defineTokens({
+    space: scale.linear({ unit, steps: spaceSteps }),
     text: textStyles,
     font: fontFamilies,
     radius: radiusFamilies[(options.radius ?? 'calm') as R],
@@ -154,7 +164,35 @@ export function presetTokens<
     z: zLayers,
     duration: durations,
     ease: easings,
-  }
+  })
+  const palette = defineTokens({ color: { brand } })
+    .derive(({ color }) => ({
+      color: {
+        brandSoft: alpha(color.brand, 0.12),
+        onBrand: legibleOn(color.brand),
+        // The relationship is explicit: every plane composes over the brand
+        // seed. A live seed therefore retints the entire system in CSS.
+        canvas: elevation(color.brand, 0),
+        surface: elevation(color.brand, 0.03),
+        surfaceRaised: elevation(color.brand, 0.08),
+        border: elevation(color.brand, plane.border),
+        inkMuted: elevation(color.brand, plane.inkMuted),
+        ink: elevation(color.brand, plane.ink),
+      },
+    }))
+    .derive(({ color }) => ({
+      color: {
+        // Ink is scheme-aware, so interactions deepen toward the reader in
+        // either scheme without a parallel dark palette.
+        brandHover: color.brand.mix(color.ink, 0.12),
+        brandActive: color.brand.mix(color.ink, 0.2),
+      },
+    }))
+  const builder = defineTokens()
+    .compose(palette)
+    .compose(foundations)
+
+  return builder as unknown as VaneTokenBuilder<VanePresetTokenGraph<B, R>>
 }
 
 /**
@@ -187,18 +225,6 @@ function defaultElevationCurve(position: number, scheme: 'light' | 'dark'): numb
 function expectFactor(name: string, value: number): void {
   if (!Number.isFinite(value) || value < 0 || value > 1)
     throw new RangeError(`[vane] elevation ${name} must be between 0 and 1; received ${value}`)
-}
-
-// ─── Derived families ────────────────────────────────────────────────────────
-
-/**
- * The linear ×`unit` spacing scale. Inlined rather than `scale.linear` so the
- * preset consumes only its own arithmetic — the emitted shape is identical.
- */
-function linearSpace(unit: number): { [K in keyof typeof spaceSteps]: `${number}px` } {
-  return Object.fromEntries(
-    Object.entries(spaceSteps).map(([key, step]) => [key, `${roundTo(unit * step, 4)}px`]),
-  ) as { [K in keyof typeof spaceSteps]: `${number}px` }
 }
 
 /**

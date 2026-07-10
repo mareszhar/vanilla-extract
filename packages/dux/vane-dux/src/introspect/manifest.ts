@@ -16,12 +16,20 @@ import type {
   VaneInspectRecord,
   VanePortRecord,
   VaneRecipeRecord,
+  VaneSourceRecord,
+  VaneStyleRecord,
   VaneTokenRecord,
 } from '../internal/inspect'
 
 // ─── The format ──────────────────────────────────────────────────────────────
 
-export interface VaneManifestToken {
+export interface VaneManifestSource {
+  file?: string
+  line?: number
+  column?: number
+}
+
+export interface VaneManifestToken extends VaneManifestSource {
   /** The emitted custom property: `--vane-color-brand`. */
   var: string
   /** The built value per scheme — equal strings when the token is scheme-blind. */
@@ -37,10 +45,9 @@ export interface VaneManifestToken {
   refs?: string[]
   description?: string
   deprecated?: string
-  file?: string
 }
 
-export interface VaneManifestRecipe {
+export interface VaneManifestRecipe extends VaneManifestSource {
   /** Present on anatomies: the named parts, styled as one unit. */
   parts?: string[]
   /** Variant axis → its declared values. */
@@ -49,10 +56,9 @@ export interface VaneManifestRecipe {
   defaults: Record<string, string | boolean>
   /** Published port name → its custom-property name (a key into `ports`). */
   ports: Record<string, string>
-  file?: string
 }
 
-export interface VaneManifestPort {
+export interface VaneManifestPort extends VaneManifestSource {
   /** The emitted custom property: `--vane-fraction__h4x`. */
   var: string
   type: 'number' | 'string' | 'color'
@@ -61,20 +67,18 @@ export interface VaneManifestPort {
   unit?: string
   description?: string
   deprecated?: string
-  file?: string
 }
 
-export interface VaneManifestEscape {
+export interface VaneManifestEscape extends VaneManifestSource {
   form: VaneEscapeForm
   /** What the escape holds: the selector, the declaration, or the block's first line. */
   detail: string
   /** The stated intent — always present on `unsafe`. */
   reason?: string
   layer?: string
-  file?: string
 }
 
-export interface VaneManifestContrast {
+export interface VaneManifestContrast extends VaneManifestSource {
   /** The `legibleOn` token path, or the check's pairing description. */
   pairing: string
   scheme: 'light' | 'dark'
@@ -84,7 +88,12 @@ export interface VaneManifestContrast {
   min: number
   /** True when the threshold was consciously accepted at the definition site. */
   accepted: boolean
-  file?: string
+}
+
+export interface VaneManifestStyle extends VaneManifestSource {
+  name?: string
+  /** Token paths referenced by this class's compiled declarations. */
+  tokens: string[]
 }
 
 export interface VaneManifest {
@@ -97,6 +106,8 @@ export interface VaneManifest {
   tokens: Record<string, VaneManifestToken>
   /** Export name → the recipe or anatomy (anatomies carry `parts`). */
   recipes: Record<string, VaneManifestRecipe>
+  /** Emitted class → its authored call site and token dependencies. */
+  styles: Record<string, VaneManifestStyle>
   /** `<Component>.<export>` → the port. */
   ports: Record<string, VaneManifestPort>
   escapes: VaneManifestEscape[]
@@ -119,12 +130,14 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
     conditions: {},
     tokens: {},
     recipes: {},
+    styles: {},
     ports: {},
     escapes: [],
     contrast: [],
   }
 
   const tokenRecords: VaneTokenRecord[] = []
+  const styleRecords: VaneStyleRecord[] = []
   let audit: VaneAuditConfig | undefined
 
   for (const record of records) {
@@ -143,6 +156,9 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
         if (record.name !== undefined)
           manifest.recipes[record.name] = recipeEntry(record)
         break
+      case 'style':
+        styleRecords.push(record)
+        break
       case 'port':
         manifest.ports[portKey(record)] = portEntry(record)
         break
@@ -152,7 +168,7 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
           detail: record.detail,
           ...(record.reason === undefined ? {} : { reason: record.reason }),
           ...(record.layer === undefined ? {} : { layer: record.layer }),
-          ...(record.file === undefined ? {} : { file: record.file }),
+          ...manifestSource(record),
         })
         break
       case 'contrast':
@@ -163,7 +179,7 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
           measured: record.measured,
           min: record.min,
           accepted: record.accepted,
-          ...(record.file === undefined ? {} : { file: record.file }),
+          ...manifestSource(record),
         })
         break
     }
@@ -193,7 +209,17 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
       ...(token.refs.length === 0 ? {} : { refs: token.refs }),
       ...(token.description === undefined ? {} : { description: token.description }),
       ...(token.deprecated === undefined ? {} : { deprecated: token.deprecated }),
-      ...(token.file === undefined ? {} : { file: token.file }),
+      ...manifestSource(token),
+    }
+  }
+
+  const pathsByVar = new Map(tokenRecords.map(token => [token.var, token.path]))
+
+  for (const style of styleRecords) {
+    manifest.styles[style.class] = {
+      ...(style.name === undefined ? {} : { name: style.name }),
+      tokens: style.vars.flatMap(variable => pathsByVar.get(variable) ?? []),
+      ...manifestSource(style),
     }
   }
 
@@ -210,7 +236,7 @@ function recipeEntry(record: VaneRecipeRecord): VaneManifestRecipe {
     toggles: record.toggles,
     defaults: record.defaults,
     ports: record.ports,
-    ...(record.file === undefined ? {} : { file: record.file }),
+    ...manifestSource(record),
   }
 }
 
@@ -231,7 +257,15 @@ function portEntry(record: VanePortRecord): VaneManifestPort {
     ...(meta.unit === undefined ? {} : { unit: meta.unit }),
     ...(meta.description === undefined ? {} : { description: meta.description }),
     ...(meta.deprecated === undefined ? {} : { deprecated: meta.deprecated }),
+    ...manifestSource(record),
+  }
+}
+
+function manifestSource(record: VaneSourceRecord): VaneManifestSource {
+  return {
     ...(record.file === undefined ? {} : { file: record.file }),
+    ...(record.line === undefined ? {} : { line: record.line }),
+    ...(record.column === undefined ? {} : { column: record.column }),
   }
 }
 

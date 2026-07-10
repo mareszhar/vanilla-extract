@@ -27,7 +27,7 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 - Token attribution survives to dev output structurally: a token reference is never folded at its usage site, so a declaration decided by `t.space.md` reads `var(--vane-space-md)` in devtools — the name *is* the attribution, and the computed value sits beside it.
 - Production emits minified boring CSS — provenance is a dev-build artifact with zero shipped cost.
 
-**Implementation.** Debug identifiers ride the substrate's identifier machinery (`/vite` sets the debug-id mode and injects declaration names); the origin banner is prepended when the dev server stores a virtual stylesheet. Line-level CSS source maps stay off the contract: the virtual-file name plus the class name already lands you in the right file at the right export, which is the navigation the moment actually needs.
+**Implementation.** Debug identifiers ride the substrate's identifier machinery (`/vite` sets the debug-id mode and injects declaration names); the origin banner is prepended when the dev server stores a virtual stylesheet. The same AST pass records exact call/property positions. The manifest’s class-provenance table maps each emitted `css()` class to its `.style.ts` line/column and referenced token paths, while tokens and recipes carry their own definition positions. Line-level generated-CSS source maps stay off the contract because this route is more direct: rendered class → authored call → graph decisions, without asking users to navigate compiler output.
 
 ---
 
@@ -50,8 +50,14 @@ The system explains itself: provenance from pixels back to decisions, a machine-
       "mode": "live",
       "live": true,
       "usage": 41,
-      "description": "Primary brand hue. Marketing owns this."
+      "description": "Primary brand hue. Marketing owns this.",
+      "file": "design/palette.tokens.ts",
+      "line": 4,
+      "column": 12
     }
+  },
+  "styles": {
+    "card__h4x": { "name": "card", "tokens": ["color.brand"], "file": "components/Card.style.ts", "line": 6, "column": 21 }
   },
   "recipes": {
     "button": { "variants": { "intent": ["brand", "ghost"] }, "toggles": ["pill"], "defaults": { "intent": "brand" }, "ports": { "gap": "--vane-gap__h4x" } }
@@ -66,7 +72,7 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 
 **Contract details.**
 
-- Contents: every token (var name, per-scheme built values, emitted CSS value, mode/liveness, graph edges under `refs`, metadata, usage count — references in emitted CSS, graph-internal edges excluded), every recipe/anatomy (variant space, toggles, defaults, parts, published ports), every port (`Component.export` key, type, default, unit, description), conditions and layers, the escape inventory (§3), and every contrast result — passes and accepted thresholds alike.
+- Contents: every token (var name, per-scheme built values, emitted CSS value, mode/liveness, graph edges under `refs`, metadata, usage count — references in emitted CSS, graph-internal edges excluded), every `css()` class (authored name, exact source, referenced token paths), every recipe/anatomy (variant space, toggles, defaults, parts, published ports), every port (`Component.export` key, type, default, unit, description), conditions and layers, the escape inventory (§3), and every contrast result — passes and accepted thresholds alike.
 - The manifest is a **stable format** — versioned (`version: 1`, bumped only on breaking shape changes), typed (`VaneManifest` from `/vite`), safe for external tools to build on. An MCP server over it is a deferred intention ([dux-vision.md §8](./dux-vision.md#8-deferred-intentions)).
 
 **Implementation.** Build-time factories record what they define into an inspection channel (`internal/inspect.ts`, shared across module instances via `globalThis`); the plugin drains it per evaluation, replaces each file's records, and projects the whole store through `buildManifest` (exported from `/vite`).
@@ -84,6 +90,7 @@ The system explains itself: provenance from pixels back to decisions, a machine-
 - **Contrast findings:** the consciously-accepted `legibleOn` thresholds, surfaced per scheme so acceptance stays a decision ([dux-spec-tokens.md §5](./dux-spec-tokens.md#5-contrast-and-checks)); the full result set (passes included) lives in the manifest.
 - **Escape inventory:** every `css.raw`, `unsafe.value(…, reason)` with its reason, class/id-targeting `globalCss`, and `overrides`-layer rule, with its location — exceptional CSS made findable, reviewable, removable.
 - **Scale strays:** a literal value for a property the system already styles through tokens (z-index anarchy). Data-driven: a property lane only speaks when tokenized declarations dominate it, so a system that never tokenized a property is never lectured about it.
+- **Focus visibility:** a class or global subject that removes its outline without supplying a visible `:focus-visible` outline. Fix-it: spread `focusRing()` or add an equivalent `focusVisible` rule; class findings point back through manifest provenance.
 
 Audits run as part of `pnpm run validate` (`pnpm run audit`, which builds the fixture app through the real plugin and audits its manifest + CSS; point it at any Vite-rooted style app with `pnpm run audit -- <dir>`). Findings print grouped and deep-linked; none is a hard gate by default, and each lane can be promoted (or silenced) per system: `createSystem({ audit: { unusedTokens: 'error', escapes: 'off' } })` — the config rides the manifest, so any audit runner honors it.
 
