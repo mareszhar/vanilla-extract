@@ -25,11 +25,11 @@
     "demo:minimal": "pnpm --dir sandbox/demo-minimal run dev",
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
-    "publish:sdk:dry-run": "tsx scripts/not-implemented.ts publish:sdk:dry-run W4",
-    "publish:sdk:patch": "tsx scripts/not-implemented.ts publish:sdk:patch W4",
-    "publish:sdk:minor": "tsx scripts/not-implemented.ts publish:sdk:minor W4",
-    "publish:sdk:major": "tsx scripts/not-implemented.ts publish:sdk:major W4",
-    "publish:subtree:squash": "tsx scripts/not-implemented.ts publish:subtree:squash W4"
+    "publish:sdk:dry-run": "tsx scripts/publish.ts dry-run",
+    "publish:sdk:patch": "tsx scripts/publish.ts patch",
+    "publish:sdk:minor": "tsx scripts/publish.ts minor",
+    "publish:sdk:major": "tsx scripts/publish.ts major",
+    "publish:subtree:squash": "tsx scripts/publish.ts subtree"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
