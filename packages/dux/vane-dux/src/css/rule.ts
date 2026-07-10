@@ -18,6 +18,8 @@ export interface VaneRuleContext extends VaneValueContext {
   conditions: Map<string, readonly VaneConditionArm[]>
   layers: readonly string[]
   defaultLayer: string
+  /** The system's root layer (its prefix) — every emitted rule nests under it. */
+  layerRoot: string
   /** Seeds diagnostic paths — recipe arms report as `variants.intent.brand.…`. */
   rootPath?: readonly string[]
   /**
@@ -47,7 +49,15 @@ export interface VaneUnit {
 }
 
 export interface VaneCompiled {
+  /** The authoring-surface layer name: `recipes`, `overrides`. */
   layer: string
+  /**
+   * The system's root layer — the prefix. Emission nests every rule as
+   * `@layer <root>.<layer>`, so the only *global* layer name a system claims
+   * is its own namespace and foreign systems' layer orders stay untouched
+   * ([dux-patterns.md §6]).
+   */
+  layerRoot: string
   units: VaneUnit[]
 }
 
@@ -57,7 +67,7 @@ export function compileRule(rule: object, ctx: VaneRuleContext): VaneCompiled {
   const walker = new RuleWalker(ctx)
   const layer = walker.walkRoot(rule)
   walker.throwIfFailed()
-  return { layer, units: [...walker.units.values()] }
+  return { layer, layerRoot: ctx.layerRoot, units: [...walker.units.values()] }
 }
 
 class RuleWalker {

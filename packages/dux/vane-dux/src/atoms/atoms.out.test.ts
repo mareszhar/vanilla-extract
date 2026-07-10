@@ -23,16 +23,17 @@ describe('atoms, emitted', () => {
     })
 
     expect(css).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer utilities {
+      @layer vane.utilities {
         .atoms_gap_sm__oiwpg60 {
           gap: var(--vane-space-sm);
         }

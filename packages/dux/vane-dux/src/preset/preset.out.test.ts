@@ -136,7 +136,7 @@ describe('the quickstart, emitted', () => {
     })
 
     // The recipe rides the preset tokens; the classes land in the recipes layer.
-    expect(css).toContain('@layer recipes')
+    expect(css).toContain('@layer vane.recipes')
     expect(css).toContain('gap: var(--vane-space-xs)')
     expect(css).toContain('background: var(--vane-color-brand)')
     expect(css).toContain('color: var(--vane-color-on-brand)')

@@ -40,17 +40,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .card__oiwpg60 {
           padding: var(--vane-space-md);
           background: var(--vane-color-brand);
@@ -88,17 +89,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .content__oiwpg60 {
           overflow: hidden;
         }
@@ -133,17 +135,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .panel__oiwpg60:where([data-scheme='dark'], [data-scheme='dark'] *) {
           border-color: white;
         }
@@ -169,17 +172,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .button__oiwpg60 {
           display: inline-flex;
         }
@@ -203,17 +207,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .numbers__oiwpg60 {
           padding: 8px;
           line-height: 1.5;
@@ -235,17 +240,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .escape__oiwpg60 {
           --track-size: 8;
           position: -webkit-sticky;
@@ -263,22 +269,23 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .inRecipes__oiwpg60 {
           display: grid;
         }
       }
-      @layer overrides {
+      @layer vane.overrides {
         .fixup__oiwpg61 {
           max-width: 100%;
         }
@@ -298,17 +305,18 @@ describe('css()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .entry__oiwpg60 {
           opacity: 1;
         }
@@ -352,17 +360,18 @@ describe('keyframes and globalCss', () => {
           opacity: 1;
         }
       }
-      @layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      @layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         @media (prefers-reduced-motion: no-preference) {
           .accordion__oiwpg61[data-state="open"] {
             animation: slideDown__oiwpg60 200ms ease-out;
@@ -384,17 +393,18 @@ describe('keyframes and globalCss', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer reset {
+      @layer vane.reset {
         html, body {
           margin: 0;
           background: var(--vane-color-brand);
@@ -427,17 +437,18 @@ describe('css.raw', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .oiwpg60 h2 {
           margin-block: 1.5em .5em;
         }

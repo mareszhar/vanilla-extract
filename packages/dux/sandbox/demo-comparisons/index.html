@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prism — the comparison matrix</title>
+    <style>
+      /* The app's layer diplomacy, pinned before any stylesheet loads: with
+         several layered frameworks on one page, cascade-layer order is global
+         and first-declaration-wins. Tailwind's layers first (its preflight
+         must not beat component styles in later layers), then Panda's, then
+         `prism` — the one global layer name the vane-dux lane claims (a
+         system nests all its layers under its prefix). */
+      @layer properties, theme, base, components, utilities,
+        panda-reset, panda-base, panda-tokens, panda-recipes, panda-utilities,
+        prism;
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

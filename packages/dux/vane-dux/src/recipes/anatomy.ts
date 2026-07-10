@@ -122,11 +122,11 @@ export function bindAnatomy(system: VaneSystemContext) {
         .map(([, arms]) => arms)
 
       const sound = Object.entries(target).every(([part, compiled]) =>
-        siblings.every(sibling => covers(sibling[part] ?? { layer: compiled.layer, units: [] }, compiled)))
+        siblings.every(sibling => covers(sibling[part] ?? { layer: compiled.layer, layerRoot: compiled.layerRoot, units: [] }, compiled)))
 
       if (sound) {
         for (const [part, compiled] of Object.entries(target))
-          base[part] = mergeCompiled(base[part] ?? { layer: compiled.layer, units: [] }, compiled)
+          base[part] = mergeCompiled(base[part] ?? { layer: compiled.layer, layerRoot: compiled.layerRoot, units: [] }, compiled)
 
         variantArms[axis][value] = {}
       }

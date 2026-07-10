@@ -51,18 +51,19 @@ describe('recipe()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-xs: 4px;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .button__oiwpg60 {
           display: inline-flex;
           gap: var(--vane-space-xs);
@@ -118,8 +119,8 @@ describe('recipe()', () => {
       }, 'fixup')
     })
 
-    expect(emitted).toContain('@layer overrides {')
-    expect(emitted).not.toContain('@layer recipes {')
+    expect(emitted).toContain('@layer vane.overrides {')
+    expect(emitted).not.toContain('@layer vane.recipes {')
   })
 })
 
@@ -148,18 +149,19 @@ describe('anatomy()', () => {
     })
 
     expect(emitted).toMatchInlineSnapshot(`
-      "@layer reset;
-      @layer tokens;
-      @layer recipes;
-      @layer utilities;
-      @layer overrides;
+      "@layer vane;
+      @layer vane.reset;
+      @layer vane.tokens;
+      @layer vane.recipes;
+      @layer vane.utilities;
+      @layer vane.overrides;
       :root {
         --vane-color-brand: #635bff;
         --vane-space-xs: 4px;
         --vane-space-sm: 8px;
         --vane-space-md: 16px;
       }
-      @layer recipes {
+      @layer vane.recipes {
         .combobox_input__oiwpg61 {
           border-radius: var(--vane-space-xs);
           padding-inline: var(--vane-space-sm);

@@ -24,7 +24,7 @@
     "sdk:test:watch": "pnpm --dir vane-dux exec vitest --typecheck",
     "demo:minimal": "pnpm --dir sandbox/demo-minimal run dev",
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
-    "demo:comparisons": "tsx scripts/not-implemented.ts demo:comparisons W3",
+    "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
     "publish:sdk:dry-run": "tsx scripts/not-implemented.ts publish:sdk:dry-run W4",
     "publish:sdk:patch": "tsx scripts/not-implemented.ts publish:sdk:patch W4",
     "publish:sdk:minor": "tsx scripts/not-implemented.ts publish:sdk:minor W4",

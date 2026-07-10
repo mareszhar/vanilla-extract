@@ -22,6 +22,8 @@ export interface VaneSystemContext {
   defaultLayer: string
   /** Where `globalCss()` rules land by default. */
   globalDefaultLayer: string
+  /** The system's root layer (its prefix) — every emitted rule nests under it. */
+  layerRoot: string
   elevation: VaneResolver['elevation']
 }
 

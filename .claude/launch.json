@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo-comparisons",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "packages/dux/sandbox/demo-comparisons", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "demo-main",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "packages/dux/sandbox/demo-main", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "demo-minimal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "packages/dux/sandbox/demo-minimal", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

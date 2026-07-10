@@ -14,15 +14,16 @@ import { splitTopLevel } from './rule'
 type SubstrateRule = Record<string, unknown>
 
 export function emitStyle(compiled: VaneCompiled, debugId?: string): string {
+  const layer = qualifiedLayer(compiled)
   const [baseUnit, rest] = splitBase(compiled.units)
-  const className = style(inLayer(compiled.layer, toSubstrateRule(baseUnit?.declarations ?? {})), debugId)
+  const className = style(inLayer(layer, toSubstrateRule(baseUnit?.declarations ?? {})), debugId)
 
   for (const unit of rest) {
     const selector = unit.arm.selector === undefined
       ? className
       : unit.arm.selector.replaceAll('&', className)
 
-    globalStyle(selector, inLayer(compiled.layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
+    globalStyle(selector, inLayer(layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
   }
 
   return className
@@ -34,23 +35,32 @@ export function emitStyle(compiled: VaneCompiled, debugId?: string): string {
  * need every part's class name first), so their rules land here.
  */
 export function emitOnto(className: string, compiled: VaneCompiled): void {
+  const layer = qualifiedLayer(compiled)
+
   for (const unit of compiled.units) {
     const selector = unit.arm.selector === undefined
       ? className
       : unit.arm.selector.replaceAll('&', className)
 
-    globalStyle(selector, inLayer(compiled.layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
+    globalStyle(selector, inLayer(layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
   }
 }
 
 export function emitGlobal(selector: string, compiled: VaneCompiled): void {
+  const layer = qualifiedLayer(compiled)
+
   for (const unit of compiled.units) {
     const resolved = unit.arm.selector === undefined
       ? selector
       : composeOnto(selector, unit.arm.selector)
 
-    globalStyle(resolved, inLayer(compiled.layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
+    globalStyle(resolved, inLayer(layer, wrapAtRules(unit.arm, toSubstrateRule(unit.declarations))))
   }
+}
+
+/** `recipes` under root `prism` → `prism.recipes` — the emitted, namespaced form. */
+function qualifiedLayer(compiled: VaneCompiled): string {
+  return `${compiled.layerRoot}.${compiled.layer}`
 }
 
 function splitBase(units: VaneUnit[]): [VaneUnit | undefined, VaneUnit[]] {

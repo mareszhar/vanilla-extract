@@ -11,6 +11,7 @@ test-results
 .turbo
 .dux
 .vane
+styled-system
 .nuxt
 .output
 coverage

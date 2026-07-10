@@ -54,7 +54,7 @@ export function startBuild(
  * is refused: a recipe lives in one layer, declared at its root.
  */
 export function compileArm(build: VaneRecipeBuild, arm: unknown, path: string[]): VaneCompiled {
-  const empty: VaneCompiled = { layer: build.layer, units: [] }
+  const empty: VaneCompiled = { layer: build.layer, layerRoot: build.ctx.layerRoot, units: [] }
 
   if (arm === undefined || arm === null)
     return empty
@@ -85,7 +85,7 @@ export function compileArm(build: VaneRecipeBuild, arm: unknown, path: string[])
 
   try {
     const compiled = compileRule(rule, { ...build.ctx, rootPath: path })
-    return { layer: build.layer, units: compiled.units }
+    return { layer: build.layer, layerRoot: build.ctx.layerRoot, units: compiled.units }
   }
   catch (error) {
     if (error instanceof VaneError) {
@@ -235,7 +235,7 @@ export function mergeCompiled(into: VaneCompiled, from: VaneCompiled): VaneCompi
       units.set(key, { arm: unit.arm, declarations: { ...unit.declarations } })
   }
 
-  return { layer: into.layer, units: [...units.values()] }
+  return { layer: into.layer, layerRoot: into.layerRoot, units: [...units.values()] }
 }
 
 /** Join a debug id with an arm suffix; without one, the suffix still names the arm. */

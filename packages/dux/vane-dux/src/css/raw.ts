@@ -133,6 +133,7 @@ function walkNodes(nodes: VaneFlatNode[], arm: RawArm, className: string, system
 
     emitGlobal(node.selector.replaceAll(`.${MARKER}`, className), {
       layer: system.defaultLayer,
+      layerRoot: system.layerRoot,
       units: [{ arm: { ...arm }, declarations }],
     })
   }

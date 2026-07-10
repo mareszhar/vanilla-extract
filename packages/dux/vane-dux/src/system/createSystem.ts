@@ -12,7 +12,7 @@ import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGl
 import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
-import type { VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
+import type { VaneCheck, VaneElevationOptions, VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
@@ -62,6 +62,10 @@ export interface VaneSystemOptions<
   layers?: L
   /** The emitted custom-property prefix: `--vane-*` by default. */
   prefix?: P
+  /** The elevation ramp for inline token graphs ([dux-spec-tokens.md §4]); a `defineTokens` result brings its own. */
+  elevation?: VaneElevationOptions
+  /** Build-time checks over an inline token graph ([dux-spec-tokens.md §5]); a `defineTokens` result brings its own. */
+  checks?: (tokens: VaneSystemTokens<T, P>) => readonly VaneCheck[]
   /** Opt out of the built-in base condition set. */
   baseConditions?: B
   /**
@@ -111,9 +115,16 @@ export function createSystem<
   const file = requireStyleModule('createSystem')
   const prefix = options.prefix ?? 'vane'
 
+  // The inline-graph path forwards the graph options; a `defineTokens` result
+  // already resolved with its own. The cast narrows `checks` to the erased
+  // graph type defineTokens sees — the public signature stays precise.
   const tokens = graphOf(options.tokens)
     ? options.tokens
-    : defineTokens(options.tokens as VaneGraphInput & object, { prefix })
+    : defineTokens(options.tokens as VaneGraphInput & object, {
+        prefix,
+        ...(options.elevation === undefined ? {} : { elevation: options.elevation }),
+        ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
+      })
   const graph = graphOf(tokens)!
 
   const layers = options.layers ?? VANE_DEFAULT_LAYERS
@@ -127,8 +138,15 @@ export function createSystem<
     })
   }
 
+  // The system's layers nest under one root named by the prefix: authoring
+  // says `layer: 'overrides'`, the CSS says `@layer vane.overrides`. The only
+  // global layer name a system claims is its own namespace, so coexisting
+  // frameworks' layer orders stay exactly as they declared them
+  // ([dux-patterns.md §6]).
+  globalLayer(prefix)
+
   for (const layer of layers)
-    globalLayer(layer)
+    globalLayer({ parent: prefix }, layer)
 
   const conditions = normalizeConditions(
     {
@@ -143,6 +161,7 @@ export function createSystem<
     layers,
     defaultLayer: layers.find(layer => !SYSTEM_LAYERS.includes(layer)) ?? layers[0],
     globalDefaultLayer: layers.includes('reset') ? 'reset' : layers[0],
+    layerRoot: prefix,
     elevation: graph.resolverConfig,
   }
 
