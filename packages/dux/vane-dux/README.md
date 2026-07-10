@@ -4,7 +4,7 @@
 
 vane-dux replaces the CSS-preprocessor stack with the tooling code has had for a decade: autocomplete, real types, rename-symbol, find-references, instant diagnostics. It builds on [vanilla-extract](https://vanilla-extract.style)'s proven build-time compiler and asks one question of every surface: *what would feel most delightful to use?*
 
-> **Status:** pre-release. The design is settled and specced ([docs](#docs)); implementation is underway. The API below is the contract the specs drive toward.
+> **Status:** v0 — every domain is implemented, locked by a four-plane test suite (runtime behavior, type shapes, editor DX, emitted CSS), and exercised by runnable demos, including a five-stack comparison matrix. The API below is the shipped contract.
 
 ## Start here
 
@@ -87,9 +87,9 @@ That's it. `propsOf` projects the recipe's variant space straight into the props
 
 🍃 **Boring CSS out the back** — classes, custom properties, `@layer`s, `data-*` selectors. Zero runtime by default; devtools rules trace back to the `.style.ts` line and the token that decided each value. If vane-dux disappeared tomorrow, your app keeps ordinary CSS it can live on.
 
-💚 **Vue and Nuxt, first-class** — `usePorts` for reactive values, `useAnatomy` for multi-part components, a Nuxt module whose auto-imports reach your style files, SSR with no style pipeline at all. One component can adopt vane-dux inside an existing app; nothing demands a migration.
+💚 **Vue and Nuxt, first-class** — `usePorts` for reactive values, `useAnatomy` for multi-part components, a Nuxt module whose auto-imports reach your style files and whose DevTools tab browses your tokens, recipes, and ports live, SSR with no style pipeline at all. One component can adopt vane-dux inside an existing app; nothing demands a migration.
 
-🤖 **Built for agents too** — a machine-readable manifest of tokens, recipes, and ports, plus diagnostics precise enough that a code-generating agent self-corrects before a human ever looks at pixels.
+🤖 **Built for agents too** — a machine-readable manifest of tokens, recipes, and ports (`.vane/manifest.json`, live at `/__vane/` in dev), audits that flag unused tokens, near-duplicate values, and unaudited escapes, and diagnostics precise enough that a code-generating agent self-corrects before a human ever looks at pixels.
 
 ## Install
 

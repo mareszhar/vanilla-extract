@@ -1,4 +1,4 @@
-updated: 2026-07-07
+updated: 2026-07-09
 status: spec — contracts settled, implemented (phase 2)
 
 # vane-dux — spec: css authoring
@@ -165,6 +165,7 @@ Per [dux-patterns.md §6](./dux-patterns.md#6-layer-discipline). Authoring speci
 
 - `css()` defaults to the system's first non-reserved authoring layer (`recipes` in the preset order); override per style with `layer: 'overrides'`.
 - The emitted stylesheet declares `@layer` order once, from the system config — app CSS outside vane-dux can slot into the same order by name.
+- **Emission nests under the prefix.** Authoring says `layer: 'overrides'`; the CSS says `@layer vane.overrides` (or `prism.overrides` under `prefix: 'prism'`). Cascade-layer order is *global* and first-declaration-wins, so bare names like `utilities` would couple a system to every coexisting framework's layer order (Tailwind and Panda both claim them); nesting means the only global name a system claims is its own namespace. When a coexisting framework layers aggressive resets (Tailwind's preflight), pin the order once, before any stylesheet loads: `@layer theme, base, components, utilities, vane;` — the comparison sandbox demonstrates the whole dance.
 
 ```TS
 export const launchHeroFix = css({

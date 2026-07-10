@@ -1,4 +1,4 @@
-updated: 2026-07-07
+updated: 2026-07-09
 status: settled law — the cross-cutting behavioral rules every spec builds on
 
 # vane-dux — patterns
@@ -144,6 +144,7 @@ Every rule vane-dux emits belongs to a named CSS `@layer`, in the order the syst
 - Each authoring function has a default layer (recipes → `recipes`, atoms → `utilities`); any style can say `layer: 'overrides'`.
 - A one-off override of anything — including third-party CSS — is an ordinary `css()` or `globalCss()` in the `overrides` layer. `!important` never appears in emitted output.
 - Within a layer, source order applies, exactly like CSS — non-atomic output keeps merge semantics trivially platform-native ([dux-vision.md §4.4](./dux-vision.md#44-output-stance)).
+- **Emitted layers nest under the system prefix** (`@layer vane.recipes`): layer order is a *global* first-declaration-wins namespace, so a system claims exactly one global name — its own — and never reorders a coexisting framework's layers ([dux-spec-css.md §5](./dux-spec-css.md#5-layers)). Authoring keeps the short names.
 
 ---
 

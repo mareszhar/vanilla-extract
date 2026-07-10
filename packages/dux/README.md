@@ -37,4 +37,6 @@ Run from `packages/dux/` (pnpm + turbo):
 4. `pnpm run sdk:test` — every assertion plane (runtime, types, editor DX, emitted CSS)
 5. `pnpm run lint` / `lint:fix` — ESLint across dux
 6. `pnpm run demo:main` — the Prism Nuxt demo
-7. `pnpm run validate` — lint + typecheck + test + audit
+7. `pnpm run demo:comparisons` — the five-stack comparison matrix
+8. `pnpm run validate` — lint + typecheck + test + audit
+9. `pnpm run publish:sdk:dry-run` — release gate + packaging rehearsal

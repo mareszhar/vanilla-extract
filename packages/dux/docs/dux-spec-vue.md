@@ -1,5 +1,5 @@
 updated: 2026-07-09
-status: spec — contracts settled, implemented (phase 6; the DevTools tab lands with introspection)
+status: spec — contracts settled, implemented (phases 6 + 8)
 
 # vane-dux — spec: vue + nuxt
 
@@ -12,7 +12,7 @@ The framework overlays: where the delight investment goes, because Vue has never
 | 1 | `usePorts` | ☑ |
 | 2 | `useAnatomy` and `propsOf` | ☑ |
 | 3 | The SFC mapping | ☑ |
-| 4 | The Nuxt module | ☑ (the DevTools tab reads the manifest and lands with introspection) |
+| 4 | The Nuxt module | ☑ |
 | 5 | SSR and HMR | ☑ |
 | 6 | Colocation stance | ☑ |
 
@@ -121,10 +121,10 @@ export default defineNuxtConfig({
 
 **Contract details.**
 
-- Wires the `/vite` plugin; auto-imports the system's exported bound functions and `t` (detected from the configured file), plus `propsOf`/`usePorts`/`useAnatomy` and the runtime helpers (`applyTheme`, `setScheme`, `ports`); manifest emission registers here when introspection lands.
+- Wires the `/vite` plugin (manifest emission included); auto-imports the system's exported bound functions and `t` (detected from the configured file), plus `propsOf`/`usePorts`/`useAnatomy` and the runtime helpers (`applyTheme`, `setScheme`, `ports`).
 - **Auto-imports reach `*.style.ts` too.** The two-imports-per-style-file tax (`css` + `t`) is exactly where auto-imports matter most, so the module extends them into evaluated style modules, not just app code — an esbuild `inject` shim resolves unbound identifiers to the system module, explicit imports stay untouched, and files the system itself imports are skipped (a file upstream of the system cannot use its bindings). Plain-Vite users pass the same thing as the `/vite` plugin's `autoImports` option; the explicit imports always remain valid (and are what library code ships with).
 - **Importing the system module from app code is legal.** `t` and theme classes cross the boundary as data; the bound authoring functions cross as build-plane stubs that throw the lane redirect if called — never a poisoned module, never a silent no-op.
-- Nuxt DevTools tab: token browser (values per scheme, usage counts), recipe/anatomy inspector, click-a-node → jump to the `.style.ts` source — reads the manifest, so it lands with introspection ([dux-spec-introspection.md](./dux-spec-introspection.md)).
+- Nuxt DevTools tab: the token browser (values per scheme, liveness, usage counts), recipe/anatomy inspector, ports, conditions, and the escape inventory, with click-through to the `.style.ts` source. It embeds the manifest view the `/vite` plugin serves at `/__vane/` in dev — one implementation serves plain Vite and Nuxt alike ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)).
 - Adoption slope contract: one component in an existing Nuxt app can adopt vane-dux with the module + one `.style.ts` file — no migration, no global buy-in.
 
 ---

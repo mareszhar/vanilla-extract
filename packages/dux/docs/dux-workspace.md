@@ -11,9 +11,9 @@ The maintainer manual: how the dux workspace is laid out, built, linted, tested,
 | --- | --- | --- |
 | W0 | Workspace scaffold: orchestrator manifest, tooling, package skeleton, outer-repo exclusions, docs | ☑ |
 | W1 | Test foundations: vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots | ☑ |
-| W2 | Per-domain suites land with each roadmap phase | ☐ |
-| W3 | Sandbox: Nuxt demo + comparison matrix | ☑ demos (`demo-minimal` + `demo-main`, phase 6); the comparison matrix lands with phase 9 |
-| W4 | Publishing pipeline: subtree to `mareszhar/vane-dux`, `@mszr` scope | ☐ |
+| W2 | Per-domain suites land with each roadmap phase | ☑ |
+| W3 | Sandbox: Nuxt demo + comparison matrix | ☑ |
+| W4 | Publishing pipeline: subtree to `mareszhar/vane-dux`, `@mszr` scope | ☑ |
 
 ---
 
@@ -55,9 +55,9 @@ The outer repo uses **prettier + oxlint**. Inside `packages/dux/` we use **ESLin
 
 `sandbox/demo-main/` is the flagship: a Nuxt app built on the **Prism** fixture design system (tokens with a live brand seed, elevation surfaces, Button/Card/Dialog/Tabs anatomy, a ports-driven Progress, the theme-picker moment from the delight gauntlet). It is the proof that the contracts hold in a real app, and the walking ground for the gauntlet ([dux-vision.md §6](./dux-vision.md#6-the-delight-gauntlet)).
 
-`sandbox/demo-comparisons/` implements the same Prism components per competing approach — SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, vane-dux — sharing fixtures from `sandbox/fixtures/` (`@prism/domain`). Comparisons are study material and competitive bars, never compatibility targets.
+`sandbox/demo-comparisons/` implements the same Prism components per competing approach — SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, vane-dux — on one page, sharing decisions and content from `sandbox/fixtures/` (`@prism/domain`). The deliberate scope is Button, Card, and Progress: the axes where the models actually differ (tokens and schemes, variants, the runtime boundary); anatomy-scale components live in `demo-main`. Comparisons are study material and competitive bars, never compatibility targets.
 
-Both are workspace members: one `pnpm install`, one turbo pipeline.
+All are workspace members: one `pnpm install`, one turbo pipeline.
 
 ---
 
@@ -156,7 +156,7 @@ Run from `packages/dux/`.
 | `pnpm run sdk:build` | build `@mszr/vane-dux` → `dist` |
 | `pnpm run sdk:typecheck` | `tsc --noEmit` for the package |
 | `pnpm run sdk:test` / `sdk:test:watch` | Vitest, all four planes |
-| `pnpm run audit` | the introspection audits over the Prism fixtures ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
+| `pnpm run audit` | the introspection audits over a real plugin build of the fixture app — point it at any app with `pnpm run audit -- <dir>` ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
 | `pnpm run demo:minimal` | the runnable quickstart |
 | `pnpm run demo:main` | the Prism Nuxt demo, dev mode |
 | `pnpm run demo:comparisons` | the comparison matrix |
