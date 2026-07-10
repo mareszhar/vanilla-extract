@@ -21,12 +21,12 @@ function expectNoLeak(messages: Array<Diagnostic | string>): void {
 }
 
 const definePrism = `
-import { alpha, defineTokens, elevation, legibleOn, oklch, scheme } from '@mszr/vane-dux'
+import { alpha, defineTokens, legibleOn, oklch, scheme } from '@mszr/vane-dux'
 
 const t = defineTokens({
   color: {
     brand: oklch(0.58, 0.2, 285).live(),
-    surface: elevation(0.03),
+    surface: scheme({ light: oklch(0.96, 0.01, 285), dark: oklch(0.16, 0.01, 285) }),
     brandSoft: ({ color }) => alpha(color.brand, 0.12),
     brandHover: ({ color }) => color.brand.lighten(0.06),
     onBrand: ({ color }) => legibleOn(color.brand),

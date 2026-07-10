@@ -11,7 +11,7 @@ import type {
   VaneContrastToken,
   VaneValueToken,
 } from '@mszr/vane-dux'
-import { alpha, defineTokens, elevation, legibleOn, lighten, mix, oklch, scheme } from '@mszr/vane-dux'
+import { alpha, defineTokens, legibleOn, lighten, mix, oklch, scheme } from '@mszr/vane-dux'
 import { applyTheme } from '@mszr/vane-dux/runtime'
 import { describe, expectTypeOf, it } from 'vitest'
 
@@ -20,7 +20,7 @@ function graph() {
   return defineTokens({
     color: {
       brand: oklch(0.58, 0.2, 285).live(),
-      surface: elevation(0.03),
+      surface: scheme({ light: oklch(0.96, 0.01, 285), dark: oklch(0.16, 0.01, 285) }),
       brandSoft: ({ color }) => alpha(color.brand, 0.12),
       onBrand: ({ color }) => legibleOn(color.brand),
       canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
@@ -77,7 +77,6 @@ describe('liveness honesty', () => {
   it('helpers preserve their input mode; live joins win', () => {
     expectTypeOf(oklch(0.5, 0.2, 285)).toEqualTypeOf<VaneColor<'static'>>()
     expectTypeOf(oklch(0.5, 0.2, 285).live()).toEqualTypeOf<VaneColor<'live'>>()
-    expectTypeOf(elevation(0.5)).toEqualTypeOf<VaneColor<'scheme'>>()
     expectTypeOf(lighten('#635bff', 0.1)).toEqualTypeOf<VaneColor<'static'>>()
     expectTypeOf(alpha(oklch(0.5, 0.2, 285).live(), 0.5)).toEqualTypeOf<VaneColor<'live'>>()
     expectTypeOf(mix(oklch(0.5, 0.2, 285).live(), '#fff', 0.5)).toExtend<VaneColor>()

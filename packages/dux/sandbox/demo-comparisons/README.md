@@ -1,16 +1,31 @@
-# demo-comparisons — the Prism comparison matrix
+# Prism controlled comparison
 
-The same components — Button (variants, a toggle), Card (elevation surface, both schemes), Progress (a reactive value) — implemented five times on one page: SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux. Study material and competitive bars, never compatibility targets ([dux-workspace.md §2](../../docs/dux-workspace.md#2-sandbox)).
+Button, Card, and Progress implemented five ways on one page: Vue SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux. Every lane receives the same state and content from `@prism/domain`, so the comparison is about authoring models—not accidental visual drift.
 
-Every lane derives from [`@prism/domain`](../fixtures/src/index.ts) — the design decisions and demo content as data — so the study compares *authoring models*, never accidentally-different designs. The three components are the deliberate scope: they cover the axes where the models actually differ (tokens and scheme handling, variant authoring, the runtime boundary); Dialog/Tabs-scale anatomy lives in `demo-main`.
+## Run
 
-```bash
-pnpm run demo:comparisons   # from packages/dux/
+From `packages/dux/`:
+
+```sh
+pnpm run demo:comparisons
 ```
 
-## What to look at
+Vite serves the app at `http://localhost:5173` by default. This demo uses Vite while `demo-main` uses Nuxt intentionally: the matrix isolates framework-independent compilation; the flagship verifies Nuxt SSR and module integration.
 
-- **Where decisions live.** SFC and Tailwind hand-maintain mirrors of the domain values (`tokens.css`, `@theme`) — the drift risk is the model. Panda and vanilla-extract import them into config/TS. vane-dux *derives* them: one live seed and elevation positions; hovers, tints, pairings, and both schemes fall out.
-- **The brand picker.** It re-derives the vane-dux lane at runtime (`applyTheme` — one live write, every surface and pairing follows in the cascade). The other lanes compiled their brand in; recoloring them means a rebuild.
-- **The runtime boundary.** One progress bar, five crossings: `v-bind()` (SFC), inline styles (Tailwind, Panda), `createVar` + `assignInlineVars` plumbing (vanilla-extract), a typed `port` + `usePorts` (vane-dux).
-- **Layer diplomacy** (`index.html`). Five stacks on one page means cascade-layer order must be pinned once, up front — and shared layer names would interleave frameworks, which is why Panda's layers are renamed by hand here and vane-dux nests everything under its prefix automatically.
+## Test it
+
+- Change intent, size, and pill: every lane resolves the same finite variant choice.
+- Move progress: SFC uses `v-bind()`, Tailwind and Panda use inline style, vanilla-extract uses `createVar` plumbing, and vane-dux uses a typed port.
+- Click every Refract and card action button: the shared status and per-lane count confirm that each demo control is functional.
+- Change scheme: all lanes follow the same platform `color-scheme` axis.
+- Change brand: only the vane-dux lane changes by design. Its live brand input re-derives hover, surface, border, and ink values in CSS; the other lanes compiled their palettes.
+- Inspect `index.html`: cascade-layer order is declared before any stylesheet because five styling systems share the page.
+
+## Study map
+
+- `src/lanes/sfc` — variables and variants maintained in SFC styles.
+- `src/lanes/tailwind` — theme variables and utility maps.
+- `panda.config.ts`, `src/lanes/panda` — config/codegen and generated `css()` calls.
+- `src/lanes/extract` — vanilla-extract tokens, recipes, and dynamic variables.
+- `src/lanes/vane` — a typed graph, recipe, and port. The elevation helper names `color.brand` explicitly instead of reading hidden global color controls.
+- `src/shell.css` — comparison chrome only; no lane depends on it for component styling.

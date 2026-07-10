@@ -26,7 +26,7 @@ const MARKER = '__vane_raw__'
 export function bindRaw(system: VaneSystemContext): (strings: TemplateStringsArray, ...values: VaneRawValue[]) => string {
   return (strings, ...values) => {
     const file = requireStyleModule('css.raw')
-    const text = interpolate(strings, values, system, file)
+    const text = interpolate(strings, values, file)
     const className = style({})
     const flattened = flatten(text, file)
     const nodes = parseBlocks(flattened)
@@ -51,11 +51,11 @@ function preview(text: string): string {
   return line.length > 72 ? `${line.slice(0, 71)}…` : line
 }
 
-function interpolate(strings: TemplateStringsArray, values: VaneRawValue[], system: VaneSystemContext, file: string): string {
+function interpolate(strings: TemplateStringsArray, values: VaneRawValue[], file: string): string {
   let text = strings[0]
 
   for (let index = 0; index < values.length; index++)
-    text += String(serializeStyleValue(values[index], 'css.raw', { elevation: system.elevation, file })) + strings[index + 1]
+    text += String(serializeStyleValue(values[index], 'css.raw', { file })) + strings[index + 1]
 
   return text
 }

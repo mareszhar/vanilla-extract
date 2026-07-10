@@ -16,11 +16,12 @@ export type { VanePresetConditionName } from './preset/conditions'
 export { animate, fade, scaleIn, slideUp, transition } from './preset/motion'
 export { definePatterns } from './preset/patterns'
 export type { VanePatterns, VanePatternsConfig } from './preset/patterns'
-export { presetTokens } from './preset/tokens'
+export { elevation, presetTokens } from './preset/tokens'
 export type {
   VanePresetBrandInput,
   VanePresetContrast,
   VanePresetDensity,
+  VanePresetElevationOptions,
   VanePresetRadius,
   VanePresetTokensOptions,
 } from './preset/tokens'

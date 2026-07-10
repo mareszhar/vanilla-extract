@@ -4,7 +4,7 @@
  */
 
 import type { VaneThemeTarget } from '@mszr/vane-dux/runtime'
-import { check, defineTokens, legibleOn, oklch, scale, theme, VaneError } from '@mszr/vane-dux'
+import { alpha, check, defineTokens, legibleOn, mix, oklch, scale, theme, VaneError } from '@mszr/vane-dux'
 import { applyTheme, ports, restoreToken, setScheme } from '@mszr/vane-dux/runtime'
 import { definePrism, emit } from '@test'
 import { describe, expect, it, vi } from 'vitest'
@@ -41,7 +41,7 @@ describe('token handles', () => {
     const t = emit(() => definePrism()).returned
 
     expect(t.color.brand.mode).toBe('live')
-    expect(t.color.surface.mode).toBe('scheme')
+    expect(t.color.surface.mode).toBe('derived')
     expect(t.color.brandSoft.mode).toBe('derived')
     expect(t.color.onBrand.mode).toBe('derived')
     expect(t.radius.sm.mode).toBe('static')
@@ -58,6 +58,21 @@ describe('token handles', () => {
     const t = emit(() => definePrism()).returned
 
     expect(t.color.brand.description).toBe('Primary brand hue. Marketing owns this.')
+  })
+
+  it('color builders are immutable and preserve liveness through composition', () => {
+    const seed = oklch(0.58, 0.2, 285)
+    const adjusted = seed.live().lighten(0.06).describe('Themeable interaction color.')
+    const softened = alpha(seed.live(), 0.12)
+    const blended = mix('#ffffff', seed.live(), 0.2)
+    const t = emit(() => defineTokens({ color: { seed, adjusted, softened, blended } })).returned
+
+    expect(t.color.seed.mode).toBe('static')
+    expect(t.color.seed.description).toBeUndefined()
+    expect(t.color.adjusted.mode).toBe('live')
+    expect(t.color.adjusted.description).toBe('Themeable interaction color.')
+    expect(t.color.softened.mode).toBe('live')
+    expect(t.color.blended.mode).toBe('live')
   })
 
   it('scale generators are ordinary functions producing token subtrees', () => {

@@ -178,7 +178,15 @@ export type VaneKebab<S extends string> = S extends `${infer Head}${infer Rest}`
   : S
 
 /** The typed graph `defineTokens` returns: every leaf a handle, every name a literal. */
-export type VaneTokens<T, Name extends string = 'vane'> = {
+declare const VANE_RESOLVED_TOKENS: unique symbol
+
+export interface VaneResolvedTokens {
+  readonly [VANE_RESOLVED_TOKENS]: true
+}
+
+export type VaneTokens<T, Name extends string = 'vane'> = VaneResolvedTokens & VaneTokenGroup<T, Name>
+
+type VaneTokenGroup<T, Name extends string> = {
   readonly [K in keyof T & string]: VaneTokenOf<T[K], `${Name}-${VaneKebab<K>}`>
 }
 
@@ -187,7 +195,7 @@ type VaneTokenOf<N, Name extends string>
     : N extends VaneColor<infer M> ? VaneColorToken<M, Name>
       : N extends (refs: never) => infer R ? VaneDerivedTokenOf<R, Name>
         : N extends string | number ? VaneValueToken<N, Name>
-          : VaneTokens<N, Name>
+          : VaneTokenGroup<N, Name>
 
 type VaneDerivedTokenOf<R, Name extends string>
   = R extends VaneContrast<infer G> ? VaneContrastToken<G, Name>
@@ -199,19 +207,9 @@ type VaneDerivedTokenOf<R, Name extends string>
 
 // ─── Options ─────────────────────────────────────────────────────────────────
 
-export interface VaneElevationOptions {
-  /** The tint hue of the neutral ramp. */
-  hue?: number
-  /** The tint chroma of the neutral ramp. Defaults to 0 — pure grays. */
-  chroma?: number
-  /** Position → oklch lightness, per scheme. Replaces the perceptual default entirely. */
-  curve?: (position: number, scheme: 'light' | 'dark') => number
-}
-
 export interface VaneTokensOptions<T = unknown, Prefix extends string = string> {
   /** The custom-property prefix: `--vane-*` by default. */
   prefix?: Prefix
-  elevation?: VaneElevationOptions
   /** Standalone guarantees over pairings the graph doesn't own ([dux-spec-tokens.md §5]). */
   checks?: (refs: VaneTokens<T, Prefix>) => readonly VaneCheck[]
 }

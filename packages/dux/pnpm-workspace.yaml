@@ -10,7 +10,6 @@ trustPolicyExclude:
 packages:
   - vane-dux
   - sandbox/fixtures
-  - sandbox/demo-minimal
   - sandbox/demo-main
   - sandbox/demo-comparisons
 

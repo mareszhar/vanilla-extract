@@ -8,7 +8,7 @@ vane-dux replaces the CSS-preprocessor stack with the tooling code has had for a
 
 ## Start here
 
-Two files and a config line to a button that looks good in **both schemes** — dark mode included, no second palette. (Runnable copy: `sandbox/demo-minimal`.)
+Two files and a config line to a button that looks good in **both schemes** — dark mode included, no second palette. The complete interaction lab lives in `sandbox/demo-main`.
 
 ```TS
 // nuxt.config.ts — or add the /vite plugin in vite.config.ts
@@ -118,13 +118,15 @@ The preset is a furnished room, not the house. Hand-roll the token graph when yo
 
 ```TS
 // design/tokens.style.ts
-import { alpha, defineTokens, elevation, legibleOn, oklch, scale } from '@mszr/vane-dux'
+import { alpha, defineTokens, legibleOn, mix, oklch, scale, scheme } from '@mszr/vane-dux'
 
 export const t = defineTokens({
   color: {
     brand: oklch(0.58, 0.2, 285).live(),                // user-themeable at runtime
-    surface: elevation(0.03),                           // both schemes from one number
-    ink: elevation(0.94),
+    surfacePlane: scheme({ light: oklch(0.96, 0, 0), dark: oklch(0.16, 0, 0) }),
+    inkPlane: scheme({ light: oklch(0.14, 0, 0), dark: oklch(0.94, 0, 0) }),
+    surface: ({ color }) => mix(color.surfacePlane, color.brand, 0.04), // relationship is explicit
+    ink: ({ color }) => mix(color.inkPlane, color.brand, 0.04),
     brandSoft: ({ color }) => alpha(color.brand, 0.12), // stays live in the browser
     brandHover: ({ color }) => color.brand.lighten(0.06),
     onBrand: ({ color }) => legibleOn(color.brand),     // checked at build (APCA)

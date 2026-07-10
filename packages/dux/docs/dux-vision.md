@@ -1,4 +1,4 @@
-updated: 2026-07-09
+updated: 2026-07-10
 status: living hub — the philosophy, the architecture, and the index over every dux doc
 
 # vane-dux — vision
@@ -63,7 +63,7 @@ What we reuse and what we build:
 | --- | --- |
 | Compiler, bundler integration, HMR, SSR wiring | **reuse** — `@vanilla-extract/css` + integration/vite-plugin, behind a seam |
 | Scoped identifiers, theme-contract var machinery, keyframes | **reuse internally** — never re-exported |
-| Token graph: derivations, liveness, schemes, elevation, contrast checks | **build** — the most novel bet, specced first |
+| Token graph: derivations, liveness, schemes, contrast checks | **build** — the most novel bet, specced first; palette/elevation policy belongs in `/preset` |
 | Authoring surface: `createSystem`, `css`, conditions, layers, value parsing | **build** — thin transforms down to vanilla-extract calls |
 | Recipes + anatomy | **build** — `@vanilla-extract/recipes` is prior art, not a dependency |
 | Ports and the `/runtime` helpers | **build** — `createVar` underneath, ~nothing at runtime |
@@ -167,13 +167,15 @@ The work, one spec per domain. This is the status view; each domain's contracts 
 
 | Domain | The bet | Spec | Status |
 | --- | --- | --- | --- |
-| **Tokens** | the token graph: derivations as functions, liveness compiled to live CSS, schemes via `light-dark()`, elevation, contrast as build diagnostics, `theme()`/`applyTheme` | [dux-spec-tokens.md](./dux-spec-tokens.md) | ☑ |
-| **CSS authoring** | `createSystem` → typed `css`, bare condition keys, both nesting directions, layers by default, parsed values, `css.raw`, `globalCss`, keyframes | [dux-spec-css.md](./dux-spec-css.md) | ☑ |
+| **Tokens** | the token graph: derivations as functions, liveness compiled to live CSS, schemes via `light-dark()`, contrast as build diagnostics, `theme()`/`applyTheme` | [dux-spec-tokens.md](./dux-spec-tokens.md) | ◐ hardening |
+| **CSS authoring** | `createSystem` → typed `css`, bare condition keys, both nesting directions, layers by default, parsed values, `css.raw`, `globalCss`, keyframes | [dux-spec-css.md](./dux-spec-css.md) | ◐ hardening |
 | **Ports** | the typed runtime boundary: one primitive for reactive styles, parent→child theming, consumer theming, and dynamic utility values | [dux-spec-ports.md](./dux-spec-ports.md) | ☑ |
 | **Recipes** | variants that compress state: `recipe`, toggles, compound variants, and `anatomy` for multi-part components (parts, not "slots") | [dux-spec-recipes.md](./dux-spec-recipes.md) | ☑ |
-| **Vue + Nuxt** | `usePorts`, the Nuxt module, SSR/HMR polish, the SFC-feature mapping made typed | [dux-spec-vue.md](./dux-spec-vue.md) | ☑ |
-| **Preset** | the hospitable start: default tokens/conditions, `atoms`, a11y and motion helpers, layout patterns — all deletable | [dux-spec-preset.md](./dux-spec-preset.md) | ☑ |
-| **Introspection** | the system explains itself: debug names, the manifest, audits, agent context | [dux-spec-introspection.md](./dux-spec-introspection.md) | ☑ |
+| **Vue + Nuxt** | `usePorts`, the Nuxt module, SSR/HMR polish, the SFC-feature mapping made typed | [dux-spec-vue.md](./dux-spec-vue.md) | ◐ hardening |
+| **Preset** | the hospitable start: default tokens/conditions, `atoms`, a11y and motion helpers, layout patterns — all deletable | [dux-spec-preset.md](./dux-spec-preset.md) | ◐ hardening |
+| **Introspection** | the system explains itself: debug names, the manifest, audits, agent context | [dux-spec-introspection.md](./dux-spec-introspection.md) | ◐ hardening |
+
+`☑` means the contract is implemented and its current test plane is credible. `◐ hardening` means the broad surface exists but still has a named release blocker in the [July 2026 review](./dux-review-2026-07.md); it is not a claim of production readiness.
 
 ---
 
@@ -234,15 +236,15 @@ Sequenced so each phase is independently useful and nothing depends on a surface
 | Phase | Deliverable | Spec | Status |
 | --- | --- | --- | --- |
 | 0. Scaffold | orchestrator workspace, package skeleton, `/vite` wiring, boundary lint, docs | [workspace](./dux-workspace.md) | ☑ |
-| 1. Tokens | the graph, liveness, schemes, elevation, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ☑ |
-| 2. Authoring core | `createSystem` (inline tokens, default layers, base conditions), `css`, conditions, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ☑ |
+| 1. Tokens | the graph, liveness, schemes, `legibleOn` checks, `theme()`/`applyTheme` — usable with plain vanilla-extract on day one | [tokens](./dux-spec-tokens.md) | ◐ hardening |
+| 2. Authoring core | `createSystem` (inline tokens, default layers, base conditions), `css`, conditions, keyframes, `globalCss`, `css.raw`, value parsing | [css](./dux-spec-css.md) | ◐ hardening |
 | 3. Ports | `port`, setters, `/runtime` | [ports](./dux-spec-ports.md) | ☑ |
 | 4. Recipes | `recipe`, toggles, compound variants, published ports, `anatomy` | [recipes](./dux-spec-recipes.md) | ☑ |
-| 5. Preset foundations | `presetTokens`, `presetConditions` — the quickstart becomes real | [preset](./dux-spec-preset.md) | ☑ |
-| 6. Vue + Nuxt | `usePorts`, `useAnatomy`, the Nuxt module, SSR/HMR polish, `demo-minimal` + the Prism demo app | [vue](./dux-spec-vue.md) | ☑ |
-| 7. Preset conveniences | `atoms`, a11y/motion helpers, patterns | [preset](./dux-spec-preset.md) | ☑ |
-| 8. Introspection | manifest, audits | [introspection](./dux-spec-introspection.md) | ☑ |
-| 9. Demo + lock | comparison sandbox complete, publish pipeline, gauntlet green | [workspace](./dux-workspace.md) | ☑ |
+| 5. Preset foundations | `presetTokens`, `presetConditions` — the quickstart becomes real | [preset](./dux-spec-preset.md) | ◐ hardening |
+| 6. Vue + Nuxt | `usePorts`, `useAnatomy`, the Nuxt module, SSR/HMR polish, and the Prism interaction lab | [vue](./dux-spec-vue.md) | ◐ hardening |
+| 7. Preset conveniences | `atoms`, a11y/motion helpers, patterns | [preset](./dux-spec-preset.md) | ◐ hardening |
+| 8. Introspection | manifest, audits | [introspection](./dux-spec-introspection.md) | ◐ hardening |
+| 9. Demo + lock | comparison sandbox complete, publish pipeline, gauntlet green | [workspace](./dux-workspace.md) | ◐ hardening |
 
 Phase 1 validates the most novel bet first; phase 5 sits before the framework overlays because the on-ramp *is* a deliverable — gauntlet moment 12 must be real the day anyone can install this. The flagship demo for phase 6 is gauntlet moment 3 live: a user picks a brand color and the whole scheme follows, both modes, zero runtime JS beyond `applyTheme`.
 
@@ -276,5 +278,6 @@ One hub (this), one language doc, one patterns doc, one spec per domain, one mai
 | [dux-spec-preset.md](./dux-spec-preset.md) | the opinionated layer: preset tokens/conditions, atoms, helpers, patterns |
 | [dux-spec-introspection.md](./dux-spec-introspection.md) | provenance, the manifest, audits, agent context |
 | [dux-workspace.md](./dux-workspace.md) | maintainer manual: layout, tooling, testing, fork-rebase, publishing |
+| [dux-review-2026-07.md](./dux-review-2026-07.md) | implementation review: evidence, release blockers, and recommended hardening order |
 
 Specs are **contract-driven**: each entry headlines the desired behavior and why it matters, then proposes an implementation. If reality teaches a better implementation, the proposal moves; the contract above it stays.

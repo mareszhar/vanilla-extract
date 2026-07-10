@@ -50,7 +50,7 @@ import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from 'vite'
 import type { VaneInspectRecord } from './internal/inspect'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { dirname, isAbsolute, join } from 'node:path'
+import { dirname, isAbsolute, join, posix } from 'node:path'
 import { transformCss } from '@vanilla-extract/css/transformCss'
 import {
   addFileScope,
@@ -339,11 +339,16 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
     resolveId(source) {
       const [validId, query] = source.split('?')
 
-      if (!validId.endsWith(virtualExt) || !cssByVirtualId.has(validId))
+      if (!validId.endsWith(virtualExt))
+        return null
+
+      const absoluteId = getAbsoluteVirtualId(validId, config.root)
+
+      if (!cssByVirtualId.has(absoluteId))
         return null
 
       // Keep the query — Vite's HMR timestamps ride it.
-      return query ? `${validId}?${query}` : validId
+      return query ? `${absoluteId}?${query}` : absoluteId
     },
 
     load(id) {
@@ -352,7 +357,7 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
       if (!validId.endsWith(virtualExt))
         return null
 
-      return cssByVirtualId.get(validId) ?? null
+      return cssByVirtualId.get(getAbsoluteVirtualId(validId, config.root)) ?? null
     },
   }
 
@@ -363,6 +368,34 @@ export function vaneDuxPlugin(options: VaneViteOptions = {}): PluginOption[] {
       unstable_mode: options.unstableMode,
     }),
   ]
+}
+
+// Vite rewrites absolute module ids to root-relative browser URLs in dev and
+// Nuxt serves those URLs beneath its `/_nuxt/` base. Resolve both spellings to
+// the one absolute key used by the CSS store. This mirrors the substrate Vite
+// plugin's id normalization; without it SSR can render valid-looking
+// `<link>`s whose browser requests miss the store and 404, causing a FOUC.
+const viteIdPrefix = /^\/?@id\//
+const slashPrefixedDrive = /^\/([a-z]:\/)/i
+const windowsAbsolutePath = /^[a-z]:\//i
+
+function getAbsoluteVirtualId(filePath: string, root: string): string {
+  const unwrapped = filePath
+    .replace(viteIdPrefix, '')
+    .replace(slashPrefixedDrive, '$1')
+  const resolved = posix.isAbsolute(unwrapped) || windowsAbsolutePath.test(unwrapped)
+    ? unwrapped
+    : filePath
+
+  if (
+    windowsAbsolutePath.test(resolved)
+    || resolved.startsWith(root)
+    || (posix.isAbsolute(resolved) && resolved.split(posix.sep)[1] === root.split(posix.sep)[1])
+  ) {
+    return normalizePath(resolved)
+  }
+
+  return normalizePath(posix.join(root, resolved))
 }
 
 // ─── Bundling ────────────────────────────────────────────────────────────────

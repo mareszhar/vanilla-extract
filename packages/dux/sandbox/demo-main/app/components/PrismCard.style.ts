@@ -8,10 +8,12 @@ export const frame = css({
   resize: 'horizontal',
   overflow: 'auto',
   minInlineSize: '16rem',
+  inlineSize: '100%',
   maxInlineSize: '100%',
-  border: `1px dashed ${t.color.border}`,
+  border: `1px solid ${t.color.border}`,
   borderRadius: t.radius.md,
-  padding: t.space.sm,
+  padding: t.space.xs,
+  background: t.color.surface,
 })
 
 export const card = css({
@@ -20,7 +22,7 @@ export const card = css({
   gap: t.space.sm,
   padding: t.space.md,
   background: t.color.surfaceRaised,
-  border: `1px solid ${t.color.border}`,
+  border: '1px solid transparent',
   borderRadius: t.radius.md,
   cardWide: { flexDirection: 'row', alignItems: 'center', gap: t.space.md },
 })

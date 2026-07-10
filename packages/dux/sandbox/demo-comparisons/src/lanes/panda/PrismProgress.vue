@@ -8,7 +8,7 @@ const props = defineProps<{ value: number }>()
 
 const track = css({
   background: 'surface',
-  blockSize: 'sm',
+  blockSize: '8px',
   borderRadius: 'pill',
   overflow: 'hidden',
 })

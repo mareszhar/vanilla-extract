@@ -101,7 +101,7 @@ Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps t
 | derivation (`({ color }) => …`) | — (new; hail-styl formulas) | tokens as a dependency graph, not a value bag |
 | `.live()` | — (new) | marks a runtime-changeable token; names the consequence (derivations stay live) at the definition site |
 | `scheme({ light, dark })` | "dark mode", `createTheme` pairs | one token, two scheme values, compiled to `light-dark()` — never a parallel palette |
-| `elevation(n)` | — (hail-styl, generalized) | plane position → scheme-aware lightness; shipped as a preset derivation, not a core axiom |
+| preset `elevation(base, n)` | — (hail-styl, generalized) | an explicit base + plane position → scheme-aware color; composed from public `scheme()` + `mix()`, never a core axiom |
 | `legibleOn(fn)` / `check.*` | manual audits; "contrast" APIs | named for what it *produces* — a color legible on its target — not the check it carries; validated at build (APCA), live via `contrast-color()` where supported |
 | `theme(overrides)` / `applyTheme(el, overrides)` | VE `createTheme` / `assignInlineVars` | the same concept at build time and runtime, named as the pair it is |
 | `setScheme(el, scheme)` | manual `data-scheme` writes | the tiny runtime helper for pinning the platform color-scheme axis; themes still mean token overrides |

@@ -51,6 +51,7 @@ export default defineBuildConfig({
       input: ['./src/preset.ts'],
       rolldown: {
         platform: 'neutral',
+        external: [...browserExternal, '@mszr/vane-dux'],
       },
     },
   ],

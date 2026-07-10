@@ -33,13 +33,14 @@ Snippets use the Prism fixture design system ([dux-workspace.md §2](./dux-works
 
 ```TS
 // design/tokens.style.ts
-import { alpha, defineTokens, elevation, legibleOn, oklch, scale, scheme } from '@mszr/vane-dux'
+import { alpha, defineTokens, legibleOn, oklch, scale, scheme } from '@mszr/vane-dux'
+import { elevation } from '@mszr/vane-dux/preset'
 
 export const t = defineTokens({
   color: {
     brand: oklch(0.58, 0.2, 285).live(),                  // runtime input — user-themeable
-    surface: elevation(0.03),                             // plane position, scheme-aware
-    ink: elevation(0.94),
+    surface: ({ color }) => elevation(color.brand, 0.03), // explicit base + plane position
+    ink: ({ color }) => elevation(color.brand, 0.94),
     brandSoft: ({ color }) => alpha(color.brand, 0.12),   // derivation — a graph edge
     brandHover: ({ color }) => color.brand.lighten(0.06),
     onBrand: ({ color }) => legibleOn(color.brand),       // guaranteed-legible pairing
@@ -102,7 +103,7 @@ brandHover: ({ color }) => color.brand.lighten(0.06),
 
 ```TS
 canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
-surface: elevation(0.03), // elevation is scheme-aware by construction
+surface: ({ color }) => elevation(color.brand, 0.03), // preset composition; explicit graph edge
 ```
 
 ```css
@@ -125,17 +126,17 @@ surface: elevation(0.03), // elevation is scheme-aware by construction
 **Usage.**
 
 ```TS
-surface: elevation(0.03),
-surfaceRaised: elevation(0.08),
-border: elevation(0.20),
-inkMuted: elevation(0.62),
-ink: elevation(0.94),
+surface: ({ color }) => elevation(color.brand, 0.03),
+surfaceRaised: ({ color }) => elevation(color.brand, 0.08),
+border: ({ color }) => elevation(color.brand, 0.20),
+inkMuted: ({ color }) => elevation(color.brand, 0.62),
+ink: ({ color }) => elevation(color.brand, 0.94),
 ```
 
 **Contract details.**
 
-- `elevation(n)` maps `n` to lightness per scheme (rising = lighter in dark, darker in light), tinted by the system's configurable base hue/chroma, compiled to `light-dark()` (§3).
-- Elevation is a **preset derivation, not a core axiom**: it ships in the box because it's the maintainer's proven model, but it is expressible entirely in userland via `scheme()` + derivations — deleting it costs nothing (principle 10).
+- `elevation(base, n)` maps `n` to lightness per scheme (rising = lighter in dark, darker in light), then tints that neutral plane from the explicit `base`. A live base keeps the result live.
+- Elevation is a **preset composition, not a core axiom**: its implementation uses the public `scheme()` and `mix()` helpers. The core has no hidden hue, chroma, or elevation controls; replacing the helper costs nothing (principle 10).
 - The curve (how positions map to lightness) is a system option with a perceptually-tuned default.
 
 ---

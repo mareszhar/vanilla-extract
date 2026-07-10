@@ -1,24 +1,22 @@
-/* The harness chrome. Layer order for the five stacks is pinned in
-   index.html — it must be declared before any stylesheet loads.
-   One deliberate global here: pinning `color-scheme` under a forced
-   [data-scheme] so every lane's light-dark() follows the toggle — the wiring
-   the vane-dux lane emits for itself. */
-
 :root {
+  --demo-brand: #635bff;
   color-scheme: light dark;
   font-family:
+    Inter,
+    ui-sans-serif,
     system-ui,
     -apple-system,
+    BlinkMacSystemFont,
     'Segoe UI',
-    Roboto,
     sans-serif;
-  background: light-dark(oklch(0.99 0.008 285), oklch(0.13 0.008 285));
-  color: light-dark(oklch(0.1346 0.008 285), oklch(0.9384 0.008 285));
+  background: light-dark(oklch(0.985 0.003 285), oklch(0.115 0.006 285));
+  color: light-dark(oklch(0.17 0.01 285), oklch(0.93 0.01 285));
 }
 
 :root[data-scheme='light'] {
   color-scheme: light;
 }
+
 :root[data-scheme='dark'] {
   color-scheme: dark;
 }
@@ -29,98 +27,313 @@
 
 body {
   margin: 0;
+  min-width: 20rem;
+}
+
+button,
+input,
+select {
+  font: inherit;
 }
 
 .shell {
-  max-width: 90rem;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  width: min(100% - 2rem, 100rem);
+  margin-inline: auto;
+  padding-block: 2rem 4rem;
 }
 
-.shell-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 1rem 2rem;
-  margin-bottom: 1.5rem;
-}
-
-.shell-head h1 {
-  font-size: 1.5rem;
-  margin: 0;
-}
-
-.shell-head p {
-  margin: 0;
-  color: light-dark(oklch(0.4258 0.008 285), oklch(0.6632 0.008 285));
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1.5rem;
-  padding: 0.75rem 1rem;
-  margin-bottom: 2rem;
-  border: 1px solid light-dark(oklch(0.9 0.008 285), oklch(0.26 0.008 285));
-  border-radius: 10px;
-}
-
-.controls label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.875rem;
-}
-
-.controls select,
-.controls input[type='range'] {
-  accent-color: oklch(0.58 0.2 285);
-}
-
-.matrix {
+.hero {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
   gap: 1rem;
-  align-items: stretch;
+  padding-block: 1rem 2.5rem;
+  background: radial-gradient(
+    circle at 20% 0%,
+    color-mix(in oklab, var(--demo-brand) 13%, transparent),
+    transparent 28rem
+  );
 }
 
-.lane {
-  display: flex;
-  flex-direction: column;
+.eyebrow,
+.section-kicker {
+  margin: 0;
+  color: var(--demo-brand);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  max-width: 14ch;
+  margin: 0;
+  font-size: clamp(2.75rem, 8vw, 6.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.06em;
+}
+
+.lede {
+  max-width: 60ch;
+  margin: 0;
+  color: light-dark(oklch(0.43 0.012 285), oklch(0.69 0.012 285));
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.control-panel {
+  display: grid;
   gap: 1rem;
+  margin-bottom: 1.5rem;
   padding: 1rem;
-  border: 1px solid light-dark(oklch(0.9 0.008 285), oklch(0.26 0.008 285));
-  border-radius: 12px;
-  min-width: 0;
+  border: 1px solid light-dark(oklch(0.88 0.008 285), oklch(0.27 0.01 285));
+  border-radius: 1rem;
+  background: light-dark(oklch(1 0 0 / 0.72), oklch(0.16 0.008 285 / 0.76));
+  backdrop-filter: blur(18px);
 }
 
-.lane > header {
+.control-head {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+
+.control-head h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+}
+
+.status {
+  margin: 0;
+  color: light-dark(oklch(0.43 0.012 285), oklch(0.69 0.012 285));
+  font-size: 0.8rem;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.control {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  color: light-dark(oklch(0.37 0.012 285), oklch(0.75 0.012 285));
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.control span {
+  display: flex;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
-.lane > header h2 {
-  font-size: 1rem;
-  margin: 0;
+.control select,
+.switch-control,
+.brand-control input {
+  min-height: 2.75rem;
+  border: 1px solid light-dark(oklch(0.84 0.009 285), oklch(0.31 0.012 285));
+  border-radius: 0.6rem;
+  background: light-dark(oklch(0.99 0.003 285), oklch(0.19 0.009 285));
+  color: inherit;
 }
 
-.lane > header span {
+.control select {
+  width: 100%;
+  padding-inline: 0.75rem;
+  cursor: pointer;
+}
+
+.switch-control {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding-inline: 0.75rem;
+  cursor: pointer;
+}
+
+.switch-control input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--demo-brand);
+}
+
+.control-wide {
+  grid-column: span 2;
+}
+
+.control input[type='range'] {
+  width: 100%;
+  min-height: 2.75rem;
+  margin: 0;
+  accent-color: var(--demo-brand);
+  cursor: pointer;
+}
+
+.brand-control input {
+  width: 100%;
+  padding: 0.3rem;
+  cursor: pointer;
+}
+
+.control select:focus-visible,
+.control input:focus-visible {
+  outline: 2px solid var(--demo-brand);
+  outline-offset: 2px;
+}
+
+.control-note {
+  margin: 0;
+  color: light-dark(oklch(0.48 0.012 285), oklch(0.64 0.012 285));
   font-size: 0.75rem;
-  color: light-dark(oklch(0.4258 0.008 285), oklch(0.6632 0.008 285));
+}
+
+.matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.lane {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid light-dark(oklch(0.88 0.008 285), oklch(0.27 0.01 285));
+  border-radius: 1rem;
+  background: light-dark(oklch(0.995 0.003 285), oklch(0.15 0.008 285));
+}
+
+.lane[data-lane='vane'] {
+  border-color: color-mix(in oklab, var(--demo-brand) 48%, light-dark(white, black));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--demo-brand) 10%, transparent) inset;
+}
+
+.lane-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.lane-index {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: light-dark(oklch(0.94 0.01 285), oklch(0.23 0.012 285));
+  color: light-dark(oklch(0.38 0.01 285), oklch(0.72 0.01 285));
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.lane-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.live-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  color: var(--demo-brand);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .lane-note {
-  font-size: 0.75rem;
-  line-height: 1.5;
+  min-height: 3.4em;
   margin: 0;
-  color: light-dark(oklch(0.4258 0.008 285), oklch(0.6632 0.008 285));
+  color: light-dark(oklch(0.46 0.012 285), oklch(0.66 0.012 285));
+  font-size: 0.76rem;
+  line-height: 1.55;
 }
 
-.lane-buttons {
+.lane-demo {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.demo-block {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.card-block {
+  align-self: stretch;
+}
+
+.demo-label-row {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
   gap: 0.5rem;
+}
+
+.demo-label,
+.demo-value,
+.lane-footer {
+  color: light-dark(oklch(0.5 0.01 285), oklch(0.61 0.01 285));
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.demo-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.lane-footer {
+  padding-top: 0.75rem;
+  border-top: 1px solid light-dark(oklch(0.9 0.006 285), oklch(0.25 0.008 285));
+  text-transform: none;
+}
+
+@media (min-width: 48rem) {
+  .shell {
+    width: min(100% - 3rem, 100rem);
+    padding-top: 3rem;
+  }
+
+  .control-panel {
+    padding: 1.25rem;
+  }
+}
+
+@media (min-width: 68rem) {
+  .matrix {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .lane {
+    grid-column: span 2;
+  }
+
+  .lane:nth-child(4) {
+    grid-column: 2 / span 2;
+  }
+
+  .lane:nth-child(5) {
+    grid-column: 4 / span 2;
+  }
+}
+
+@media (min-width: 96rem) {
+  .matrix {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .lane,
+  .lane:nth-child(4),
+  .lane:nth-child(5) {
+    grid-column: auto;
+  }
 }

@@ -13,10 +13,10 @@
     "lint:fix": "eslint . --fix",
     "dev": "turbo run dev",
     "build": "pnpm run sdk:build",
-    "typecheck": "pnpm run sdk:typecheck",
+    "typecheck": "pnpm run sdk:typecheck && pnpm run sdk:build && pnpm run demo:typecheck",
     "test": "pnpm run sdk:test",
     "audit": "tsx scripts/audit.ts",
-    "validate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run audit",
+    "validate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run audit && pnpm run demo:e2e",
     "val": "pnpm run validate",
 
     "sdk:dev": "pnpm --dir vane-dux exec obuild --stub",
@@ -25,9 +25,11 @@
     "sdk:test": "pnpm --dir vane-dux exec vitest run --typecheck --passWithNoTests",
     "sdk:test:watch": "pnpm --dir vane-dux exec vitest --typecheck",
 
-    "demo:minimal": "pnpm --dir sandbox/demo-minimal run dev",
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
+    "demo:typecheck": "pnpm --dir sandbox/demo-main run typecheck && pnpm --dir sandbox/demo-comparisons run typecheck",
+    "demo:build": "pnpm --dir sandbox/demo-main run build && pnpm --dir sandbox/demo-comparisons run build",
+    "demo:e2e": "pnpm run sdk:build && pnpm run demo:build && playwright test",
 
     "publish:sdk:dry-run": "tsx scripts/publish.ts dry-run",
     "publish:sdk:patch": "tsx scripts/publish.ts patch",
@@ -37,6 +39,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
+    "@playwright/test": "^1.61.0",
     "eslint": "^10.6.0",
     "eslint-plugin-format": "^2.0.1",
     "jiti": "^2.7.0",

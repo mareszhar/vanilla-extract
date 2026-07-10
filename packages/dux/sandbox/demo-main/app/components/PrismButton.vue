@@ -7,7 +7,7 @@ const props = defineProps({ ...propsOf(button), disabled: Boolean })
 </script>
 
 <template>
-  <button :class="button(props)" :disabled="disabled">
+  <button :class="button(props)" :disabled="props.disabled">
     <slot />
   </button>
 </template>

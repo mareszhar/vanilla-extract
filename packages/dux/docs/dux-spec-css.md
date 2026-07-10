@@ -61,7 +61,7 @@ export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = creat
 
 ### 1.1 The happy path: one file
 
-The canonical quickstart — the exact file the README, the Nuxt module docs, and `sandbox/demo-minimal` share:
+The canonical quickstart — the exact file the README and Nuxt module docs share:
 
 ```TS
 // design/system.style.ts

@@ -7,8 +7,8 @@
  * names on top.
  */
 
-import type { VaneCondition } from '../index'
-import { container, data, media } from '../index'
+import type { VaneCondition } from '@mszr/vane-dux'
+import { container, data, media } from '@mszr/vane-dux'
 
 export type VanePresetConditionName
   = | 'sm' | 'md' | 'lg' | 'xl' | '2xl'

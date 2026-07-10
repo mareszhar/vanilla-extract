@@ -24,12 +24,12 @@ describe('preset tokens, emitted', () => {
         --vane-color-brand-active: color-mix(in oklab, var(--vane-color-brand), var(--vane-color-ink) 20%);
         --vane-color-brand-soft: oklch(0.5784 0.2346 278.2909 / 0.12);
         --vane-color-on-brand: white;
-        --vane-color-canvas: light-dark(oklch(0.99 0 0), oklch(0.13 0 0));
-        --vane-color-surface: light-dark(oklch(0.9627 0 0), oklch(0.1558 0 0));
-        --vane-color-surface-raised: light-dark(oklch(0.9172 0 0), oklch(0.1988 0 0));
-        --vane-color-border: light-dark(oklch(0.7898 0 0), oklch(0.3192 0 0));
-        --vane-color-ink-muted: light-dark(oklch(0.4258 0 0), oklch(0.6632 0 0));
-        --vane-color-ink: light-dark(oklch(0.1346 0 0), oklch(0.9384 0 0));
+        --vane-color-canvas: color-mix(in oklab, light-dark(oklch(0.99 0 0), oklch(0.13 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-surface: color-mix(in oklab, light-dark(oklch(0.9627 0 0), oklch(0.1558 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-surface-raised: color-mix(in oklab, light-dark(oklch(0.9172 0 0), oklch(0.1988 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-border: color-mix(in oklab, light-dark(oklch(0.7898 0 0), oklch(0.3192 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-ink-muted: color-mix(in oklab, light-dark(oklch(0.4258 0 0), oklch(0.6632 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-ink: color-mix(in oklab, light-dark(oklch(0.1346 0 0), oklch(0.9384 0 0)), var(--vane-color-brand) 4%);
         --vane-space-2xs: 2px;
         --vane-space-xs: 4px;
         --vane-space-sm: 8px;
@@ -107,7 +107,7 @@ describe('preset tokens, emitted', () => {
     const inkOf = (css: string) => css.match(/--vane-color-ink: ([^;]+);/)?.[1]
 
     expect(inkOf(balanced)).not.toBe(inkOf(high))
-    expect(inkOf(high)).toBe('light-dark(oklch(0.08 0 0), oklch(0.99 0 0))')
+    expect(inkOf(high)).toBe('color-mix(in oklab, light-dark(oklch(0.08 0 0), oklch(0.99 0 0)), var(--vane-color-brand) 4%)')
   })
 })
 

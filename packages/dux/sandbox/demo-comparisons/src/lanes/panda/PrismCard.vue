@@ -3,6 +3,8 @@ import { card } from '@prism/domain'
 import { css } from '../../../styled-system/css'
 import PrismButton from './PrismButton.vue'
 
+const emit = defineEmits<{ action: [] }>()
+
 const root = css({
   display: 'grid',
   gap: 'sm',
@@ -21,6 +23,6 @@ const body = css({ margin: 0, fontSize: '0.875rem', color: 'inkMuted' })
   <article :class="root">
     <h3 :class="title">{{ card.title }}</h3>
     <p :class="body">{{ card.body }}</p>
-    <PrismButton size="sm">{{ card.action }}</PrismButton>
+    <PrismButton size="sm" @click="emit('action')">{{ card.action }}</PrismButton>
   </article>
 </template>

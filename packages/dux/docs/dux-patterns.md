@@ -67,7 +67,7 @@ const t = defineTokens({
   color: {
     brand: oklch(0.58, 0.2, 285).live(),                     // runtime input
     brandSoft: ({ color }) => alpha(color.brand, 0.12),       // → oklch(from var(--vane-color-brand) l c h / 0.12)
-    surface: elevation(0.03),                                 // → light-dark(oklch(…), oklch(…))
+    surface: ({ color }) => elevation(color.brand, 0.03),     // explicit edge; → color-mix(… light-dark(…), var(--brand))
   },
 })
 ```
@@ -77,7 +77,7 @@ Rules of liveness:
 - **Liveness propagates, never leaks backwards.** A static derivation of static inputs stays a constant; making one input `.live()` later changes only the emitted CSS, never the authoring surface.
 - **The types are honest about it.** `applyTheme` accepts only the graph's declared runtime *inputs* — tokens marked `.live()`. A compile-folded token could not work; a scheme pair without `.live()` is not runtime data; a derived token would be half-clobbered by a direct write when theming its input re-derives it wholly. Each is a type error at the key.
 - **Checks degrade honestly.** A contrast check over static endpoints is a `CheckedContrast` guarantee; over a live input it becomes a `LiveContrast` — enforced by emitted `contrast-color()`/fallback rather than proven at build ([dux-spec-tokens.md §5](./dux-spec-tokens.md#5-contrast-and-checks)).
-- **Schemes are liveness, not palettes.** `scheme({ light, dark })` and `elevation()` compile to `light-dark()`; switching schemes is `color-scheme`, no JS, no second palette.
+- **Schemes are liveness, not palettes.** `scheme({ light, dark })` compiles to `light-dark()`; the preset composes its explicit-base `elevation()` from that primitive. Switching schemes is `color-scheme`, no JS, no second palette.
 
 This is the hail-styl elevation trick generalized: one set of definitions, alive in the browser, with modern CSS doing the math natively.
 

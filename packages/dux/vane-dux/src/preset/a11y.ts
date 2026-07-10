@@ -5,7 +5,7 @@
  * helper: `forcedColors` is already a preset condition, a bare key away.
  */
 
-import type { VaneVarReference } from '../index'
+import type { VaneVarReference } from '@mszr/vane-dux'
 
 /** A colorish declaration value: a CSS literal or a token handle. */
 type VaneA11yColor = string | VaneVarReference

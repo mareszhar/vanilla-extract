@@ -6,7 +6,7 @@
  * where the compiler is listening. Documented with their CSS so they teach.
  */
 
-import type { VaneVarReference } from '../index'
+import type { VaneVarReference } from '@mszr/vane-dux'
 
 type VaneSpaceValue = string | number | VaneVarReference
 

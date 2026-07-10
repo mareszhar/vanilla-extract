@@ -5,19 +5,16 @@
  * and composite text styles.
  */
 
-import { alpha, container, createSystem, defineTokens, elevation, legibleOn, media, oklch, scale, scheme } from '@mszr/vane-dux'
-
-export const prismOptions = {
-  elevation: { hue: 285, chroma: 0.008 },
-} as const
+import { alpha, container, createSystem, defineTokens, legibleOn, media, oklch, scale, scheme } from '@mszr/vane-dux'
+import { elevation } from '@mszr/vane-dux/preset'
 
 /** Define the Prism tokens — call inside an emit harness or a style module. */
 export function definePrism() {
   return defineTokens({
     color: {
       brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. Marketing owns this.'),
-      surface: elevation(0.03),
-      ink: elevation(0.94),
+      surface: ({ color }) => elevation(color.brand, 0.03),
+      ink: ({ color }) => elevation(color.brand, 0.94),
       brandSoft: ({ color }) => alpha(color.brand, 0.12),
       brandHover: ({ color }) => color.brand.lighten(0.06),
       onBrand: ({ color }) => legibleOn(color.brand),
@@ -30,7 +27,7 @@ export function definePrism() {
       body: { fontSize: '1rem', lineHeight: 1.5, fontWeight: 400 },
       title: { fontSize: '1.375rem', lineHeight: 1.25, fontWeight: 600 },
     },
-  }, prismOptions)
+  })
 }
 
 export type PrismTokens = ReturnType<typeof definePrism>

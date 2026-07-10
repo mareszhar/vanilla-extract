@@ -9,8 +9,8 @@
  * tokens without editing them individually.
  */
 
-import type { VaneColor, VaneColorMode, VaneRefs } from '../index'
-import { alpha, color, elevation, legibleOn } from '../index'
+import type { VaneColor, VaneColorish, VaneColorMode, VaneRefs } from '@mszr/vane-dux'
+import { alpha, color, legibleOn, mix, oklch, scheme } from '@mszr/vane-dux'
 
 // ─── The controls ────────────────────────────────────────────────────────────
 
@@ -33,6 +33,13 @@ export interface VanePresetTokensOptions<
   density?: VanePresetDensity
   /** How far inks and borders rise off the surfaces. `balanced` by default. */
   contrast?: VanePresetContrast
+}
+
+export interface VanePresetElevationOptions {
+  /** How strongly the base color tints the neutral plane. `0.04` by default. */
+  tint?: number
+  /** Position → oklch lightness per scheme. Replaces the default curve. */
+  curve?: (position: number, scheme: 'light' | 'dark') => number
 }
 
 const radiusFamilies = {
@@ -130,12 +137,14 @@ export function presetTokens<
       brandActive: ({ color }: VaneRefs) => color.brand.mix(color.ink, 0.2),
       brandSoft: ({ color }: VaneRefs) => alpha(color.brand, 0.12),
       onBrand: ({ color }: VaneRefs) => legibleOn(color.brand),
-      canvas: elevation(0),
-      surface: elevation(0.03),
-      surfaceRaised: elevation(0.08),
-      border: elevation(plane.border),
-      inkMuted: elevation(plane.inkMuted),
-      ink: elevation(plane.ink),
+      // The relationship is explicit: every plane is a composition over the
+      // brand seed. A live seed therefore retints the entire system in CSS.
+      canvas: ({ color }: VaneRefs) => elevation(color.brand, 0),
+      surface: ({ color }: VaneRefs) => elevation(color.brand, 0.03),
+      surfaceRaised: ({ color }: VaneRefs) => elevation(color.brand, 0.08),
+      border: ({ color }: VaneRefs) => elevation(color.brand, plane.border),
+      inkMuted: ({ color }: VaneRefs) => elevation(color.brand, plane.inkMuted),
+      ink: ({ color }: VaneRefs) => elevation(color.brand, plane.ink),
     },
     space: linearSpace(unit),
     text: textStyles,
@@ -146,6 +155,38 @@ export function presetTokens<
     duration: durations,
     ease: easings,
   }
+}
+
+/**
+ * The hail-styl elevation opinion, built only from public core color
+ * primitives. The base is explicit, so the dependency graph reads honestly:
+ * `surface: ({ color }) => elevation(color.brand, 0.03)`. Replace this helper
+ * with any palette logic without changing the token engine.
+ */
+export function elevation<B extends VaneColorish>(
+  base: B,
+  position: number,
+  options: VanePresetElevationOptions = {},
+): VaneColor<VaneColorMode> {
+  expectFactor('position', position)
+  const tint = options.tint ?? 0.04
+  expectFactor('tint', tint)
+  const curve = options.curve ?? defaultElevationCurve
+  const neutral = scheme({
+    light: oklch(curve(position, 'light'), 0, 0),
+    dark: oklch(curve(position, 'dark'), 0, 0),
+  })
+
+  return mix(neutral, base, tint)
+}
+
+function defaultElevationCurve(position: number, scheme: 'light' | 'dark'): number {
+  return scheme === 'light' ? 0.99 - 0.91 * position : 0.13 + 0.86 * position
+}
+
+function expectFactor(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value > 1)
+    throw new RangeError(`[vane] elevation ${name} must be between 0 and 1; received ${value}`)
 }
 
 // ─── Derived families ────────────────────────────────────────────────────────

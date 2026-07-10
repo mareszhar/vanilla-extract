@@ -22,7 +22,7 @@ import { formatNumber, formatOklch, mixOklch, parseColor, pickLegible } from './
 export type VaneScheme = 'light' | 'dark'
 
 export interface VaneExprTraits {
-  /** Must be emitted as a live CSS expression (scheme pairs, elevation, live inputs). */
+  /** Must be emitted as a live CSS expression (scheme pairs or live inputs). */
   cssLive: boolean
   /** A runtime write can change it — some `.live()` input sits upstream. */
   volatile: boolean
@@ -35,16 +35,6 @@ export interface VaneResolver {
   refTraits: (handle: VaneRuntimeHandle) => VaneExprTraits
   /** Reject a non-color value with a diagnostic naming the offending token. */
   invalidColor: (detail: string) => never
-  elevation: {
-    hue: number
-    chroma: number
-    curve: (position: number, scheme: VaneScheme) => number
-  }
-}
-
-/** The perceptually-tuned default: linear in oklch lightness, rising toward the reader. */
-export function defaultElevationCurve(position: number, scheme: VaneScheme): number {
-  return scheme === 'light' ? 0.99 - 0.91 * position : 0.13 + 0.86 * position
 }
 
 // ─── Classification ──────────────────────────────────────────────────────────
@@ -58,8 +48,6 @@ export function exprTraits(expr: VaneColorExpr, resolver: VaneResolver): VaneExp
       const inner = join(exprTraits(expr.light, resolver), exprTraits(expr.dark, resolver))
       return { cssLive: true, volatile: inner.volatile }
     }
-    case 'elevation':
-      return { cssLive: true, volatile: false }
     case 'ref':
       return resolver.refTraits(expr.handle)
     case 'alpha':
@@ -99,7 +87,6 @@ export function containsContrast(expr: VaneColorExpr): boolean {
   switch (expr.kind) {
     case 'oklch':
     case 'parse':
-    case 'elevation':
     case 'ref':
       return false
     case 'contrast':
@@ -119,7 +106,6 @@ export function collectRefs(expr: VaneColorExpr, into: Set<string>): void {
   switch (expr.kind) {
     case 'oklch':
     case 'parse':
-    case 'elevation':
       return
     case 'ref':
       into.add(expr.handle.path)
@@ -145,7 +131,6 @@ function containsRef(expr: VaneColorExpr): boolean {
   switch (expr.kind) {
     case 'oklch':
     case 'parse':
-    case 'elevation':
       return false
     case 'ref':
       return true
@@ -191,16 +176,9 @@ export function foldExpr(expr: VaneColorExpr, scheme: VaneScheme, resolver: Vane
       return mixOklch(foldExpr(expr.input, scheme, resolver), foldExpr(expr.other, scheme, resolver), expr.amount)
     case 'scheme':
       return foldExpr(scheme === 'light' ? expr.light : expr.dark, scheme, resolver)
-    case 'elevation':
-      return foldElevation(expr.position, scheme, resolver)
     case 'contrast':
       return pickLegible(foldExpr(expr.target, scheme, resolver)).color
   }
-}
-
-function foldElevation(position: number, scheme: VaneScheme, resolver: VaneResolver): VaneOklch {
-  const { hue, chroma, curve } = resolver.elevation
-  return { l: curve(position, scheme), c: chroma, h: hue }
 }
 
 // ─── Live serialization ──────────────────────────────────────────────────────
@@ -228,8 +206,6 @@ export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver): stri
     }
     case 'scheme':
       return `light-dark(${serializeExpr(expr.light, resolver)}, ${serializeExpr(expr.dark, resolver)})`
-    case 'elevation':
-      return `light-dark(${formatOklch(foldElevation(expr.position, 'light', resolver))}, ${formatOklch(foldElevation(expr.position, 'dark', resolver))})`
     case 'contrast':
       // Mid-expression, a legible pairing contributes its computed pick; the
       // `contrast-color()` upgrade applies only when it is a token's own value

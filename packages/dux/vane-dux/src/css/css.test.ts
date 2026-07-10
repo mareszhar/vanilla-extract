@@ -4,7 +4,7 @@
  * ([dux-patterns.md §10]).
  */
 
-import { check, createSystem, elevation, legibleOn, oklch, VaneError } from '@mszr/vane-dux'
+import { check, createSystem, legibleOn, oklch, VaneError } from '@mszr/vane-dux'
 import { definePrism, definePrismSystem, emit } from '@test'
 import { describe, expect, it } from 'vitest'
 
@@ -46,15 +46,7 @@ describe('createSystem', () => {
     expect(system.t.color.brand.value).toBe('#635bff')
   })
 
-  it('forwards elevation and checks to an inline token graph', () => {
-    const { css } = emit(() => createSystem({
-      tokens: { color: { surface: elevation(0.03) } },
-      elevation: { hue: 285, chroma: 0.008 },
-    }))
-
-    // The ramp carries the configured hue and chroma, not the neutral default.
-    expect(css).toContain('light-dark(oklch(0.9627 0.008 285), oklch(0.1558 0.008 285))')
-
+  it('forwards checks to an inline token graph', () => {
     expectVaneError(
       () => emit(() => createSystem({
         tokens: { color: { ink: oklch(0.5, 0, 0), canvas: oklch(0.55, 0, 0) } },

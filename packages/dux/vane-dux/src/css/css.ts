@@ -1,12 +1,11 @@
 /**
  * `css()` — the style unit ([dux-spec-css.md §2]): CSS with an index. The
- * factory closes over the system's compiled conditions, layers, and elevation
- * config; each call resolves the evaluating style module, compiles, validates,
+ * factory closes over the system's compiled conditions and layers; each call
+ * resolves the evaluating style module, compiles, validates,
  * and emits — returning a class string whose rules compiled away.
  */
 
 import type { VaneConditionArm } from '../system/conditions'
-import type { VaneResolver } from '../tokens/resolve'
 import type { VaneCssFunction } from './types'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
@@ -24,7 +23,6 @@ export interface VaneSystemContext {
   globalDefaultLayer: string
   /** The system's root layer (its prefix) — every emitted rule nests under it. */
   layerRoot: string
-  elevation: VaneResolver['elevation']
 }
 
 export function bindCss(system: VaneSystemContext): VaneCssFunction<string, string> {

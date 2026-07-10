@@ -25,6 +25,7 @@ This is the dux maintainer area inside the **vanilla-extract** fork.
 - The cross-cutting law: [`docs/dux-patterns.md`](./docs/dux-patterns.md)
 - The domains, contract by contract: `docs/dux-spec-*.md` — [tokens](./docs/dux-spec-tokens.md) · [css](./docs/dux-spec-css.md) · [ports](./docs/dux-spec-ports.md) · [recipes](./docs/dux-spec-recipes.md) · [vue](./docs/dux-spec-vue.md) · [preset](./docs/dux-spec-preset.md) · [introspection](./docs/dux-spec-introspection.md)
 - Maintainer manual: [`docs/dux-workspace.md`](./docs/dux-workspace.md)
+- Current implementation review and release blockers: [`docs/dux-review-2026-07.md`](./docs/dux-review-2026-07.md)
 - Package front door: [`vane-dux/README.md`](./vane-dux/README.md)
 
 ## Top commands
@@ -32,11 +33,13 @@ This is the dux maintainer area inside the **vanilla-extract** fork.
 Run from `packages/dux/` (pnpm + turbo):
 
 1. `pnpm install` — resolve the workspace and install git hooks
-2. `pnpm run sdk:build` — build `@mszr/vane-dux`
-3. `pnpm run sdk:typecheck` — typecheck the package
-4. `pnpm run sdk:test` — every assertion plane (runtime, types, editor DX, emitted CSS)
-5. `pnpm run lint` / `lint:fix` — ESLint across dux
-6. `pnpm run demo:main` — the Prism Nuxt demo
-7. `pnpm run demo:comparisons` — the five-stack comparison matrix
-8. `pnpm run validate` — lint + typecheck + test + audit
-9. `pnpm run publish:sdk:dry-run` — release gate + packaging rehearsal
+2. `pnpm exec playwright install chromium` — one-time browser install for the demo regression suite
+3. `pnpm run sdk:build` — build `@mszr/vane-dux`
+4. `pnpm run sdk:typecheck` — typecheck the package
+5. `pnpm run sdk:test` — every SDK assertion plane (runtime, types, editor DX, emitted CSS)
+6. `pnpm run demo:e2e` — build both demos and run their headless browser regressions
+7. `pnpm run lint` / `lint:fix` — ESLint across dux
+8. `pnpm run demo:main` — the Prism Nuxt demo
+9. `pnpm run demo:comparisons` — the five-stack comparison matrix
+10. `pnpm run validate` — lint + typecheck + SDK tests + audit + demo browser tests
+11. `pnpm run publish:sdk:dry-run` — release gate + packaging rehearsal

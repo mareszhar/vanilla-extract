@@ -7,7 +7,7 @@
  * Durations and easing tokens (including the spring) ship in `presetTokens`.
  */
 
-import type { VaneKeyframesRule } from '../index'
+import type { VaneKeyframesRule } from '@mszr/vane-dux'
 
 // ─── Named keyframe fragments — feed them to your system's `keyframes()` ─────
 

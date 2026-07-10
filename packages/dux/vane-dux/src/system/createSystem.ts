@@ -12,7 +12,7 @@ import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGl
 import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
-import type { VaneCheck, VaneElevationOptions, VaneGraphInput, VaneThemeOverrides, VaneTokens } from '../tokens/types'
+import type { VaneCheck, VaneGraphInput, VaneResolvedTokens, VaneThemeOverrides, VaneTokens } from '../tokens/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
@@ -56,14 +56,12 @@ export interface VaneSystemOptions<
   B extends boolean,
 > {
   /** A raw token graph or a `defineTokens` result — `t` is always returned beside the functions. */
-  tokens: T
+  tokens: T & (VaneGraphInput | VaneResolvedTokens)
   conditions?: C & VaneConditionsInput<C>
   /** Cascade-layer order, `['reset', 'tokens', 'recipes', 'utilities', 'overrides']` by default. */
   layers?: L
   /** The emitted custom-property prefix: `--vane-*` by default. */
   prefix?: P
-  /** The elevation ramp for inline token graphs ([dux-spec-tokens.md §4]); a `defineTokens` result brings its own. */
-  elevation?: VaneElevationOptions
   /** Build-time checks over an inline token graph ([dux-spec-tokens.md §5]); a `defineTokens` result brings its own. */
   checks?: (tokens: VaneSystemTokens<T, P>) => readonly VaneCheck[]
   /** Opt out of the built-in base condition set. */
@@ -122,11 +120,8 @@ export function createSystem<
     ? options.tokens
     : defineTokens(options.tokens as VaneGraphInput & object, {
         prefix,
-        ...(options.elevation === undefined ? {} : { elevation: options.elevation }),
         ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
       })
-  const graph = graphOf(tokens)!
-
   const layers = options.layers ?? VANE_DEFAULT_LAYERS
 
   if (layers.length === 0) {
@@ -162,7 +157,6 @@ export function createSystem<
     defaultLayer: layers.find(layer => !SYSTEM_LAYERS.includes(layer)) ?? layers[0],
     globalDefaultLayer: layers.includes('reset') ? 'reset' : layers[0],
     layerRoot: prefix,
-    elevation: graph.resolverConfig,
   }
 
   record({
@@ -186,7 +180,7 @@ export function createSystem<
     recipe: buildPlane('recipe', bindRecipe(system) as Bound['recipe']),
     anatomy: buildPlane('anatomy', bindAnatomy(system) as Bound['anatomy']),
     port: buildPlane('port', <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
-      createPort(defaultValue, options, { prefix, elevation: graph.resolverConfig }) as unknown as VanePort<VanePortWiden<TValue>>),
+      createPort(defaultValue, options, { prefix }) as unknown as VanePort<VanePortWiden<TValue>>),
     defineAtoms: buildPlane('defineAtoms', bindAtoms(system) as Bound['defineAtoms']),
   }
 }

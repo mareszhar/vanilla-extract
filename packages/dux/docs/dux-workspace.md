@@ -1,4 +1,4 @@
-updated: 2026-07-09
+updated: 2026-07-10
 status: maintainer manual — layout, tooling, testing, fork hygiene, publishing
 
 # vane-dux — workspace
@@ -10,9 +10,9 @@ The maintainer manual: how the dux workspace is laid out, built, linted, tested,
 | Phase | Scope | Status |
 | --- | --- | --- |
 | W0 | Workspace scaffold: orchestrator manifest, tooling, package skeleton, outer-repo exclusions, docs | ☑ |
-| W1 | Test foundations: vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots | ☑ |
+| W1 | Test foundations: Vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots, Playwright browser checks | ◐ dev matrix pending |
 | W2 | Per-domain suites land with each roadmap phase | ☑ |
-| W3 | Sandbox: Nuxt demo + comparison matrix | ☑ |
+| W3 | Sandbox: Nuxt demo + comparison matrix | ◐ dev matrix pending |
 | W4 | Publishing pipeline: subtree to `mareszhar/vane-dux`, `@mszr` scope | ☑ |
 
 ---
@@ -37,7 +37,6 @@ packages/dux/
   vane-dux/               the published package, @mszr/vane-dux
   sandbox/
     fixtures/             the shared Prism design-system fixtures (@prism/domain)
-    demo-minimal/         the quickstart, runnable — kept in lockstep with the README
     demo-main/            the Prism Nuxt demo — the flagship, exercising every domain
     demo-comparisons/     the same Prism components in SFC scoped CSS, Tailwind,
                           Panda, raw vanilla-extract, and vane-dux
@@ -51,9 +50,7 @@ The outer repo uses **prettier + oxlint**. Inside `packages/dux/` we use **ESLin
 
 ## 2. Sandbox
 
-`sandbox/demo-minimal/` is the quickstart made runnable: the exact files from the README's "Start here" and [dux-spec-css.md §1.1](./dux-spec-css.md#11-the-happy-path-one-file) — one system file, one styled button, both schemes. It is the ground truth for gauntlet moment 12: if the README's code and this demo ever diverge, one of them is wrong, and CI treats it that way.
-
-`sandbox/demo-main/` is the flagship: a Nuxt app built on the **Prism** fixture design system (tokens with a live brand seed, elevation surfaces, Button/Card/Dialog/Tabs anatomy, a ports-driven Progress, the theme-picker moment from the delight gauntlet). It is the proof that the contracts hold in a real app, and the walking ground for the gauntlet ([dux-vision.md §6](./dux-vision.md#6-the-delight-gauntlet)).
+`sandbox/demo-main/` is the flagship and the runnable quickstart: a Nuxt interaction lab built on the **Prism** fixture design system (tokens with a live brand seed, explicitly derived elevation surfaces, Button/Card/Dialog/Tabs anatomy, a ports-driven Progress, and the theme-picker moment from the delight gauntlet). It is the proof that the contracts hold in a real app and the walking ground for the gauntlet ([dux-vision.md §6](./dux-vision.md#6-the-delight-gauntlet)). Its README names every behavior the demo proves.
 
 `sandbox/demo-comparisons/` implements the same Prism components per competing approach — SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, vane-dux — on one page, sharing decisions and content from `sandbox/fixtures/` (`@prism/domain`). The deliberate scope is Button, Card, and Progress: the axes where the models actually differ (tokens and schemes, variants, the runtime boundary); anatomy-scale components live in `demo-main`. Comparisons are study material and competitive bars, never compatibility targets.
 
@@ -92,7 +89,7 @@ The seam rule rides the same mechanism: substrate types are banned from `src/**/
 
 ## 5. Testing
 
-One runner (Vitest), **four assertion planes**, one fixture set (Prism). No domain is "done" until all four are green — a silently-dead completion or a drifted CSS snapshot is invisible to the others.
+Two runners, **five assertion planes**, one fixture set (Prism). No integration domain is "done" until its browser plane is green too — a silently-dead control, failed stylesheet request, or first-paint regression is invisible to unit tests.
 
 | Plane | Suffix | Asserts | Tool |
 | --- | --- | --- | --- |
@@ -100,10 +97,11 @@ One runner (Vitest), **four assertion planes**, one fixture set (Prism). No doma
 | Type shapes | `*.test-d.ts` | token graph inference, `VaneProps`, condition typing, liveness honesty (`applyTheme` rejecting static keys) | Vitest `--typecheck` |
 | Editor DX | `*.dx.test.ts` | completions and diagnostics land on the intended key with the intended message; hovers stay readable; `VANE_*` codes stable | [selenita](https://github.com/mareszhar/selenita) on Vitest |
 | Output | `*.out.test.ts` | the emitted CSS: liveness compilation (`light-dark()`, relative color), layer order, condition compilation, debug names, build-vs-live color-math agreement | Vitest snapshot over the compiler |
+| Browser integration | `tests/*.spec.ts` | production Nuxt/Vite loading, failed requests and console errors, real interactions/geometry, live computed-style changes | Playwright Chromium |
 
 The output plane is this project's addition to the house methodology: **the emitted CSS is a public contract** (principle 6 — boring CSS is the artifact consumers keep), so it gets locked like one. Diagnostic messages are a quality contract per [dux-patterns.md §10](./dux-patterns.md#10-diagnostics-are-a-contract): exactly one diagnostic, at the offending key, naming the fix.
 
-Tests collocate beside the code they exercise; Prism fixtures live once in `vane-dux/src/test-support/` with the larger app-shaped scenarios in `sandbox/fixtures/`. Fewer tests, higher confidence: assert contracts, never implementation details.
+SDK tests collocate beside the code they exercise; browser tests live in `tests/`. Prism fixtures live once in `vane-dux/src/test-support/` with the larger app-shaped scenarios in `sandbox/fixtures/`. Fewer tests, higher confidence: assert contracts, never implementation details.
 
 Vitest's typecheck runner normally invokes `tsc --incremental` with a shared `tsconfig.tmp.tsbuildinfo` inside `vitest/dist/`. Dux routes that through `scripts/vitest-typecheck.cjs`, which strips the incremental cache flags before delegating to TypeScript, so the type plane cannot replay stale declarations or trip tsc's incremental recursion bug. Recursive public types are still written as named interfaces (`VaneRefs`/`VaneRef`) because that shape is clearer and remains friendlier to TypeScript's resolver.
 
@@ -157,11 +155,12 @@ Run from `packages/dux/`.
 | `pnpm run sdk:typecheck` | `tsc --noEmit` for the package |
 | `pnpm run sdk:test` / `sdk:test:watch` | Vitest, all four planes |
 | `pnpm run audit` | the introspection audits over a real plugin build of the fixture app — point it at any app with `pnpm run audit -- <dir>` ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
-| `pnpm run demo:minimal` | the runnable quickstart |
 | `pnpm run demo:main` | the Prism Nuxt demo, dev mode |
 | `pnpm run demo:comparisons` | the comparison matrix |
+| `pnpm run demo:build` / `demo:typecheck` | build or typecheck both demos |
+| `pnpm run demo:e2e` | build both demos and run Playwright interaction/network regressions |
 | `pnpm run typecheck` / `test` / `build` | turbo across the workspace |
-| `pnpm run validate` / `val` | lint + typecheck + test + audit |
+| `pnpm run validate` / `val` | lint + typecheck + test + audit + demo browser regressions |
 | `pnpm run publish:sdk:dry-run` | gate + packaging rehearsal; nothing published |
 | `pnpm run publish:sdk:patch` / `:minor` / `:major` | the release ([§8](#8-publishing)) |
 | `pnpm run publish:subtree:squash` | re-push the public mirror without a release |

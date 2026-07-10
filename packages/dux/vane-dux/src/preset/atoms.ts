@@ -5,7 +5,7 @@
  * write your own; the engine never knows the difference.
  */
 
-import type { VaneAtomValue } from '../index'
+import type { VaneAtomValue } from '@mszr/vane-dux'
 
 // Module-scope `as const` tables — their literal types reach call sites
 // untouched, and the generic return type stays a pure function of the graph.

@@ -10,7 +10,7 @@ import { recipe } from '@vanilla-extract/recipes'
 export const vars = createGlobalTheme(':root', {
   color: {
     brand: color.brand,
-    brandHover: color.brandHover,
+    brandHover: lightDark(color.brandHover),
     brandSoft: color.brandSoft,
     onBrand: color.onBrand,
     surface: lightDark(color.surface),

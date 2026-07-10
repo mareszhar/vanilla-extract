@@ -1,7 +1,7 @@
 /**
  * `pnpm run audit` — the introspection audits ([dux-spec-introspection.md §3])
  * over a real plugin build. Defaults to the package's fixture app; point it at
- * any Vite-rooted style app: `pnpm run audit -- sandbox/demo-minimal/app`.
+ * any Vite-rooted style app: `pnpm run audit -- vane-dux/src/test-support/vite-app`.
  *
  * Findings print grouped and deep-linked; the exit code is 1 only when the
  * system's own config promoted a lane to a hard gate.

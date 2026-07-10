@@ -16,7 +16,6 @@ import { isColorValue, isContrastValue } from '../tokens/color'
 import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
 
 export interface VaneValueContext {
-  elevation: VaneResolver['elevation']
   file?: string
 }
 
@@ -75,7 +74,6 @@ function contrastDiagnostic(path: string, ctx: VaneValueContext): VaneDiagnostic
  */
 function valueResolver(path: string, ctx: VaneValueContext): VaneResolver {
   return {
-    elevation: ctx.elevation,
     refTraits: handle => modeTraits(handle.mode),
     foldRef: (handle: VaneRuntimeHandle) => {
       throw new VaneError({

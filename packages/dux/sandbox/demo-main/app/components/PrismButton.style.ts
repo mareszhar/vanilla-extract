@@ -17,8 +17,12 @@ export const button = recipe({
     borderRadius: t.radius.sm,
     fontFamily: t.font.sans,
     cursor: 'pointer',
-    motionOk: { transition: `background ${t.duration.fast} ease, border-color ${t.duration.fast} ease` },
+    fontWeight: 600,
+    boxShadow: '0 1px 0 oklch(0 0 0 / 0.06)',
+    motionOk: { transition: `background ${t.duration.fast} ease, border-color ${t.duration.fast} ease, transform ${t.duration.fast} ease` },
     focusVisible: { outline: `2px solid ${t.color.brand}`, outlineOffset: '2px' },
+    active: { transform: 'translateY(1px)' },
+    disabled: { opacity: 0.5, cursor: 'not-allowed' },
   },
   variants: {
     intent: {
@@ -28,7 +32,7 @@ export const button = recipe({
         hover: { background: t.color.brandHover },
       },
       ghost: {
-        background: 'transparent',
+        background: t.color.surfaceRaised,
         color: t.color.ink,
         border: `1px solid ${t.color.border}`,
         hover: { background: t.color.brandSoft, borderColor: t.color.brand },

@@ -31,13 +31,12 @@ export { isPort } from './handle'
 /** Anything a port factory needs from its system — bound once by `createSystem`. */
 export interface VanePortContext {
   prefix: string
-  elevation: VaneResolver['elevation']
 }
 
 // ─── The build-time factory ──────────────────────────────────────────────────
 
 /**
- * The bound `port()` — closed over the system prefix and elevation config.
+ * The bound `port()` — closed over the system prefix.
  * Called from `createSystem`; the `file` comes from the style module guard.
  */
 export function createPort<TValue extends VanePortInput>(
@@ -59,7 +58,7 @@ export function createPort<TValue extends VanePortInput>(
   // arrives because serialization happens after the module body runs.
   const meta: VanePortMeta = {
     name,
-    defaultValue: toMetaDefault(defaultValue, ctx, file),
+    defaultValue: toMetaDefault(defaultValue, file),
     kind: inferKind(defaultValue),
     ...(unit === undefined ? {} : { unit }),
   }
@@ -104,7 +103,7 @@ function inferKind(defaultValue: VanePortInput): VanePortKind {
  * color expressions fold through the system's resolver; primitives pass
  * through. Anything else is a diagnostic, not a silent `String()`.
  */
-function toMetaDefault(value: VanePortInput, ctx: VanePortContext, file: string): VanePortValue {
+function toMetaDefault(value: VanePortInput, file: string): VanePortValue {
   if (isPort(value) || isHandle(value))
     return value.var
 
@@ -118,7 +117,7 @@ function toMetaDefault(value: VanePortInput, ctx: VanePortContext, file: string)
   }
 
   if (isColorValue(value))
-    return serializeExpr(value.expr, portResolver(ctx, file))
+    return serializeExpr(value.expr, portResolver(file))
 
   if (typeof value === 'string' || typeof value === 'number')
     return value
@@ -137,9 +136,8 @@ function toMetaDefault(value: VanePortInput, ctx: VanePortContext, file: string)
  * rejected above, so `foldRef` is unreachable — kept as a diagnostic, not a
  * silent zero.
  */
-function portResolver(ctx: VanePortContext, file: string): VaneResolver {
+function portResolver(file: string): VaneResolver {
   return {
-    elevation: ctx.elevation,
     refTraits: handle => modeTraits(handle.mode),
     foldRef: (handle) => {
       throw new VaneError({

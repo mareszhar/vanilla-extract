@@ -197,6 +197,11 @@ describe('hmr', () => {
     expect(first?.code).toContain('import "/progress.style.ts.vane.css"')
     expect(first?.code).toContain('import.meta.hot.accept()')
 
+    // Browser requests use Vite's root-relative spelling (and Nuxt prefixes
+    // it with `/_nuxt/`). It must resolve to the absolute store key too; the
+    // old absolute-only resolver made every SSR stylesheet link return 404.
+    expect((await devServer.transformRequest('/progress.style.ts.vane.css'))?.code)
+      .toContain('block-size: 100%')
     expect((await devServer.transformRequest(virtualId))?.code).toContain('block-size: 100%')
 
     const file = join(root, 'progress.style.ts')

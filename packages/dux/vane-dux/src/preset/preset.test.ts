@@ -62,7 +62,7 @@ describe('presetTokens', () => {
 
     expect(t.color.brand.mode).toBe('static')
     expect(t.color.brandSoft.mode).toBe('derived')
-    expect(t.color.surface.mode).toBe('scheme')
+    expect(t.color.surface.mode).toBe('derived')
     expect(t.color.brand.name).toBe('--vane-color-brand')
     expect(t.space.md.value).toBe('16px')
   })

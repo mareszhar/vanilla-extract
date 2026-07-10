@@ -13,7 +13,7 @@ const state = computed(() => (props.open ? 'open' : 'closed'))
 
 <template>
   <Teleport to="body">
-    <template v-if="open">
+    <template v-if="props.open">
       <div :class="d.backdrop" :data-state="state" @click="emit('close')" />
       <div :class="d.positioner" :data-state="state">
         <div :class="d.content" :data-state="state" role="dialog" aria-modal="true">

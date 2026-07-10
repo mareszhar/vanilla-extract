@@ -24,7 +24,7 @@ import { TextContrastCheck } from './checks'
 import { handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
 import { kebab, tokenName } from './names'
-import { collectRefs, defaultElevationCurve, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
+import { collectRefs, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
 
 export const GRAPH = Symbol.for('vane.graph')
 const NODE = Symbol.for('vane.node')
@@ -61,7 +61,6 @@ export interface TokenGraph {
   prefix: string
   nodes: Map<string, TokenNode>
   results: Map<string, NodeResult>
-  resolverConfig: VaneResolver['elevation']
   file?: string
 }
 
@@ -107,15 +106,9 @@ export function defineTokens<const T extends object, Prefix extends string = 'va
       node.handle.value = node.definition.value
   }
 
-  const resolverConfig = {
-    hue: options.elevation?.hue ?? 0,
-    chroma: options.elevation?.chroma ?? 0,
-    curve: options.elevation?.curve ?? defaultElevationCurve,
-  }
+  const { results, diagnostics } = resolveGraph({ prefix, nodes, results: new Map(), file })
 
-  const { results, diagnostics } = resolveGraph({ prefix, nodes, results: new Map(), resolverConfig, file })
-
-  diagnostics.push(...runChecks(options.checks?.(tree as VaneTokens<T, Prefix>) ?? [], { prefix, nodes, results, resolverConfig, file }))
+  diagnostics.push(...runChecks(options.checks?.(tree as VaneTokens<T, Prefix>) ?? [], { prefix, nodes, results, file }))
 
   if (diagnostics.length > 0)
     throw new VaneError(diagnostics)
@@ -139,9 +132,9 @@ export function defineTokens<const T extends object, Prefix extends string = 'va
     })
   }
 
-  emitGraph({ prefix, nodes, results, resolverConfig, file })
+  emitGraph({ prefix, nodes, results, file })
 
-  const resolved: TokenGraph = { prefix, nodes, results, resolverConfig, file }
+  const resolved: TokenGraph = { prefix, nodes, results, file }
   Object.defineProperty(tree, GRAPH, { value: resolved })
 
   if (inspecting())
@@ -280,7 +273,6 @@ export function resolveGraph(
   const diagnostics: VaneDiagnostic[] = []
 
   const resolver: VaneResolver = {
-    elevation: graph.resolverConfig,
     foldRef: (handle, scheme) => foldNode(requireNode(handle), scheme),
     refTraits: handle => resolve(requireNode(handle)).traits,
     invalidColor: (detail) => {
@@ -494,7 +486,6 @@ function runChecks(checks: readonly unknown[], graph: TokenGraph): VaneDiagnosti
 /** Checks run after the graph resolved cleanly, so folding here needs no cycle guard. */
 function checkResolver(graph: TokenGraph, scheme: VaneScheme): VaneResolver {
   const resolver: VaneResolver = {
-    elevation: graph.resolverConfig,
     foldRef: (handle) => {
       const node = nodeOf(handle)!
       const definition = node.definition

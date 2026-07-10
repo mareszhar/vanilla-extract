@@ -23,7 +23,7 @@ export default defineConfig({
     tokens: {
       colors: {
         brand: { value: color.brand },
-        brandHover: { value: color.brandHover },
+        brandHover: { value: lightDark(color.brandHover) },
         brandSoft: { value: color.brandSoft },
         onBrand: { value: color.onBrand },
         surface: { value: lightDark(color.surface) },

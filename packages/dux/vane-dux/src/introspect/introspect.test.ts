@@ -72,9 +72,12 @@ describe('the manifest', () => {
     expect(brand.value.light).toBe('oklch(0.58 0.2 285)')
     expect(brand.description).toBe('Primary brand hue. Marketing owns this.')
 
-    // An elevation token folds per scheme; it is scheme-varied, not runtime data.
+    // Preset elevation names its live base explicitly, so the surface remains
+    // scheme-varied and re-tints when that base changes.
     const surface = manifest.tokens['color.surface']
-    expect(surface.mode).toBe('scheme')
+    expect(surface.mode).toBe('derived')
+    // `live` means directly writable by applyTheme; derived values remain
+    // read-only even though their emitted CSS re-evaluates from live inputs.
     expect(surface.live).toBe(false)
     expect(surface.value.light).not.toBe(surface.value.dark)
 

@@ -70,8 +70,8 @@ export function bindKeyframes(system: VaneSystemContext): VaneKeyframesFunction 
 
         try {
           const serialized = Array.isArray(value)
-            ? value.map(entry => serializeStyleValue(entry, path, { elevation: system.elevation, file }))
-            : serializeStyleValue(value, path, { elevation: system.elevation, file })
+            ? value.map(entry => serializeStyleValue(entry, path, { file }))
+            : serializeStyleValue(value, path, { file })
 
           for (const entry of Array.isArray(serialized) ? serialized : [serialized]) {
             if (typeof entry !== 'string')

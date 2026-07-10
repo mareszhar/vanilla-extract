@@ -9,7 +9,7 @@
  * them precomputed, because that is exactly the difference under study.
  */
 
-/** A scheme pair, precomputed — vane derives these from one `elevation()` number. */
+/** A scheme pair, precomputed — the vane preset derives these from an explicit base + elevation. */
 export interface SchemePair {
   light: string
   dark: string
@@ -18,8 +18,11 @@ export interface SchemePair {
 export const color = {
   /** The brand seed. vane marks it `.live()`; other lanes hard-code it. */
   brand: 'oklch(0.58 0.2 285)',
-  /** `brand.lighten(0.06)` — precomputed for the lanes without color math. */
-  brandHover: 'oklch(0.64 0.2 285)',
+  /** `brand.mix(ink, 0.12)` — precomputed for the lanes without color math. */
+  brandHover: {
+    light: 'oklch(0.5266 0.177 285)',
+    dark: 'oklch(0.623 0.177 285)',
+  } satisfies SchemePair,
   /** `alpha(brand, 0.12)`. */
   brandSoft: 'oklch(0.58 0.2 285 / 0.12)',
   /** `legibleOn(brand)` — the APCA pick for the seed. */
@@ -74,7 +77,7 @@ export interface ButtonProps {
 export const card = {
   title: 'Prism refraction',
   body: 'One card, five authoring models. Same decisions, same pixels — different everything else.',
-  action: 'Refract',
+  action: 'Inspect card',
 }
 
 export const progress = {

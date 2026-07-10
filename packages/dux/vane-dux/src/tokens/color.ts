@@ -27,7 +27,6 @@ export type VaneColorExpr
     | { kind: 'adjust', input: VaneColorExpr, channel: 'l' | 'c' | 'h', delta: number }
     | { kind: 'mix', input: VaneColorExpr, other: VaneColorExpr, amount: number }
     | { kind: 'scheme', light: VaneColorExpr, dark: VaneColorExpr }
-    | { kind: 'elevation', position: number }
     | { kind: 'contrast', target: VaneColorExpr, minLc: number, explicitMin: boolean }
 
 export interface VaneValueMeta {
@@ -52,47 +51,59 @@ export class ColorValue {
   }
 
   live(): ColorValue {
-    this.markedLive = true
-    return this
+    const value = copyColorValue(this)
+    value.markedLive = true
+    return value
   }
 
   describe(text: string): ColorValue {
-    this.meta.description = text
-    return this
+    const value = copyColorValue(this)
+    value.meta.description = text
+    return value
   }
 
   deprecated(reason: string): ColorValue {
-    this.meta.deprecated = reason
-    return this
+    const value = copyColorValue(this)
+    value.meta.deprecated = reason
+    return value
   }
 
   alpha(amount: number): ColorValue {
-    return new ColorValue({ kind: 'alpha', input: this.expr, amount })
+    return copyColorValue(this, { kind: 'alpha', input: this.expr, amount })
   }
 
   lighten(amount: number): ColorValue {
-    return new ColorValue({ kind: 'adjust', input: this.expr, channel: 'l', delta: amount })
+    return copyColorValue(this, { kind: 'adjust', input: this.expr, channel: 'l', delta: amount })
   }
 
   darken(amount: number): ColorValue {
-    return new ColorValue({ kind: 'adjust', input: this.expr, channel: 'l', delta: -amount })
+    return copyColorValue(this, { kind: 'adjust', input: this.expr, channel: 'l', delta: -amount })
   }
 
   saturate(amount: number): ColorValue {
-    return new ColorValue({ kind: 'adjust', input: this.expr, channel: 'c', delta: amount })
+    return copyColorValue(this, { kind: 'adjust', input: this.expr, channel: 'c', delta: amount })
   }
 
   desaturate(amount: number): ColorValue {
-    return new ColorValue({ kind: 'adjust', input: this.expr, channel: 'c', delta: -amount })
+    return copyColorValue(this, { kind: 'adjust', input: this.expr, channel: 'c', delta: -amount })
   }
 
   rotate(degrees: number): ColorValue {
-    return new ColorValue({ kind: 'adjust', input: this.expr, channel: 'h', delta: degrees })
+    return copyColorValue(this, { kind: 'adjust', input: this.expr, channel: 'h', delta: degrees })
   }
 
   mix(other: VaneColorish, amount: number): ColorValue {
-    return new ColorValue({ kind: 'mix', input: this.expr, other: toExpr(other), amount })
+    const value = copyColorValue(this, { kind: 'mix', input: this.expr, other: toExpr(other), amount })
+    value.markedLive ||= isColorValue(other) && other.markedLive
+    return value
   }
+}
+
+function copyColorValue(value: ColorValue, expr: VaneColorExpr = value.expr): ColorValue {
+  const copy = new ColorValue(expr)
+  copy.markedLive = value.markedLive
+  Object.assign(copy.meta, value.meta)
+  return copy
 }
 
 export class ContrastValue {
@@ -103,14 +114,22 @@ export class ContrastValue {
   }
 
   describe(text: string): ContrastValue {
-    this.meta.description = text
-    return this
+    const value = copyContrastValue(this)
+    value.meta.description = text
+    return value
   }
 
   deprecated(reason: string): ContrastValue {
-    this.meta.deprecated = reason
-    return this
+    const value = copyContrastValue(this)
+    value.meta.deprecated = reason
+    return value
   }
+}
+
+function copyContrastValue(value: ContrastValue): ContrastValue {
+  const copy = new ContrastValue(value.expr)
+  Object.assign(copy.meta, value.meta)
+  return copy
 }
 
 export function isColorValue(value: unknown): value is ColorValue {
@@ -152,14 +171,6 @@ export function scheme(pair: { light: VaneColorish, dark: VaneColorish }): VaneC
   return new ColorValue({ kind: 'scheme', light: toExpr(pair.light), dark: toExpr(pair.dark) }) as unknown as VaneColor<'scheme'>
 }
 
-/**
- * A position between the background and foreground planes (0–1), mapped to
- * scheme-aware lightness ([dux-spec-tokens.md §4]). One number, both modes.
- */
-export function elevation(position: number): VaneColor<'scheme'> {
-  return new ColorValue({ kind: 'elevation', position }) as unknown as VaneColor<'scheme'>
-}
-
 export interface VaneLegibleOptions {
   /** The consciously-accepted APCA threshold; 60 by default. */
   minLc?: number
@@ -187,7 +198,14 @@ export function legibleOn<S extends VaneColorish>(
 type SameMode<S extends VaneColorish> = VaneColor<VaneModeOf<S>>
 
 function overExpr(input: VaneColorish, expr: (input: VaneColorExpr) => VaneColorExpr): ColorValue {
-  return new ColorValue(expr(toExpr(input)))
+  const value = new ColorValue(expr(toExpr(input)))
+
+  if (isColorValue(input)) {
+    value.markedLive = input.markedLive
+    Object.assign(value.meta, input.meta)
+  }
+
+  return value
 }
 
 export function alpha<S extends VaneColorish>(color: S, amount: number): SameMode<S> {
@@ -219,7 +237,9 @@ export function mix<A extends VaneColorish, B extends VaneColorish>(
   other: B,
   amount: number,
 ): VaneColor<VaneColorMode> {
-  return new ColorValue({ kind: 'mix', input: toExpr(color), other: toExpr(other), amount }) as unknown as VaneColor<VaneColorMode>
+  const value = overExpr(color, input => ({ kind: 'mix', input, other: toExpr(other), amount }))
+  value.markedLive ||= isColorValue(other) && other.markedLive
+  return value as unknown as VaneColor<VaneColorMode>
 }
 
 /** The color methods every graph handle carries, so derivations read as `color.brand.lighten(0.06)`. */

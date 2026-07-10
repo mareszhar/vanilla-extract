@@ -4,7 +4,7 @@
 
 :root {
   --sfc-brand: oklch(0.58 0.2 285);
-  --sfc-brand-hover: oklch(0.64 0.2 285);
+  --sfc-brand-hover: light-dark(oklch(0.5266 0.177 285), oklch(0.623 0.177 285));
   --sfc-brand-soft: oklch(0.58 0.2 285 / 0.12);
   --sfc-on-brand: white;
   --sfc-surface: light-dark(oklch(0.9627 0.008 285), oklch(0.1558 0.008 285));

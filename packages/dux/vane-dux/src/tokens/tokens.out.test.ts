@@ -18,8 +18,8 @@ describe('the Prism graph, emitted', () => {
       }
       :root {
         --vane-color-brand: oklch(0.58 0.2 285);
-        --vane-color-surface: light-dark(oklch(0.9627 0.008 285), oklch(0.1558 0.008 285));
-        --vane-color-ink: light-dark(oklch(0.1346 0.008 285), oklch(0.9384 0.008 285));
+        --vane-color-surface: color-mix(in oklab, light-dark(oklch(0.9627 0 0), oklch(0.1558 0 0)), var(--vane-color-brand) 4%);
+        --vane-color-ink: color-mix(in oklab, light-dark(oklch(0.1346 0 0), oklch(0.9384 0 0)), var(--vane-color-brand) 4%);
         --vane-color-brand-soft: oklch(from var(--vane-color-brand) l c h / 0.12);
         --vane-color-brand-hover: oklch(from var(--vane-color-brand) calc(l + 0.06) c h);
         --vane-color-on-brand: white;
