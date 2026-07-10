@@ -16,18 +16,7 @@ export default antfu(
       '**/.turbo/**',
       '**/.dux/**',
       '**/__references__/**',
-      '**/notes/**',
     ],
-  },
-  {
-    files: ['**/*.{json,jsonc,yml,yaml}'],
-    rules: {
-      'jsonc/sort-array-values': 'off',
-      'jsonc/sort-keys': 'off',
-      'pnpm/yaml-enforce-settings': 'off',
-      'yaml/plain-scalar': 'off',
-      'yaml/sort-keys': 'off',
-    },
   },
   {
     files: ['**/*.md'],

@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "tsx scripts/install-git-hooks.ts --optional",
     "git:hooks:install": "tsx scripts/install-git-hooks.ts",
+
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "dev": "turbo run dev",
@@ -17,14 +18,17 @@
     "audit": "tsx scripts/audit.ts",
     "validate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run audit",
     "val": "pnpm run validate",
+
     "sdk:dev": "pnpm --dir vane-dux exec obuild --stub",
     "sdk:build": "pnpm --dir vane-dux exec obuild",
     "sdk:typecheck": "pnpm --dir vane-dux exec tsc --noEmit",
     "sdk:test": "pnpm --dir vane-dux exec vitest run --typecheck --passWithNoTests",
     "sdk:test:watch": "pnpm --dir vane-dux exec vitest --typecheck",
+
     "demo:minimal": "pnpm --dir sandbox/demo-minimal run dev",
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
+
     "publish:sdk:dry-run": "tsx scripts/publish.ts dry-run",
     "publish:sdk:patch": "tsx scripts/publish.ts patch",
     "publish:sdk:minor": "tsx scripts/publish.ts minor",

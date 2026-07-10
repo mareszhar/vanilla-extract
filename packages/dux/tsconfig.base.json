@@ -1,20 +1,20 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "Preserve",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "moduleDetection": "force",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "strict": true,
-    "noEmit": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "noEmit": true,
     "esModuleInterop": true,
-    "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "moduleDetection": "force",
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
   }
 }

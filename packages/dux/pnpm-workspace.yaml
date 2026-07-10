@@ -1,17 +1,19 @@
-packages:
-  - 'vane-dux'
-  - 'sandbox/fixtures'
-  - 'sandbox/demo-minimal'
-  - 'sandbox/demo-main'
-  - 'sandbox/demo-comparisons'
-
 minimumReleaseAge: 4320
+shellEmulator: true
+
 trustPolicy: no-downgrade
 trustPolicyExclude:
   - semver
   - undici-types
   # chokidar 4.x dropped provenance attestation; required by @pandacss/node (demo-comparisons)
   - chokidar
+packages:
+  - vane-dux
+  - sandbox/fixtures
+  - sandbox/demo-minimal
+  - sandbox/demo-main
+  - sandbox/demo-comparisons
+
 blockExoticSubdeps: true
 allowBuilds:
   '@parcel/watcher': false

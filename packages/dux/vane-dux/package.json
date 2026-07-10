@@ -52,20 +52,10 @@
     }
   },
   "files": [
-    "dist",
+    "LICENSE",
     "README.md",
-    "LICENSE"
+    "dist"
   ],
-  "dependencies": {
-    "@vanilla-extract/css": "^1.21.1",
-    "@vanilla-extract/integration": "^8.0.10",
-    "@vanilla-extract/vite-plugin": "5.2.3",
-    "csstype": "^3.2.3",
-    "culori": "^4.0.2",
-    "esbuild": ">=0.17.6 <0.29.0",
-    "known-css-properties": "^0.37.0",
-    "lightningcss": "^1.32.0"
-  },
   "peerDependencies": {
     "@nuxt/kit": "^4.4.8",
     "nuxt": "^4.4.8",
@@ -85,6 +75,16 @@
     "vue": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "@vanilla-extract/css": "^1.21.1",
+    "@vanilla-extract/integration": "^8.0.10",
+    "@vanilla-extract/vite-plugin": "5.2.3",
+    "csstype": "^3.2.3",
+    "culori": "^4.0.2",
+    "esbuild": ">=0.17.6 <0.29.0",
+    "known-css-properties": "^0.37.0",
+    "lightningcss": "^1.32.0"
   },
   "devDependencies": {
     "@mszr/selenita": "^0.2.2",
