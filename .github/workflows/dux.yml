@@ -29,4 +29,5 @@ jobs:
           cache: pnpm
           cache-dependency-path: packages/dux/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run validate
