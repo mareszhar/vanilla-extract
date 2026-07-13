@@ -22,33 +22,38 @@ Running record of API/pattern ideas for vane-dux.
 | **A. Orientation** | | |
 | 1 | CSS/W3C alignment as a core principle | 🔵 |
 | 2 | The mental model — two setup stages (`createEngine` → `createSystem`), then usage | 🔵 framing |
-| 3 | Terminology to revise (`theme`/`applyTheme`, `kind:'parse'`) | 🟢 |
-| **B. The value language** | | |
-| 4 | Data-type branding utils (`angle()`, `length()`, `percentage()`, …) | 🔵 |
-| 5 | Token metadata config — `{ val, is: [...] }` | 🟢 `is` key + `'var'` label settled |
-| 6 | `createEngine()` — configurable value engine | 🔴 |
-| 7 | `bem` + `elevation` built *on* the engine's extension points | 🔵 |
-| 8 | Full-power color composition (token refs, channel ops, `.in()`) | 🔴 |
-| 9 | Scales — step-indexed accessor + `fluid()` | 🔵 |
-| 10 | Modes — flat axes, `$expose`/`$require`/`$derive`, `.vals` | 🔴 |
-| 11 | Null tokens (`val: null`) + the integration surface | 🔵 |
+| 3 | Modularity & typing locality — one engine, one system, many token modules | 🟡 module navigability open |
+| 4 | Terminology to revise (`theme`/`applyTheme`, `kind:'parse'`); error-code prefixes | 🟢 |
+| **B. The value language & emission** | | |
+| 5 | Data-type branding utils (`angle()`, `length()`, `percentage()`, …) | 🔵 |
+| 6 | Token metadata config — `{ val, is: [...] }` | 🟢 `is` key + `'var'` label settled |
+| 7 | `createEngine()` — configurable engine, chain links for extensions | 🔴 |
+| 8 | `bem` + `elevation` built *on* the engine's extension points | 🔵 |
+| 9 | Full-power color composition (token refs, channel ops, `.in()`) | 🔴 |
+| 10 | Scales — step-indexed accessor + `fluid()` | 🔵 |
+| 11 | Axes — flat, multi-axis, `$expose`/`$require`/`$derive`, `token.axes` | 🔴 |
+| 12 | Emission control — scope & order (layers everywhere, custom token scope) | 🔵 |
+| 13 | Platform levers — `@property`, `:where()`, `@scope`, view transitions | 🔵 |
+| 14 | Null tokens (`val: null`) + the integration surface | 🔵 |
 | **C. Runtime / consumption** | | |
-| 12 | `updateTokenCCPVal(s)` / `setCCPVal` + factory typing | 🟢 both method & function forms |
-| 13 | Runtime stylesheet ownership | 🔴 |
-| 14 | Port schema validation | 🔵 |
+| 15 | `updateTokenCCPVal(s)` / `setCCPVal` + factory typing | 🟢 both method & function forms |
+| 16 | Runtime stylesheet ownership | 🔴 |
+| 17 | Port schema validation | 🔵 |
 | **D. Authoring ergonomics** | | |
-| 15 | CCP relationship modeling (`--base` pattern) | 🟢 covered by existing primitives |
-| 16 | `rawVar` escape hatch | 🔵 |
-| 17 | Property shorthands (`pb` → `paddingBlock`) | 🟡 |
-| 18 | `fromGroup()` recipe sugar | 🔵 |
-| 19 | `propsOf` object-namespacing | 🟢 |
-| 20 | Mixins — `definePatterns` + expand the set | 🔵 |
-| 21 | Documented custom-util authoring recipe | 🔵 |
+| 18 | CCP relationship modeling (`--base` pattern) | 🟢 covered by existing primitives |
+| 19 | `rawVar` escape hatch | 🔵 |
+| 20 | Property shorthands (`pb` → `paddingBlock`) | 🟡 |
+| 21 | `fromGroup()` recipe sugar | 🔵 |
+| 22 | `propsOf` object-namespacing | 🟢 |
+| 23 | Mixins — `definePatterns` + expand the set | 🔵 |
+| 24 | Documented custom-util authoring recipe | 🔵 |
 | **E. Integration** | | |
-| 22 | W3C Design Tokens two-way sync | 🔵 |
+| 25 | W3C Design Tokens two-way sync | 🔵 |
 | **F. Confirmed behaviors worth documenting** | | |
-| 23 | `&` in selector keys | 🟢 |
-| 24 | Dev-only port type check | 🟢 |
+| 26 | `&` in selector keys | 🟢 |
+| 27 | Dev-only port type check | 🟢 |
+| **G. Workspace requests** | | |
+| 28 | Pug templates in all demos | 🟢 |
 
 ---
 
@@ -58,11 +63,11 @@ Running record of API/pattern ideas for vane-dux.
 
 vane-dux should stay as close as possible to the CSS Specification (W3C) and to the component-architecture conventions the ecosystem already uses. That's how it stays alive as the web evolves, rather than accumulating a parallel vocabulary for things the platform already names. Where CSS has a precise word, use it; where CSS has no concept, coining a term is fine — there's nothing to misalign with.
 
-Concretely: CSS defines a closed set of [data types](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/Data_types) — `<color>`, `<length>`, `<percentage>`, `<angle>`, `<number>`, etc. vane-dux should treat *branding a value as one of these* as a first-class, explicit need (§4), not something implicit in which builder happened to be called.
+Concretely: CSS defines a closed set of [data types](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/Data_types) — `<color>`, `<length>`, `<percentage>`, `<angle>`, `<number>`, etc. vane-dux should treat *branding a value as one of these* as a first-class, explicit need (§5), not something implicit in which builder happened to be called.
 
-**Corollary — a util that borrows a CSS function's name owes at least that function's power.** `oklch`, `calc`, `clamp`, `min`, `max`, and every other CSS-counterpart util must be able to express anything its native counterpart can (and more, since ours also accept tokens) — just more ergonomically in TS. Never *less*. Falling short of the platform primitive turns the wrapper from an upgrade into a downgrade. `calc`/`clamp`/`min`/`max` already meet this (they nest and stay dimension-safe); color is the surface that doesn't yet (§8).
+**Corollary — a util that borrows a CSS function's name owes at least that function's power.** `oklch`, `calc`, `clamp`, `min`, `max`, and every other CSS-counterpart util must be able to express anything its native counterpart can (and more, since ours also accept tokens) — just more ergonomically in TS. Never *less*. Falling short of the platform primitive turns the wrapper from an upgrade into a downgrade. `calc`/`clamp`/`min`/`max` already meet this (they nest and stay dimension-safe); color is the surface that doesn't yet (§9).
 
-This principle drives §3 (rename non-CSS terms), §8 (`oklch()` should do everything native `oklch()` can), §14 (validation via the existing Standard Schema standard, not a bespoke one), and §22 (interoperate through the W3C token format). Worth adding to `dux-vision.md` as a named principle.
+This principle drives §4 (rename non-CSS terms), §9 (`oklch()` should do everything native `oklch()` can), §17 (validation via the existing Standard Schema standard, not a bespoke one), and §25 (interoperate through the W3C token format). Worth adding to `dux-vision.md` as a named principle.
 
 ### 2. 🔵 The mental model — two setup stages, then usage
 
@@ -70,7 +75,7 @@ Naming the stages makes the "tune your own design system" story legible instead 
 
 ```TS
 // STAGE 1 — get an engine: the configurable rules every value-defining util follows
-const { color, oklch, length, angle } = createEngine({ /* §6 */ })
+const { color, oklch, length, angle } = createEngine({ /* §7 */ })
 
 // STAGE 2 — define a system WITH that engine, and get system-aware utils back in one call
 export const { t, css, recipe, port, updateTokenCCPVals } = createSystem({
@@ -85,20 +90,38 @@ export const { t, css, recipe, port, updateTokenCCPVals } = createSystem({
 
 **Flag — double `prefix`.** Both `defineTokens().build({ prefix })` and `createSystem({ prefix })` accept a prefix, and which wins depends on whether the tokens were pre-built (`createSystem.ts:126` uses its own prefix only when the graph isn't already built). Two places to set one thing, with order-dependent precedence — worth collapsing to one clear owner (the system) rather than leaving a silent-conflict surface.
 
-### 3. 🟢 Terminology to revise
+### 3. 🟡 Modularity & typing locality
+
+**The blessed shape: one engine, one system, many token modules.** Twin full systems (two `createEngine`+`createSystem` pairs) are always *possible* but answer a different need — genuinely independent design systems. For TS performance at scale, composition is the answer, because what actually grows in a big system is tokens, nothing else:
+
+```TS
+// palette.tokens.ts, spacing.tokens.ts — modules from ONE engine's defineTokens
+export const palette = defineTokens({ … }).derive(…)
+
+// ds.ts — composed once
+export const ds = createSystem({ tokens: defineTokens().compose(palette).compose(spacing) })
+```
+
+**Verified invariant — typing locality.** `VaneSystem`'s members are typed `VaneCssFunction<C, L>`, `VaneRecipeFactory<C, L>`, `VaneAnatomyFactory<C, L>`, `VaneAtomsFactory<C, L>` (`createSystem.ts:94`) — conditions and layers only, **never the token graph type**; token values enter rules structurally. So `css`/`recipe`/`anatomy`/`keyframes`/`globalCss`/`port` IntelliSense cost is independent of graph size, however huge `t` gets. Only `t` itself and the whole-tree utils (`theme` overrides, the batch tree form of `updateTokenCCPVals`) type against `T` — and mapped types are lazy, so that cost lands at their own call sites, with composition cost concentrated in the one file that composes. **Worth stating as a design rule** so future utils keep it: *a util types against what it consumes.*
+
+**Real gap found — token modules aren't navigable.** `defineTokens({…})` returns a *builder* (`compose`/`derive`/`build`) — `palette.color.brand` doesn't exist pre-build, so the "use the small module for fast local IntelliSense" story doesn't actually work today; everything routes through the composed `ds.t`. Mitigations to weigh: value-level slices (`export const tColor = ds.t.color` — lazy typing keeps a slice cheap), or exposing module-local typed handles (the `.derive()` stage machinery already constructs typed handle views internally; the open question is names, which don't finalize until build assigns the prefix). Open.
+
+**Measure, don't vibe.** Add TS-performance benchmarks to the dx test plane (a generated large-graph fixture, completion-latency budgets) so "fast at scale" is a regression-tested claim, not folklore.
+
+### 4. 🟢 Terminology to revise
 
 Aligning owned vocabulary with CSS/web standards. Most existing terms are fine because CSS has no competing word (`port`, `recipe`, `variants`, `anatomy`, `elevation`) or are already aligned (`scheme` ↔ `prefers-color-scheme`, `layer` ↔ `@layer`). Two genuine offenders:
 
-- **`theme` / `applyTheme`** → revise. CSS's actual vocabulary for this mechanism is custom property / declaration / value; "theme" is a product-level word for the outcome, not the mechanism. Gets worse once liveness generalizes past color (a live radius "applied" via something named *theme* reads wrong). The §12 `updateTokenCCPVal` naming is the intended replacement — revisit both together.
+- **`theme` / `applyTheme`** → revise. CSS's actual vocabulary for this mechanism is custom property / declaration / value; "theme" is a product-level word for the outcome, not the mechanism. Gets worse once liveness generalizes past color (a live radius "applied" via something named *theme* reads wrong). The §15 `updateTokenCCPVal` naming is the intended replacement — revisit both together.
 - **`kind: 'parse'`** (internal) → rename to `'literal'` or `'raw'`. It means "authored as a raw CSS string, not built by a structured constructor" — the current name doesn't say that.
 
 **Error-code prefixes — confirmed compliant, recorded as convention.** Diagnostic codes are `VANE_*` (`VANE_TOKENS_CYCLE`, `VANE_CSS_INVALID_VALUE`, …) and shipped types are `Vane*` — package-qualified, per the family naming law (h3-dux uses `H3Dux*` for the same reason: a bare `Dux*`/`DUXERR_*` name is ambiguous the moment two dux forks share a project). Stays that way; never bare `DUX*`.
 
 ---
 
-## B. The value language
+## B. The value language & emission
 
-### 4. 🔵 Data-type branding utils
+### 5. 🔵 Data-type branding utils
 
 **Gap:** a value's CSS data type is currently inferred only from which builder was called (`oklch()` ⇒ `<color>`), with no equivalent for `<angle>`, `<length>`, `<percentage>`, etc. A bare `45` is just `number`.
 
@@ -107,9 +130,9 @@ hue: 45           // generic number
 hue: angle(45)    // branded <angle> — unlocks angle methods, accepted where an angle is expected
 ```
 
-These branding utils are the natural home for engine config (§6): a branded `percentage` can be told to accept factor-style vs. percent-style input, a branded `angle` needs no range (CSS `<angle>` has none — `hsl(400 …)` wraps mod 360, valid CSS), a branded `length` decides what a bare number means (§6, `unitless`).
+These branding utils are the natural home for engine config (§7): a branded `percentage` can be told to accept factor-style vs. percent-style input, a branded `angle` needs no range (CSS `<angle>` has none — `hsl(400 …)` wraps mod 360, valid CSS), a branded `length` decides what a bare number means (§7, `unitless`).
 
-### 5. 🟢 Token metadata config — `{ val, is: [...] }`
+### 6. 🟢 Token metadata config — `{ val, is: [...] }`
 
 How to attach metadata (liveness, description, validation) to a token. The object-syntax landing point came from ruling out two more obvious designs — worth preserving, because the ruled-out ones look reasonable at first:
 
@@ -135,20 +158,20 @@ color.brand.var   // the var() reference (already exists today)
 color.brand       // whichever the token's `is` config implies by default
 ```
 
-Used at composition time (§8), not a pair of free functions. Moded tokens (§10) extend the family: `.vals` is the per-mode record (`accent.vals.dark`), `.val` is typed `undefined` there, and `token.modes` is the runtime discriminant — generic code handles both kinds with `token.vals ?? token.val`.
+Used at composition time (§9), not a pair of free functions. Tokens with axes (§11) extend the family: `.axes` is the per-axis record (`accent.axes.scheme.dark`), `.val` is typed `undefined` there — generic code handles both with `token.axes ?? token.val`.
 
 **Settled — the label is `'var'`.** It's semantically exact (this token won't fold; anything referencing it emits a ccp-`var()`) and adds no new term to learn, unlike `'overridable'`/`'live'`/`'mayChange'`. **The key is `is`** (accepting a string or array): it reads as natural language (`is: ['var', 'checked']` = "this token is var, is checked"), and avoids the `var: true` ceremony a boolean-key shape would impose. No better candidate found — both the `is` key and the `'var'` value are decided; the object-syntax shape was already settled.
 
-### 6. 🔴 `createEngine()` — configurable value engine
+### 7. 🔴 `createEngine()` — configurable value engine
 
 Stage 1 of §2. Returns branded, pre-configured value-defining utils.
 
-**Motivation (this is the point, not "replicate hail-styl"):** because vane-dux lives in TS, anyone *can* hand-write a wrapper around `oklch` that forbids hues over some value, or an `alpha` that works in sRGB instead of oklch. But that's ceremony, repeated in every project. `createEngine` gives the *common* design-system tweaks a happy path — ranges, normalization, scales, colorspace defaults, unit meaning — so users rarely need to write their own engine utils. It also lets vane-dux ship *un-opinionated* defaults with per-call escape valves, instead of the too-opinionated model where (e.g.) `alpha()` only ever computed in oklch. Full CSS power (see §8), configurable defaults, per-call overrides (`alpha(token, 0.3).in('srgb')`) — no wrapper needed for the vast majority of cases.
+**Motivation (this is the point, not "replicate hail-styl"):** because vane-dux lives in TS, anyone *can* hand-write a wrapper around `oklch` that forbids hues over some value, or an `alpha` that works in sRGB instead of oklch. But that's ceremony, repeated in every project. `createEngine` gives the *common* design-system tweaks a happy path — ranges, normalization, scales, colorspace defaults, unit meaning — so users rarely need to write their own engine utils. It also lets vane-dux ship *un-opinionated* defaults with per-call escape valves, instead of the too-opinionated model where (e.g.) `alpha()` only ever computed in oklch. Full CSS power (see §9), configurable defaults, per-call overrides (`alpha(token, 0.3).in('srgb')`) — no wrapper needed for the vast majority of cases.
 
 ```TS
 const { color, oklch, alpha, length, percentage } = createEngine({
   color: {
-    space: 'oklch',                                  // default working space for space-agnostic ops (§8 `.in()` overrides per call)
+    space: 'oklch',                                  // default working space for space-agnostic ops (§9 `.in()` overrides per call)
     oklch: {
       l: { min: 0.04, max: 0.96, normalize: true },
       c: { min: 0, max: 0.3 },
@@ -161,31 +184,32 @@ const { color, oklch, alpha, length, percentage } = createEngine({
 
 Config axes gathered so far:
 
-- **`space`** — default working colorspace for space-agnostic ops (`alpha`, `mix`, `lighten`), overridable per-call via `.in()` (§8). `oklch()` itself is space-specific by name and ignores this.
+- **`space`** — default working colorspace for space-agnostic ops (`alpha`, `mix`, `lighten`), overridable per-call via `.in()` (§9). `oklch()` itself is space-specific by name and ignores this.
 - **Per-channel `min`/`max`** — the range a channel accepts.
 - **`normalize`** — a real, explicit flag, *not* auto-derived from range presence. A 0–180 hue range where you still reason in raw degrees (0 = red, 125 = green) is a genuine case where normalizing to 0–1 hurts readability. Default `true` when a range exists; set `false` when the absolute value matters more than its position.
-- **`allowedInputs`** — whether channel/amount arguments accept only explicit literals, also tokens, or also raw external `var()` refs (§16). Lets a strict system forbid raw refs it can't reason about.
+- **`allowedInputs`** — whether channel/amount arguments accept only explicit literals, also tokens, or also raw external `var()` refs (§19). Lets a strict system forbid raw refs it can't reason about.
 - **`length.unitless`** — `'px'` (default) | `'raw'` | `'rem'`: what a bare number means in a length context. Today a bare number is passed straight through (`serializeStyleValue` returns it as-is) and downstream behavior decides — which is implicit and undocumented. Make it explicit and configurable.
 
 **String emission rule (worth speccing, since there's no stated convention today):** strings emit verbatim/unquoted — `small: '16'` → `--vane-small: 16`. To force a quoted CSS string literal, include inner quotes — `content: '"hi"'` → `content: "hi"`. State this so it's predictable rather than discovered.
 
-**`createEngine` also returns the mode-aware `defineTokens`** (§10) and the branding utils (§4), alongside `color`/`oklch`/`length`/etc. — everything whose behavior the engine configures. The simple path stays simple: a default engine backs the bare importable versions, so a project that never calls `createEngine` still gets working `oklch`/`defineTokens` with default rules (same pattern as the importable-defaults-plus-configured-versions split throughout).
+**`createEngine` also returns the axis-aware `defineTokens`** (§11) and the branding utils (§5), alongside `color`/`oklch`/`length`/etc. — everything whose behavior the engine configures. The simple path stays simple: a default engine backs the bare importable versions, so a project that never calls `createEngine` still gets working `oklch`/`defineTokens` with default rules (same pattern as the importable-defaults-plus-configured-versions split throughout).
 
-**Extensibility — the engine registers custom primitives, not just configures built-in ones.** This is the meta-pattern `bem` and `elevation` revealed (§7): users don't only want to *tune* existing axes, they want to *add* new ones. So `createEngine` takes registrations alongside config:
+**Extensibility — chain links, because extensions must see the engine being built.** A single options object can't let one custom util reference another defined beside it (object values evaluate eagerly), can't hand `$derive` callbacks the *configured* utils, and can't type sibling references. The chain form fixes all three with the mental model the family already uses — `defineTokens().derive()`, idb-dux's perms chains: **the staged builder is the dux composition primitive.** Seed = static config; links = anything that references the accumulated engine:
 
 ```TS
-createEngine({
-  channels:  { e: elevationChannel },   // a new color channel (elevation)
-  units:     { bem: bemUnit },          // a new derived unit
-  dataTypes: { spring: springTiming },  // a whole new data-type util
-})
+export const de = createEngine({ color: { … }, length: { unitless: 'px' } })   // seed: static config only
+  .utils(({ oklch, alpha }) => ({ okech: …, tint: … }))    // custom utils, built on the CONFIGURED built-ins
+  .utils(({ tint }) => ({ softTint: … }))                  // later links see earlier custom utils
+  .channels(({ oklch }) => ({ e: … }))                     // the elevation channel, using engine math
+  .units(() => ({ bem: … }))
+  .axes(({ darken }) => ({ … }))                           // §11 — $derive closes over the chain's utils
 ```
 
-The payoff: **`bem` and `elevation` stop being privileged library special-cases** — they ship as the *first consumers* of the exact same extension API every user has (§7). That collapses "configure the engine" (§6), "the bem/elevation conveniences" (§7), and "author custom utils" (§21) into one story: the engine is extensible, and its own defaults are built on the extension points you get. Nothing is a hardcoded exception — the mark of a foundation that gives rather than fights.
+The payoff stands: `bem` and `elevation` ship as the first consumers of the same links every user gets (§8) — "configure the engine" (§7), the shipped conveniences (§8), and "author custom utils" (§24) collapse into one story. Nothing is a hardcoded exception.
 
-### 7. 🔵 `bem` + `elevation` — built *on* the engine's extension points
+### 8. 🔵 `bem` + `elevation` — built *on* the engine's extension points
 
-Two hail-styl concepts general enough to ship as defaults — and, per §6's extensibility, implemented *through* the public `channels`/`units` registration rather than as hardcoded internals. They're demonstrations that the base layer is powerful enough that even vane-dux's own conveniences ride on the same API users get. Users can still define their own scales/units/ranges/channels instead.
+Two hail-styl concepts general enough to ship as defaults — and, per §7's extensibility, implemented *through* the public `channels`/`units` registration rather than as hardcoded internals. They're demonstrations that the base layer is powerful enough that even vane-dux's own conveniences ride on the same API users get. Users can still define their own scales/units/ranges/channels instead.
 
 **`elevation`** — the semantic-elevation channel: a neutral surface tinted toward a base color at a position `0..1`, scheme-aware (light scheme darkens with position, dark scheme inverts). Already exists as `elevation()` in `preset/tokens.ts`; promote it from a bespoke preset helper into a first-class engine channel where `e` substitutes for `l`:
 
@@ -196,11 +220,11 @@ okech(0.03, 0.02, 264)   // positional constructor, parallel to oklch(l, c, h) �
 **Naming — `okech` vs `okelch`, settled by dsColor's actual shape** (`setup-color.styl:37`). dsColor is a *from-base* builder whose lightness slot accepts **either** `e` (elevation) **or** `l`, each in explicit / normalized / relative modes. So:
 
 - **`okech(e, c, h)`** — the simple positional constructor, elevation-only (the name literally omits `l`). Parallel to `oklch(l, c, h)`. This is what the example above needs.
-- **`okelch`** (the name carries both `e` and `l`) — the dsColor-equivalent: a from-base builder where you pick `e` *or* `l` per call, with the explicit/normalized/relative channel modes of §8. In practice this is §8's extended `oklch.from(base, {...})` plus elevation support, so `okelch.from(base, { e: 0.03 })` may be the cleaner spelling than a separate top-level constructor. Exact surface tracks §8; the naming distinction (`okech` = elevation-only, `okelch`/`.from` = elevation-or-lightness) is the settled part.
+- **`okelch`** (the name carries both `e` and `l`) — the dsColor-equivalent: a from-base builder where you pick `e` *or* `l` per call, with the explicit/normalized/relative channel modes of §9. In practice this is §9's extended `oklch.from(base, {...})` plus elevation support, so `okelch.from(base, { e: 0.03 })` may be the cleaner spelling than a separate top-level constructor. Exact surface tracks §9; the naming distinction (`okech` = elevation-only, `okelch`/`.from` = elevation-or-lightness) is the settled part.
 
 **`bem`** ("base-scale em") — a unit that's rem-derived (so it respects the user's browser font-size accessibility setting) *and* expressed in the design's base scale. hail-styl needed it because raw `rem` respects a11y but sits outside the scale, while raw scaled-px sits in the scale but ignores a11y — `bem` gets both. Worth `createEngine({ units: { bem: … } })` as the general mechanism (declarable derived units), with `bem` and `elevation` as the two shipped examples.
 
-### 8. 🔴 Full-power color composition
+### 9. 🔴 Full-power color composition
 
 **Gap:** `oklch()` and the color ops accept literal numbers only. Native CSS `oklch()` accepts `var()` in any channel (`oklch(var(--l) var(--c) var(--h))` is legal CSS today), and relative-color syntax derives a new color from a base with per-channel overrides. Per §1, the TS wrapper shouldn't do *less* than the platform primitive it wraps. This is the concrete driver behind `hail-styl`'s `dsColor` — itself just a configurable wrapper over `oklch` with explicit / relative / normalized channel modes.
 
@@ -213,7 +237,7 @@ oklch(lightness.val, chroma.val, hue.var)       // token refs per channel — mi
 
 oklch.from(brand, { l: 0.9 })                    // relative-from-base, override a subset — oklch.from EXISTS today
 oklch.from(brand, { c: channel.multiply(0.5) })  // channel ops (add/subtract/multiply/divide) — EXIST today
-oklch.from(brand, { l: norm(0.5) })              // normalized-within-configured-range — NEW, ties to §6 ranges
+oklch.from(brand, { l: norm(0.5) })              // normalized-within-configured-range — NEW, ties to §7 ranges
 ```
 
 So the gap is narrower than "build it all": per-channel token refs in the base constructor, and a `norm()` mode that reads the engine's configured range. `oklch.from` + channel ops already cover the relative case. The same "accept a token where a literal is expected" gap likely spans other value utilities too, but `calc`/`clamp`/`min`/`max` already nest well, so color is the lagging surface.
@@ -227,7 +251,7 @@ alpha(brand, 0.2).in('srgb')   // this call overrides — chains like calc().mul
 
 **One honest platform ceiling:** most ops fold at build time and degrade to a live CSS form (`color-mix()`, relative color) when an input is live — so a single function adapts automatically. The exception is `legibleOn()`/contrast: real APCA contrast has no mature native CSS primitive (`contrast-color()` is experimental), so over a *live* target it degrades to `contrast-color()` + a computed fallback rather than a fully-live guarantee. A capability ceiling, not a design gap — worth documenting so it isn't mistaken for one.
 
-### 9. 🔵 Scales — step-indexed accessor + `fluid()`
+### 10. 🔵 Scales — step-indexed accessor + `fluid()`
 
 `scale.linear` and `scale.modular` already exist (`{ unit: 4, steps: {...} }` → px; `{ ratio: 1.25, ... }` → modular), but both bake a fixed steps object. Two additions:
 
@@ -239,104 +263,104 @@ alpha(brand, 0.2).in('srgb')   // this call overrides — chains like calc().mul
 fluid({ min: 16, max: 24, minVw: 320, maxVw: 1280 })   // → clamp(...) that scales type/space with the viewport
 ```
 
-### 10. 🔴 Modes — a token's value across mutually-exclusive axes
+### 11. 🔴 Axes — a token's values across the environment
 
-**Gap.** The only multi-value token switch today is `scheme({ light, dark })` (`color.ts:252`) — color-only, hardcoded to two values, welded to `light-dark()`. It's one special case of an unabstracted general pattern: a token taking different values under different ambient states (scheme, density, brand, breakpoint, …).
+**Terminology, fixed first.** An **axis** is a named dimension of the styling environment (`scheme`, `density`, `brand`); a **mode** is one value of an axis (`dark`, `compact`). An earlier draft named the engine key `modes:` while its entries were axes — corrected throughout: the engine key is `axes:`, the token-level key is `axes`, "mode" always means one axis value. And the deeper unification: **a condition is a named scope; a mode is a condition that belongs to an axis.** Same species — the axis contributes the mutual-exclusivity guarantee (exactly one mode active per axis) that makes per-mode token *values* coherent. "Scope" is the owned umbrella term for where-declarations-apply (selector arms and conditional at-rules alike — CSS has no single official umbrella word, and the platform's new `@scope` at-rule makes this the aligned choice, §13).
 
-**Modes ≠ conditions.** A condition is an *independent* circumstance — `hover`, `md`, `dark` can all apply at once. A mode is a value of a *mutually-exclusive axis* — exactly one active per axis — which is what makes a per-mode token value unambiguous. The name aligns with Figma's "variable modes" (→ §22 interop, near-1:1).
+**Gap.** The only multi-value token switch today is `scheme({ light, dark })` (`color.ts:252`) — color-only, two hardcoded values, welded to `light-dark()`. One special case of an unabstracted pattern. The name "modes" aligns with Figma's variable modes (→ §25 interop).
 
-**Axes are flat, declared in `createEngine`.** An earlier draft nested axes under token groups (`$global` + per-group trees) with path-prefixed keys (`globalSchemeLight`). Flattening dissolved every problem that structure created: axis names are keys of one object — unique by construction, so no prefixes, no collision policing, no `$global`/`$shared` wrapper at all. Scoping and enforcement are per-axis `$`-config keys (which can never collide with mode-value names):
+**Axes are flat, declared on the engine chain** (§7) — so `$derive` callbacks close over the *configured* utils via the link's parameter, and sibling-mode typing comes from the axis object itself:
 
 ```TS
-export const { defineTokens } = createEngine({
-  modes: {
-    scheme:  { light: '$defaultScope', dark: schemeIs('dark'), $require: ['color'] },
-    density: ['compact', 'cozy'],          // shorthand → [data-density=compact] / [data-density=cozy]
+export const de = createEngine({ color: { … } })
+  .axes(({ darken }) => ({
+    scheme:  { light: '$defaultScope', dark: schemeIs('dark'), $require: ['color'],
+               $derive: { dark: ({ light }) => darken(light, 0.4) } },
+    density: ['compact', 'cozy'],            // shorthand → [data-density=compact] / [data-density=cozy]
     brand:   { acme: data('brand', 'acme'), globex: data('brand', 'globex'), $expose: ['color', 'marketing.expA'] },
-  },
-})
+  }))
 ```
 
-- **`$expose: [paths]`** — narrows which groups/subgroups see the axis (dot-notation; exposure to a group includes its subgroups). Absent = exposed everywhere.
-- **`$require: [paths] | true`** — tokens in those groups *must* vary along this axis. **`$require` implies `$expose`** (you can't require what isn't visible), so no third `$exposeAndRequire` key is needed: `$require` alone narrows *and* enforces; combine with a wider `$expose` when some groups get it optionally and others mandatorily. `true` = required everywhere exposed.
-- **Triggers are `VaneConditionInput`** — the exact type conditions already use: a selector string, an at-rule string, or the typed helpers (`media()`, `data()`, `schemeIs()`). `schemeIs('dark')` already compiles to **two arms** (pinned `[data-scheme=dark]` subtree + the media-preference arm excluding opposite-pinned subtrees — hail-styl's exact dark-scheme-overrides dance), so multi-selector emission falls out of multi-arm conditions for free. `'$defaultScope'` is the sentinel for "emit at the token's own scope."
+- **`$expose: [paths]`** narrows which groups/subgroups see an axis (exposure to a group includes its subgroups); absent = everywhere. **`$require` implies `$expose`** — alone it narrows *and* enforces; combine with a wider `$expose` when some groups get the axis optionally. `true` = required everywhere exposed.
+- **Triggers are `VaneConditionInput`** — the type conditions already use (selector strings, at-rule strings, `media()`/`data()`/`schemeIs()`); multi-arm helpers give multi-selector emission for free. `'$defaultScope'` = emit at the token's own scope.
+- **`$derive`** is declared at engine time, invoked at token-resolve time — no chicken-and-egg, no intermediate factory. With `$require` + `$derive` together, plain `brand: hsl(…)` in an exposed group *is* the light value and dark derives automatically — **one-line dark mode** (gauntlet moment 2, amplified). Explicit values override the derivation.
 
-**Authoring — axis-nested `val` map, one axis per token, totality by type:**
+**Multi-axis tokens — the one-axis rule is dropped.** A token may vary along several axes when they jointly affect the same design decision — `card.shadow`: scheme picks the shadow's color treatment, density its geometry; resolving each independently can be simply wrong (likewise `focus-ring` × contrast, `control.minHeight` × platform). Replacement rules:
+
+- **Per-axis maps stay independent and sparse** — never an auto-generated cartesian matrix. Each mode's declaration emits under its own scope.
+- **Sparse combo overrides** cover the cases where single-axis adjustments don't compose — an explicit intersection entry, emitted *after* all single-axis declarations (API shape open).
+- **Resolution is ordered, not accidental:** default → single-axis → combo, guaranteed by emission order (§12). The earlier draft rejected multi-axis because two selectors setting one var "silently compete" — that wasn't an argument against multi-axis; it was the missing order-control gap (§12) wearing a costume.
+- Guidance stays: most tokens are axis-free; primitives mostly single-axis; multi-axis belongs to semantic/component tokens where axes genuinely intersect. Independent properties are separate tokens (`button.background` ← scheme, `button.padding` ← density), never one multi-axis blob.
+
+**Authoring — the `axes` key; `val` stays strictly single-value.** Definition and reading are two ends of one tunnel, so they use the same word at both ends:
 
 ```TS
-const t = defineTokens({
-  color: { accent: { val: { scheme: { light: color('red'), dark: color('darkred') } } } },
-  space: { gap:    { val: { density: { compact: 4, cozy: 8 } } } },   // any token type, not just color
-})
+brand:  { val: color('red'), is: 'var' },                       // plain token — val is always ONE value
+accent: { axes: { scheme: { light: color('red'), dark: color('darkred') } } },
+shadow: { axes: {                                                // multi-axis: per-axis, sparse, independent
+  scheme:  { light: '0 1px 2px rgb(0 0 0 / .2)', dark: '0 1px 2px rgb(0 0 0 / .6)' },
+  density: { compact: '0 1px 2px', cozy: '0 4px 12px' },
+} },
 ```
 
-- **One axis per token.** A token varying along two axes simultaneously (dark×compact) is genuinely ambiguous in the cascade — two selectors setting the same var, order silently decides. So a `val` map uses exactly one axis; multi-axis needs are expressed by deriving from single-axis tokens (§8). This rule is also what makes `.vals` unambiguous without naming the axis.
-- **Totality is type-enforced.** The map is `Record<AxisValues, V>` — omitting `dark` is an error at the cursor, not an undefined var discovered at night. `$require` then only carries the stronger meaning ("must vary along this axis"); coverage is the type's job.
-- **Intellisense mechanics:** `const` type parameters on `createEngine` preserve literals (no `as const` needed at the call site), and `$expose` dot-paths are matched against the current definition path with template-literal types — the same mechanism idb-dux's `where` dot-path completions already prove out. Flag: TS-server performance on very large trees is an engineering risk to measure, not a design blocker.
+- `axes` replaces the earlier `val`-as-object form, and the `.vals` record is dropped with it — under multi-axis a bare mode key (`.vals.dark`) is ambiguous; `token.axes.scheme.dark` never is.
+- **Reserved keys:** `val` and `axes` cannot be group or token names — they're the disambiguation anchor (an object is token config iff it has `val` or `axes`; other metadata keys stay unreserved).
+- **Totality per used axis is type-enforced** (`Record<AxisModes, V>`); `$derive` satisfies it implicitly. Intellisense: `const` type parameters preserve literals (no `as const`), `$expose` dot-paths match the current definition path via template-literal types (idb-dux dot-path precedent); TS-server perf at scale is a benchmark item (§3), not a design blocker.
+- Axed ⇒ `is: 'var'` automatically (varying by ambient state can never fold); explicit `is: 'var'` allowed, redundant. A token's axes map is **atomic** — reopening it in a later `.derive()` stage is an error; deriving one mode from another uses a plain `const` (TS is vane's `.stage()`).
 
-**No default value — a mode is a per-value emission scope, period.** Every mode value emits under its trigger; `'$defaultScope'` is the explicit opt-in to the token's own scope (`:root` by default, §13). No "first-declared wins" magic. Consequences:
-
-- **Moded ⇒ `is: 'var'` automatically.** A token whose value varies by ambient state can never fold, nor can anything downstream of it. Writing `is: 'var'` explicitly is allowed but redundant.
-- If no value maps to `$defaultScope`, the token has no base declaration — outside any matching mode context, `var(--token)` resolves to nothing (or a per-use fallback). Correct, and deliberate (see §11 for the fully-unemitted cousin).
-- The built-in scheme axis may still emit native `light-dark()` as an optimization; arbitrary axes use selector overrides. Authors never see the difference.
-
-**Reading values — `.vals` record, not a call.** An earlier draft had `token.val(modeKey)`; a record is strictly better — shorter, autocompletes its keys, no string-argument API:
+**Reading — `token.axes`, the same word as the definition:**
 
 ```TS
-t.color.accent.vals.dark    // one mode's value — keys autocomplete from the axis
-t.color.accent.val          // typed undefined on moded tokens (an error to use where a value is expected)
-t.space.gap.modes           // runtime discriminant: { axis: 'density', values: ['compact', 'cozy'] } | undefined
-
-const log = (token) => console.log(token.vals ?? token.val)   // generic code handles both, no crash, no sentinel
+t.color.shadow.axes.scheme.dark     // keys autocomplete per axis
+t.color.accent.val                  // typed undefined on axed tokens — an error to use where a value is expected
+const log = token => console.log(token.axes ?? token.val)   // generic code: no crash, no sentinel
 ```
 
-Runtime returns `undefined` rather than a `'$hasModes'` sentinel — a sentinel string can leak into CSS/logs as a plausible value; `undefined` can't, and the `token.modes` discriminant covers the "which kind is this?" question for untyped contexts.
+Runtime returns `undefined`, never a `'$hasModes'`-style sentinel (a sentinel string can leak into CSS/logs as a plausible value; `undefined` can't), and `token.axes` doubles as the runtime discriminant. Naming flag stays: internal `VaneTokenMode` (`'static' | 'scheme' | 'live' | 'derived'`) collides with this vocabulary — rename when axes land.
 
-**Naming flag:** the internal `VaneTokenMode` (`'static' | 'scheme' | 'live' | 'derived'`) collides with this vocabulary — its `'scheme'` literally becomes one axis instance. Rename the internal field when modes land.
-
-**Cross-stage rules.** A token's mode map is **atomic** — authored whole in whichever stage defines the token. Adding a *different token* whose mode values derive from existing handles is normal `.derive()` usage; reopening an existing token's map in a later stage to add a mode is an error by design (the existing leaf-redefinition rejection). Deriving one mode from another *within* one token uses a plain `const` — TS itself is the staging mechanism (the reason idb-dux needs `.stage()` is that CEL is a compiled-away string language whose intermediates must be named inside the builder; TS consts already do that job here with real rename/find-refs):
+**Group-level `$axes` — the transposed bulk form.** Replaces the earlier standalone `modes()` helper: a `$`-key *inside the group* keeps contextual typing airtight (a loose function can't know which group it's called under; an in-tree key can) — which also dissolves the helper-naming question. Transposed inner shape matches how palettes are actually authored (whole light set, then whole dark set — a Figma variables table):
 
 ```TS
-const accentLight = color('red')
-accent: { val: { scheme: { light: accentLight, dark: accentLight.darken(0.4) } } }
+color: {
+  $axes: { scheme: {
+    light: { a: hsl(…), b: hsl(…), c: hsl(…) },
+    dark:  { a: hsl(…), b: hsl(…), c: hsl(…) },    // key sets must match — totality stays type-enforced
+  } },
+  a: { description: 'canvas tint' },       // per-token metadata merges by key — unambiguous here,
+}                                           // because $axes already established `a` is a token
 ```
 
-**`$derive` — rule-based modes, and one-line dark mode.** When one mode is systematically derivable from another ("dark is always light, darkened"), declare it once on the axis. No chicken-and-egg with `createEngine` (the callback is *declared* at engine time but *invoked* at defineTokens/resolve time, receiving the engine's own finished utils) — so no intermediate `createDefiner` stage is needed:
+**Emission — no default value; a mode is a per-value emission scope.** Every mode value emits under its trigger's scope; `'$defaultScope'` opts one into the token's own scope (`:root` by default — configurable, §12). If no mode maps to `$defaultScope`, the token has no base declaration — correct and deliberate (§14 is the fully-unemitted cousin). The built-in scheme axis may still emit native `light-dark()` as an optimization; authors never see the mechanism difference.
 
-```TS
-modes: {
-  scheme: {
-    light: '$defaultScope',
-    dark: schemeIs('dark'),
-    $require: ['color'],
-    $derive: { dark: ({ light }, u) => u.darken(light, 0.4) },   // u = this engine's configured utils
-  },
-}
-```
+**Axis modes are conditions.** Since a mode *is* a condition-in-an-axis, every axis auto-exposes its modes to `css()` as axis-prefixed camel keys (`schemeDark:`, `densityCompact:`) — prefixed so nothing collides with loose conditions; one trigger declaration powers both token values and rule styling, so the `dark` base condition and the scheme axis can never drift.
 
-- A token that provides `light` but omits `dark` gets the derived value; explicitly providing `dark` overrides. Totality is satisfied either way.
-- **The compounding payoff:** with `$require` + `$derive` together, plain tokens in the exposed groups need no mode map at all — `brand: hsl(…)` *is* the light value, dark derives automatically. "Add dark mode to a system that didn't have it" collapses from "edit every token" to **one axis declaration**. Gauntlet moment 2, amplified.
+**Group `$`-metadata (micro-proposal).** `$axes` opens the pattern: groups can carry their own `$` config — `$description` for docs/manifest prose, potentially group-local enforcement — cheap, and documentation generation gets group-level context for free.
 
-**Bulk authoring — the transposed helper.** For hand-tuned palettes where `$derive` doesn't apply, per-token maps get ceremonious at scale. A transposed form matches how designers actually think (whole light palette, then whole dark palette — exactly a Figma variables table, rows×mode-columns):
+**Runtime.** `setMode(el, 'density', 'compact')` generalizes `setScheme` (kept as the built-in axis's alias), writing the matching `data-*` for shorthand triggers.
 
-```TS
-color: modes('scheme', {
-  light: { a: hsl(…), b: hsl(…), c: hsl(…) },
-  dark:  { a: hsl(…), b: hsl(…), c: hsl(…) },   // key sets must match — totality stays type-enforced
-})
-```
+**Open:** sparse-combo API shape; axis emission order beyond declaration order (§12); the group `$`-key set.
 
-Compiles to the same per-token maps. Tokens needing per-token metadata use the ordinary form alongside (the two mix freely in one group). Positional-array sugar (`brand: [hsl(…), hsl(…)]`) was considered and dropped: it trades away self-documentation (which slot is dark?) for marginal terseness, and degrades fast past two values.
+### 12. 🔵 Emission control — scope & order
 
-**Axes auto-derive conditions.** Declaring the `density` axis should also make `compact:`/`cozy:` available as conditions in `css()` — one trigger declaration powering both token values *and* rule styling, so the existing `dark` base condition and the scheme axis can never drift apart. `createSystem` wires this (it owns conditions).
+The two orthogonal controls over every emission — **scope** (*where* a declaration applies) and **order** (*when* it wins ties) — hail-styl's exact model (`tokensScope`/`rulesScope` + ordered layers), rebuilt on the platform's own primitives.
 
-**Runtime.** `setMode(el, 'density', 'compact')` generalizes `setScheme` (which stays as an alias for the built-in axis), writing the matching `data-*` for shorthand-generated triggers.
+**Order — partially exists; extend it everywhere.** Rules already have real order control: layers nest under the system prefix (`@layer vane.recipes`), authored per rule, global order pinned once for coexistence — the CSS-native mechanism (§1), stronger than manual flush ordering. The actual gaps:
 
-**Open:** the transposed helper's name (`modes(…)` doubles the config key's name — fine or confusing?); whether `$derive` can also be declared per-group rather than per-axis; `token.modes` vs a name that avoids the `VaneTokenMode` clash entirely.
+- **Token declarations aren't layer-addressable** — `createGlobalTheme(':root', …)` emits outside any layer. Proposal: tokens get a default `tokens` layer, first in the system order, overridable per module.
+- **Axis-override order is unspecified** — the load-bearing piece for §11 multi-axis. Proposal: single-axis overrides emit in axis-declaration order (later axis wins ties); sparse combos emit after all single-axis declarations. Default → single-axis → combo becomes a *guarantee*, not an accident of source order.
 
----
+**Scope — restore the dropped proposal.** Token emission is hardcoded to `:root` today (no parameter on `createGlobalTheme(':root', …)`); an earlier draft's custom-scope proposal fell out during a restructure and is reinstated here: systems and token modules can emit under a configurable scope (`createSystem({ scope: '#widget-host' })`, per-module override) — the extension/embedded-widget mounting case hail-styl's `tokensScope` served. Scope and §11's per-mode triggers compose: base at the token's scope, mode overrides at scope + trigger.
 
-### 11. 🔵 Null tokens + the integration surface
+### 13. 🔵 Platform levers not yet harnessed
+
+An audit of CSS control points the pipeline doesn't drive yet — opportunities, not gaps:
+
+- **`@property` — the standout.** Register token CCPs with `syntax`/`inherits`/`initial-value`. §5's data-type branding maps 1:1 onto `@property` syntax strings (`'<color>'`, `'<length>'`, `'<angle>'`) — the browser then enforces *at runtime* the same type the compiler enforced at build time (errors-at-the-cursor extended into the live cascade), and typed CCPs become **animatable**: transition `--brand-hue` natively — huge for §11 axes and live theming. `inherits: false` becomes a per-token cascade control. Ties to §14 (registration without declaration; note `initial-value` is required for non-universal syntax — detail to spec).
+- **`:where()` as a deliberate specificity lever** — conditions already use it internally (`schemeIs`); make zero-specificity emission a documented, per-emission choice for override-friendly output.
+- **`@scope`** — native subtree scoping (with donut holes); aligns with the owned "scope" vocabulary (§11) and is a natural future trigger/scope form.
+- **`view-transition-name`** — token-backed transition names; small, cheap, worth a line in the spec.
+
+### 14. 🔵 Null tokens + the integration surface
 
 Two related proposals from one proven setup (hail-styl icon channels + svgo + `IconFrame.vue`).
 
@@ -358,16 +382,18 @@ icon: {
 - The deterministic naming contract (`--{prefix}-{kebab-path}`) documented as a public guarantee, so even contexts that can't import the graph can compute names by convention.
 - **Flag to verify:** config files run outside the vane compiler — a name-only read path for token modules (importable from `nuxt.config.ts`/svgo config without triggering emission) needs confirming; the existing "system modules are importable from app code" serialization machinery suggests it's close, not free.
 
+**Real-world context:** `packages/dux/__references__/hail-nuxt` — the Nuxt starter where this need originated: `IconFrame.vue`, the svgo `format-svg` plugin, and the hand-maintained TS↔Stylus mirror (`shared/utils/ds.ts` + vite `define` injection) this whole proposal replaces.
+
 ## C. Runtime / consumption
 
-### 12. 🟢 `updateTokenCCPVal(s)` / `setCCPVal` — runtime value updates
+### 15. 🟢 `updateTokenCCPVal(s)` / `setCCPVal` — runtime value updates
 
-Replaces the runtime side of `theme`/`applyTheme` (§3). Named on the agreed CCP anatomy: `--name: val` → ccp-name `--name`, ccp-val `val`; `var(--name)` → ccp-var. "Update" because a declaration already exists; "Token" because it targets a vane-dux token specifically, which is what makes stylesheet ownership (§13) possible — vane-dux knows where a token's declaration lives.
+Replaces the runtime side of `theme`/`applyTheme` (§4). Named on the agreed CCP anatomy: `--name: val` → ccp-name `--name`, ccp-val `val`; `var(--name)` → ccp-var. "Update" because a declaration already exists; "Token" because it targets a vane-dux token specifically, which is what makes stylesheet ownership (§16) possible — vane-dux knows where a token's declaration lives.
 
 **Signature — target optional and last:**
 
 ```TS
-updateTokenCCPVal(t.color.brandHue, 42)                    // patches where the token was emitted (§11)
+updateTokenCCPVal(t.color.brandHue, 42)                    // patches where the token was emitted (§14)
 updateTokenCCPVal(t.color.brandHue, 42, '#widget-root')    // scoped to a selector
 updateTokenCCPVal(t.color.brandHue, 42, someElement)        // scoped to an element (inline style)
 ```
@@ -404,9 +430,9 @@ t.color.brandHue.updateCCPVal(42)            // method — identical result, zer
 
 The two single-token forms are near-identical in ergonomics; the method's one real edge is needing no import (though auto-imported system utils erase even that for many setups). The plural forms (`updateTokenCCPVals`, array or tree) have genuine advantages the method form can't match — one shared target across many updates, tree form for same-group discoverability in IntelliSense — so those stay free-function-only. Adding the method is low-cost (it delegates to the same logic, and every handle already carries `.var`/`.val`/color methods), so ship both: method + single free function + plural free-function batch forms.
 
-### 13. 🔴 Runtime stylesheet ownership
+### 16. 🔴 Runtime stylesheet ownership
 
-**Gap:** no way to update a token by selector without holding a DOM element, and no runtime record of which stylesheet/rule backs a token — that mapping exists at build time and is discarded after compilation. Enables the happy path of §12: no target → patch the token's existing declaration in place.
+**Gap:** no way to update a token by selector without holding a DOM element, and no runtime record of which stylesheet/rule backs a token — that mapping exists at build time and is discarded after compilation. Enables the happy path of §15: no target → patch the token's existing declaration in place.
 
 **Mechanism sketch (not prescriptive):**
 
@@ -415,22 +441,22 @@ The two single-token forms are near-identical in ergonomics; the method's one re
 - CSSOM (`document.styleSheets`, `CSSStyleSheet`, `CSSRule`) is a live JS object graph, not text — mutating it costs about an inline-style write. No perf concern; removes the "must hold an element" requirement.
 - Not comment-based anchors (comments don't survive CSSOM parsing) — the `data-*` attribute is the anchor.
 
-### 14. 🔵 Port schema validation
+### 17. 🔵 Port schema validation
 
-Ports should use the **same object syntax as tokens** (§5) — a port is a token-like definition made per-instance, on the go — minus what doesn't apply (`is`: a port is unconditionally live). Type-level: `Omit<VaneTokenConfig<T>, 'is'>`.
+Ports should use the **same object syntax as tokens** (§6) — a port is a token-like definition made per-instance, on the go — minus what doesn't apply (`is`: a port is unconditionally live). Type-level: `Omit<VaneTokenConfig<T>, 'is'>`.
 
 ```TS
 const factor = port(1)                                                 // shorthand — no config
 const factor = port({ val: 1, validate: { schema: FactorSchema } })    // config, same shape as a token
 ```
 
-**Retire `as`.** The current unit-annotation option (`port(0, { as: 'deg' })`) bolts a unit on from outside — exactly the anti-pattern §4/§5 reject. Once branding utils exist, the default carries its own unit:
+**Retire `as`.** The current unit-annotation option (`port(0, { as: 'deg' })`) bolts a unit on from outside — exactly the anti-pattern §5/§6 reject. Once branding utils exist, the default carries its own unit:
 
 ```TS
 port(angle(45))   // unit lives in angle(), no `as` needed
 ```
 
-Treat `as` as a stopgap to remove when §4 ships.
+Treat `as` as a stopgap to remove when §5 ships.
 
 **`eager` — type-only by default, opt into runtime checking.** A schema is useful for *type inference alone* (zero runtime cost) even when you never want a runtime check. So `eager` defaults to `false` (schema types the port, no runtime validation runs); `eager: true` opts into actually validating each `.set()`:
 
@@ -450,13 +476,13 @@ port({ val: 1, validate: { schema: FactorSchema, eager: true, onInvalid: 'throw'
 
 Type `schema` against [Standard Schema](https://standardschema.dev) (the shared `~standard` interface zod/valibot/arktype/effect all implement) so users bring their own validator and vane-dux depends on none — the §1 "align with an existing standard" instinct, applied to the validation ecosystem.
 
-**Not for token definitions.** Hand-authored token values in your own source aren't untrusted input — type-only inference is the whole story there. `validate` stays ports-only. (The design-tool import case in §22 is unrelated: ordinary schema usage on raw JSON before it becomes tokens, not a config key on a definition.)
+**Not for token definitions.** Hand-authored token values in your own source aren't untrusted input — type-only inference is the whole story there. `validate` stays ports-only. (The design-tool import case in §25 is unrelated: ordinary schema usage on raw JSON before it becomes tokens, not a config key on a definition.)
 
 ---
 
 ## D. Authoring ergonomics
 
-### 15. 🟢 CCP relationship modeling (the `--base` pattern)
+### 18. 🟢 CCP relationship modeling (the `--base` pattern)
 
 The Stylus idiom of declaring a local `--base` and deriving other values from it splits into three needs, all already covered — no new primitive:
 
@@ -480,7 +506,7 @@ css.raw`
 
 One narrow gap in the `css.raw` case: a freshly-invented local name like `--base` is just text, so no F2-rename ties its declaration to its uses. Low-stakes (a few lines you're looking at directly); not worth new surface without a concrete bug.
 
-### 16. 🔵 `rawVar` escape hatch
+### 19. 🔵 `rawVar` escape hatch
 
 `color('var(--x)')` fails today — `parseColor` can't resolve an external var into a real color. `rawVar` is the deliberate opt-in for "vane can't validate this, trust me," instead of a cryptic parse failure:
 
@@ -488,9 +514,9 @@ One narrow gap in the `css.raw` case: a freshly-invented local name like `--base
 rawVar('--some-other-librarys-var', '12px')   // guarantees var(--name, fallback) shape — validated syntax, unvalidated meaning
 ```
 
-Pairs with §6's `allowedInputs: 'raw'` — a strict engine can forbid raw refs entirely; a permissive one accepts them through this explicit door.
+Pairs with §7's `allowedInputs: 'raw'` — a strict engine can forbid raw refs entirely; a permissive one accepts them through this explicit door.
 
-### 17. 🟡 Property shorthands (`pb` → `paddingBlock`)
+### 20. 🟡 Property shorthands (`pb` → `paddingBlock`)
 
 A predictable initialism of the *actual* CSS property name is additive, not a competing vocabulary — distinct from Tailwind's full naming universe (which sometimes maps to no single property and ventures into pseudo-selector-as-prop territory, explicitly out of scope). Scope: initialisms of real property names only.
 
@@ -502,7 +528,7 @@ const { css } = createSystem({ css: { propsStyle: 'long' } })   // 'long' (defau
 
 `propsStyle` lets a team enforce one form rather than mixing by accident. **Open:** the exact shorthand set (if any).
 
-### 18. 🔵 `fromGroup()` — recipe sugar
+### 21. 🔵 `fromGroup()` — recipe sugar
 
 Single-property, group-driven variants (badge tone, a palette swap) force a hand-nested `variants` object for a mechanical 1:1 mapping:
 
@@ -512,7 +538,7 @@ variants: { tone: fromGroup(t.tones, c => ({ background: c })) }
 
 Iterates a token group's keys at build time, deriving the variant's possible values from the group itself — no hand-typed union to keep in sync. (Checked for other recipe-sugar candidates; nothing else has earned its place yet.)
 
-### 19. 🟢 `propsOf` — object-based namespacing
+### 22. 🟢 `propsOf` — object-based namespacing
 
 Supersedes an earlier tuple-array form (which couldn't guard against two entries' prefixes colliding). The object key doubles as prefix and reference, so nothing drifts:
 
@@ -525,14 +551,14 @@ propsOf(button)                                    // second arg: 'all' (default
 
 The prefix comes from the **key**, not the variable name — `{ btn: button }` prefixes as `btn`.
 
-### 20. 🔵 Mixins — `definePatterns` + expand the set
+### 23. 🔵 Mixins — `definePatterns` + expand the set
 
 `definePatterns` already exists in `/preset` — the full [Every Layout](https://every-layout.dev) set (`stack`, `inline`, `cluster`, `center`, `sidebar`, `switcher`, `frame`, `reel`), memoized, bound to the system's spacing. So layout mixins are largely solved. Two moves:
 
 - **Expand the shipped set** with the common non-layout mixins: `circle`, `square`, `visuallyHidden`/`srOnly`, `truncate` (line-clamp).
 - **Bless `definePatterns` as *the* mixin-authoring convention** — document it as the blessed shape for custom mixin bundles, so people don't reach for ad-hoc `css()` wrappers.
 
-### 21. 🔵 Documented custom-util authoring recipe
+### 24. 🔵 Documented custom-util authoring recipe
 
 vane-dux already exports the right type material (`VaneColor`, `VaneColorish`, `VaneCssValue`, `VaneCssInput`, `VaneMathValue`, `VaneDimensionOf`, …). What's missing is the documented pattern — a short canonical recipe for writing a util that accepts and returns vane values and composes with the rest of the surface. A docs/DX gap, not a missing primitive. Load-bearing for the whole "tune your own engine, build your own utils" vision: without it, authoring an `oklch`-caliber util is archaeology.
 
@@ -540,7 +566,7 @@ vane-dux already exports the right type material (`VaneColor`, `VaneColorish`, `
 
 ## E. Integration
 
-### 22. 🔵 W3C Design Tokens — two-way sync
+### 25. 🔵 W3C Design Tokens — two-way sync
 
 **Import** — a built-in importer reads an external design-token export (Figma's Tokens Studio, Style Dictionary, the W3C draft all converge on `$value`/`$type` per entry). Heterogeneous file (colors next to dimensions next to font stacks), so one importer walks the tree and dispatches per `$type`:
 
@@ -552,7 +578,7 @@ const validatedTokens = await processDesignTokensJSON(designToolTokens)
 export const t = defineTokens({ ...validatedTokens /* + our own */ })
 ```
 
-Named as a verb — it's a real importer (dispatch each entry to the matching builder, preserve any `mszr.vane-dux` `$extensions`), not just a validator. Hand-write and bundle it (one fixed, owned shape) rather than depending on zod/valibot — the opposite call from §14's ports, where the whole point is user-chosen validators.
+Named as a verb — it's a real importer (dispatch each entry to the matching builder, preserve any `mszr.vane-dux` `$extensions`), not just a validator. Hand-write and bundle it (one fixed, owned shape) rather than depending on zod/valibot — the opposite call from §17's ports, where the whole point is user-chosen validators.
 
 **Export** — vane-dux emitting its own graph in the same shape, so a compliant tool can read a vane-dux-defined system. Architecturally sound (shared standard = interoperability), and the strongest evidence of the §1 alignment commitment. What survives and what's lossy:
 
@@ -574,7 +600,7 @@ Named as a verb — it's a real importer (dispatch each entry to the matching bu
 
 ## F. Confirmed behaviors worth documenting
 
-### 23. 🟢 `&` in selector keys
+### 26. 🟢 `&` in selector keys
 
 From `css/rule.ts`:
 
@@ -584,6 +610,14 @@ const selector = key.includes('&') ? key : `& ${key}`
 
 A key with no `&` gets a `&` plus a space prepended, and that space changes *meaning*: `&:hover` = this element hovered, whereas `&` + space + `:hover` = a hovered descendant. Both are valid CSS — standard nesting behavior, not a quirk, and not something to guard against (self vs. descendant is a real choice authors make). Documenting it so it isn't rediscovered the hard way. The library's own `baseConditions()` always writes `hover: '&:hover'` deliberately.
 
-### 24. 🟢 Dev-only port type check
+### 27. 🟢 Dev-only port type check
 
 Keep as is. The check (`typeof` + a `Set` lookup) is negligible next to per-frame layout/paint, and it catches what types can't: a string TS accepts as `string` but that isn't valid CSS (a typo'd color). Compiled out of production entirely via the `NODE_ENV` guard.
+
+---
+
+## G. Workspace requests
+
+### 28. 🟢 Pug templates in all demos
+
+All vane-dux demos and sandbox apps use Pug (`<template lang="pug">`), never raw HTML — maintainer preference, and the demos read cleaner. Applies retroactively to existing demos in the eventual refactor, not just new ones.
