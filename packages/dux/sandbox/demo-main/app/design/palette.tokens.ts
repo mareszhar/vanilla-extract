@@ -4,7 +4,7 @@ import { elevation } from '@mszr/vane-dux/preset'
 /** Independently buildable color module; its derivations stay local and exact. */
 export const paletteTokens = defineTokens({
   color: {
-    brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. The theme picker owns this at runtime.'),
+    brand: oklch(0.58, 0.2, 285).live().describe('Primary brand color. The theme picker can override it at runtime.'),
   },
 })
   .derive(({ color }) => ({

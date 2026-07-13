@@ -11,6 +11,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 const duxDir = join(fileURLToPath(new URL('.', import.meta.url)), '..')
@@ -18,7 +19,24 @@ const packageDir = join(duxDir, 'vane-dux')
 const root = mkdtempSync(join(tmpdir(), 'vane-fresh-'))
 const plainDir = join(root, 'plain-vite')
 const nuxtDir = join(root, 'nuxt-app')
-const nuxtHmrPort = 24678
+
+interface DevPort {
+  anyHost?: boolean
+  label: string
+  port: number
+}
+
+interface SmokeDevOptions {
+  discoverPorts?: DevPort[]
+  env?: NodeJS.ProcessEnv
+  relatedPorts?: DevPort[]
+}
+
+const nuxtHmrCandidates: DevPort[] = Array.from({ length: 21 }, (_, index) => ({
+  anyHost: true,
+  label: 'HMR',
+  port: 24678 + index,
+}))
 
 function write(path: string, source: string): void {
   mkdirSync(join(path, '..'), { recursive: true })
@@ -63,9 +81,6 @@ async function waitForHttp(url: string, child: ChildProcess, output: () => strin
 }
 
 async function stop(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null)
-    return
-
   const target = process.platform === 'win32' ? child.pid : child.pid === undefined ? undefined : -child.pid
 
   if (target === undefined)
@@ -78,33 +93,72 @@ async function stop(child: ChildProcess): Promise<void> {
     return
   }
 
-  await Promise.race([
-    new Promise<void>(resolve => child.once('exit', () => resolve())),
-    new Promise<void>((resolve) => {
-      setTimeout(() => {
-        try {
-          process.kill(target, 'SIGKILL')
-        }
-        catch {}
-        resolve()
-      }, 5_000)
-    }),
-  ])
+  const deadline = Date.now() + 5_000
+  while (Date.now() < deadline) {
+    try {
+      process.kill(target, 0)
+      await delay(50)
+    }
+    catch {
+      return
+    }
+  }
+
+  try {
+    process.kill(target, 'SIGKILL')
+  }
+  catch {}
 }
 
-async function assertPortReleased(port: number, anyHost = false): Promise<void> {
-  const server = createServer()
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject)
-    if (anyHost)
-      server.listen(port, resolve)
-    else server.listen(port, '127.0.0.1', resolve)
+function canListen(port: number, anyHost = false): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer()
+    server.unref()
+    server.once('error', () => resolve(false))
+    const options = anyHost ? { port } : { host: '127.0.0.1', port }
+    server.listen(options, () => server.close(error => resolve(error === undefined)))
   })
-  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
 }
 
-async function smokeDev(directory: string, command: string[], port: number, expected: RegExp): Promise<void> {
+async function assertPortFree({ anyHost = false, label, port }: DevPort): Promise<void> {
+  if (!await canListen(port, anyHost))
+    throw new Error(`${label} port ${port} became occupied before the fresh dev server started`)
+}
+
+async function waitForPort(port: DevPort, busy: boolean, output: string): Promise<void> {
+  const deadline = Date.now() + 10_000
+
+  while (Date.now() < deadline) {
+    const listening = await canListen(port.port, port.anyHost)
+    if (busy ? !listening : listening)
+      return
+
+    await delay(50)
+  }
+
+  const state = busy ? 'claim' : 'release'
+  throw new Error(`${port.label} did not ${state} port ${port.port}\n${output}`)
+}
+
+async function smokeDev(
+  directory: string,
+  command: string[],
+  port: number,
+  expected: RegExp,
+  { discoverPorts = [], env = {}, relatedPorts = [] }: SmokeDevOptions = {},
+): Promise<void> {
   let output = ''
+  const ports = [{ label: 'HTTP', port }, ...relatedPorts]
+  const busyBefore = new Set<number>()
+
+  for (const candidate of discoverPorts) {
+    if (!await canListen(candidate.port, candidate.anyHost))
+      busyBefore.add(candidate.port)
+  }
+
+  for (const candidate of ports)
+    await assertPortFree(candidate)
+
   const child = spawn('pnpm', ['--dir', directory, 'exec', ...command], {
     cwd: root,
     detached: process.platform !== 'win32',
@@ -113,6 +167,7 @@ async function smokeDev(directory: string, command: string[], port: number, expe
       CHOKIDAR_INTERVAL: '100',
       CHOKIDAR_USEPOLLING: 'true',
       NODE_ENV: 'development',
+      ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -124,17 +179,61 @@ async function smokeDev(directory: string, command: string[], port: number, expe
     const html = await waitForHttp(`http://127.0.0.1:${port}/`, child, () => output)
     if (!expected.test(html))
       throw new Error(`Fresh dev response did not contain ${expected}\n${html.slice(0, 2_000)}`)
+
+    for (const relatedPort of relatedPorts)
+      await waitForPort(relatedPort, true, output)
+
+    const claimed = discoverPorts.length === 0
+      ? []
+      : await discoverClaimedPorts(discoverPorts, busyBefore, output)
+
+    ports.push(...claimed)
+
+    if (/WebSocket server error|EADDRINUSE/.test(output))
+      throw new Error(`Fresh dev server reported a port collision\n${output}`)
   }
   finally {
     await stop(child)
   }
 
-  await assertPortReleased(port)
+  for (const candidate of ports)
+    await waitForPort(candidate, false, output)
+}
+
+async function discoverClaimedPorts(
+  candidates: DevPort[],
+  busyBefore: ReadonlySet<number>,
+  output: string,
+): Promise<DevPort[]> {
+  const deadline = Date.now() + 5_000
+  let claimed: DevPort[] = []
+  let stableSince = 0
+
+  while (Date.now() < deadline) {
+    const current: DevPort[] = []
+    for (const candidate of candidates) {
+      if (!busyBefore.has(candidate.port) && !await canListen(candidate.port, candidate.anyHost))
+        current.push(candidate)
+    }
+
+    const signature = current.map(candidate => candidate.port).join(',')
+    const previousSignature = claimed.map(candidate => candidate.port).join(',')
+
+    if (signature !== previousSignature) {
+      claimed = current
+      stableSince = Date.now()
+    }
+    else if (claimed.length > 0 && Date.now() - stableSince >= 250) {
+      return claimed
+    }
+
+    await delay(50)
+  }
+
+  throw new Error(`Fresh dev server did not claim an HMR port\n${output}`)
 }
 
 async function main(): Promise<void> {
-  const nuxtHttpPort = await openPort()
-  const vitePort = await openPort()
   const tarballName = execFileSync('npm', ['pack', '--pack-destination', root], {
     cwd: packageDir,
     encoding: 'utf-8',
@@ -230,15 +329,21 @@ import { page } from './app.style'
 
   run('pnpm', ['--dir', plainDir, 'exec', 'tsc', '--noEmit'])
   run('pnpm', ['--dir', plainDir, 'exec', 'vite', 'build'])
+  const vitePort = await openPort()
   await smokeDev(plainDir, ['vite', '--host', '127.0.0.1', '--port', String(vitePort), '--strictPort'], vitePort, /src\/main\.ts/)
   console.log('✓ fresh plain Vite: strict types, build, and dev lifecycle')
 
   run('pnpm', ['--dir', nuxtDir, 'exec', 'nuxt', 'prepare'])
   run('pnpm', ['--dir', nuxtDir, 'exec', 'nuxi', 'typecheck'])
   run('pnpm', ['--dir', nuxtDir, 'exec', 'nuxt', 'build'])
-  await assertPortReleased(nuxtHmrPort, true)
-  await smokeDev(nuxtDir, ['nuxt', 'dev', '--host', '127.0.0.1', '--port', String(nuxtHttpPort)], nuxtHttpPort, /Fresh Nuxt/)
-  await assertPortReleased(nuxtHmrPort, true)
+  const nuxtHttpPort = await openPort()
+  await smokeDev(
+    nuxtDir,
+    ['nuxt', 'dev', '--host', '127.0.0.1', '--port', String(nuxtHttpPort)],
+    nuxtHttpPort,
+    /Fresh Nuxt/,
+    { discoverPorts: nuxtHmrCandidates },
+  )
   console.log('✓ fresh Nuxt: strict types, build, and HTTP/HMR lifecycle')
   console.log(`✓ packed SDK smoke passed (${tarballName})`)
 }

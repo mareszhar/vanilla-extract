@@ -94,6 +94,8 @@ test('Nuxt dev keeps first paint styled and HMR deterministic', async ({ page })
 
     const loadsBeforeHmr = await loadCount(page)
     const select = page.getByLabel('Intent')
+    expect(await page.locator('html').evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('')
+    await expect(page.getByLabel('Pick the brand color')).toHaveValue('#735fe9')
     await expect(select).toHaveCSS('border-radius', '6px')
 
     expect(originalTokens).toContain('radius: { sm: \'6px\'')

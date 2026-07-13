@@ -63,6 +63,28 @@ test('Nuxt interaction lab paints with CSS and every control responds', async ({
   await expect(page.locator('main')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 
   const refract = page.getByRole('button', { name: 'Refract', exact: true })
+  const brandInput = page.getByLabel('Pick the brand color')
+  const brandBefore = await refract.evaluate(element => getComputedStyle(element).backgroundColor)
+  expect(await page.locator('html').evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('')
+  await expect(brandInput).toHaveValue('#735fe9')
+  expect(await page.evaluate(() => {
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Pick the brand color"]')!
+    const authored = getComputedStyle(document.documentElement).getPropertyValue('--prism-color-brand')
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')!
+    const pixel = (color: string) => {
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = color
+      context.fillRect(0, 0, 1, 1)
+      return [...context.getImageData(0, 0, 1, 1).data]
+    }
+
+    return pixel(input.value).join(',') === pixel(authored).join(',')
+  })).toBe(true)
+  await brandInput.fill('#d13c63')
+  await expect.poll(() => refract.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(brandBefore)
+  expect(await page.locator('html').evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('#d13c63')
+
   await refract.click()
   await expect(page.getByRole('button', { name: 'Refracted 1×', exact: true })).toBeVisible()
   await expect(page.getByText('Click event received')).toBeVisible()

@@ -4,14 +4,19 @@ import process from 'node:process'
 import { setTimeout as delay } from 'node:timers/promises'
 
 const host = '127.0.0.1'
-const httpPort = 3210
-const hmrPort = 24678
+const hmrCandidates = Array.from({ length: 21 }, (_, index) => 24678 + index)
 
 async function main(): Promise<void> {
+  const httpPort = await openPort()
   await assertPortFree(httpPort)
-  await assertPortFree(hmrPort, true)
 
   for (let cycle = 1; cycle <= 2; cycle++) {
+    const busyBefore = new Set<number>()
+    for (const port of hmrCandidates) {
+      if (!await canListen(port, true))
+        busyBefore.add(port)
+    }
+
     const child = spawn(
       'pnpm',
       ['--dir', 'sandbox/demo-main', 'run', 'dev', '--host', host, '--port', String(httpPort)],
@@ -30,19 +35,21 @@ async function main(): Promise<void> {
     let output = ''
     child.stdout?.on('data', chunk => output += String(chunk))
     child.stderr?.on('data', chunk => output += String(chunk))
+    let claimedHmrPorts: number[] = []
 
     try {
       await waitForHttp(`http://${host}:${httpPort}`, child, () => output)
       await assertPortBusy(httpPort)
-      await waitForPortBusy(hmrPort, output, true)
+      claimedHmrPorts = await discoverClaimedPorts(busyBefore, output)
     }
     finally {
-      await stopProcessTree(child.pid, child.exitCode)
+      await stopProcessTree(child.pid)
     }
 
     await waitForPortFree(httpPort, output)
-    await waitForPortFree(hmrPort, output, true)
-    process.stdout.write(`[vane-dux] Nuxt dev lifecycle ${cycle}/2 released HTTP and HMR ports\n`)
+    for (const port of claimedHmrPorts)
+      await waitForPortFree(port, output, true)
+    process.stdout.write(`[vane-dux] Nuxt dev lifecycle ${cycle}/2 released HTTP and HMR (${claimedHmrPorts.join(', ')}) ports\n`)
   }
 }
 
@@ -67,8 +74,8 @@ async function waitForHttp(url: string, child: ReturnType<typeof spawn>, output:
   throw new Error(`Nuxt dev did not become ready\n${output()}`)
 }
 
-async function stopProcessTree(pid: number | undefined, exitCode: number | null): Promise<void> {
-  if (pid === undefined || exitCode !== null)
+async function stopProcessTree(pid: number | undefined): Promise<void> {
+  if (pid === undefined)
     return
 
   const target = process.platform === 'win32' ? pid : -pid
@@ -80,17 +87,25 @@ async function stopProcessTree(pid: number | undefined, exitCode: number | null)
     return
   }
 
-  await delay(250)
+  const deadline = Date.now() + 5_000
+  while (Date.now() < deadline) {
+    try {
+      process.kill(target, 0)
+      await delay(50)
+    }
+    catch {
+      return
+    }
+  }
 
   try {
-    process.kill(target, 0)
     process.kill(target, 'SIGKILL')
   }
   catch {}
 }
 
 async function waitForPortFree(port: number, output: string, anyHost = false): Promise<void> {
-  const deadline = Date.now() + 5_000
+  const deadline = Date.now() + 10_000
 
   while (Date.now() < deadline) {
     if (await canListen(port, anyHost))
@@ -102,17 +117,30 @@ async function waitForPortFree(port: number, output: string, anyHost = false): P
   throw new Error(`Port ${port} was not released after Nuxt dev stopped\n${output}`)
 }
 
-async function waitForPortBusy(port: number, output: string, anyHost = false): Promise<void> {
+async function discoverClaimedPorts(busyBefore: ReadonlySet<number>, output: string): Promise<number[]> {
   const deadline = Date.now() + 5_000
+  let claimed: number[] = []
+  let stableSince = 0
 
   while (Date.now() < deadline) {
-    if (!await canListen(port, anyHost))
-      return
+    const current: number[] = []
+    for (const port of hmrCandidates) {
+      if (!busyBefore.has(port) && !await canListen(port, true))
+        current.push(port)
+    }
+
+    if (current.join(',') !== claimed.join(',')) {
+      claimed = current
+      stableSince = Date.now()
+    }
+    else if (claimed.length > 0 && Date.now() - stableSince >= 250) {
+      return claimed
+    }
 
     await delay(50)
   }
 
-  throw new Error(`Nuxt dev did not claim expected HMR port ${port}\n${output}`)
+  throw new Error(`Nuxt dev did not claim an HMR port in 24678–24698\n${output}`)
 }
 
 async function assertPortFree(port: number, anyHost = false): Promise<void> {
@@ -133,6 +161,18 @@ function canListen(port: number, anyHost = false): Promise<boolean> {
     const options = anyHost ? { port } : { host, port }
     server.listen(options, () => server.close(() => resolve(true)))
   })
+}
+
+async function openPort(): Promise<number> {
+  const server = createServer()
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, host, resolve)
+  })
+  const address = server.address()
+  const port = typeof address === 'object' && address !== null ? address.port : 0
+  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+  return port
 }
 
 main().catch((error) => {
