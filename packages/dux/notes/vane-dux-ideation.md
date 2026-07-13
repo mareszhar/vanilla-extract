@@ -26,15 +26,15 @@ Running record of API/pattern ideas for vane-dux.
 | 4 | Terminology to revise (`theme`/`applyTheme`, `kind:'parse'`); error-code prefixes | 🟢 |
 | **B. The value language & emission** | | |
 | 5 | Data-type branding utils (`angle()`, `length()`, `percentage()`, …) | 🔵 |
-| 6 | Token metadata config — `{ val, is: [...] }` | 🟢 `is` key + `'var'` label settled |
+| 6 | Token metadata config — `{ val, is: [...] }` + the `$`-access convention | 🟢 |
 | 7 | `createEngine()` — configurable engine, chain links for extensions | 🔴 |
 | 8 | `bem` + `elevation` built *on* the engine's extension points | 🔵 |
 | 9 | Full-power color composition (token refs, channel ops, `.in()`) | 🔴 |
 | 10 | Scales — step-indexed accessor + `fluid()` | 🔵 |
-| 11 | Axes — flat, multi-axis, `$expose`/`$require`/`$derive`, `token.axes` | 🔴 |
+| 11 | Axes — flat, multi-axis, `$expose`/`$require`/`$derive`, `token.$axes` | 🔴 |
 | 12 | Emission control — scope & order (layers everywhere, custom token scope) | 🔵 |
 | 13 | Platform levers — `@property`, `:where()`, `@scope`, view transitions | 🔵 |
-| 14 | Null tokens (`val: null`) + the integration surface | 🔵 |
+| 14 | Null tokens (`val: null`) + integration surface; no-target update excluded at type level | 🔵 |
 | **C. Runtime / consumption** | | |
 | 15 | `updateTokenCCPVal(s)` / `setCCPVal` + factory typing | 🟢 both method & function forms |
 | 16 | Runtime stylesheet ownership | 🔴 |
@@ -86,7 +86,7 @@ export const { t, css, recipe, port, updateTokenCCPVals } = createSystem({
 // STAGE 3 — use the system-aware utils to style things (css, recipe, t, …)
 ```
 
-`createSystem` **already returns `t`** (confirmed, `createSystem.ts:186`), so defining tokens inline and getting `t` back from the same call is the intended shape — `defineTokens` looking like a separate stage is only an artifact of examples that extract `t` first, which shouldn't be necessary. Config has two obvious homes: **language-level** (ranges, colorspaces, units, what a bare number means) → `createEngine`; **system-level** (tokens, conditions, prefix, shorthand style, validation defaults) → `createSystem`.
+`createSystem` **already returns `t`** (confirmed, `createSystem.ts:186`), so defining tokens inline and getting `t` back from the same call is the intended shape — `defineTokens` looking like a separate stage is only an artifact of examples that extract `t` first, which shouldn't be necessary. Config has two obvious homes: **language-level** (ranges, colorspaces, units, what a bare number means) → `createEngine`; **system-level** (tokens, conditions, prefix, shorthand style, validation defaults) → `createSystem`. And the import surface is the two factories alone — everything else is derived, never imported (§7).
 
 **Flag — double `prefix`.** Both `defineTokens().build({ prefix })` and `createSystem({ prefix })` accept a prefix, and which wins depends on whether the tokens were pre-built (`createSystem.ts:126` uses its own prefix only when the graph isn't already built). Two places to set one thing, with order-dependent precedence — worth collapsing to one clear owner (the system) rather than leaving a silent-conflict surface.
 
@@ -148,17 +148,19 @@ brand: { val: oklch(...), is: 'var' }      // config when needed
 - `oklch()` and every data-type util stay method-free — identical in both contexts.
 - `is` takes a string or array, so future flags append (`is: ['var', 'checked']`) with no new top-level keys.
 - No `dataType` key — always derived from whatever produced `val`.
-- Key is **`val`**, matching the `.val` accessor every handle gets (below). `.value` was avoided — it collides with Vue's `ref.value`.
+- Key is **`val`**, matching the `$val` accessor every handle gets (below). `.value` was avoided — it collides with Vue's `ref.value`.
 
-**Consumption-side accessors — `.val` / `.var`, a property pair on every resolved handle:**
+**Consumption-side accessors — `$val` / `$var`, a property pair on every resolved handle:**
 
 ```TS
-color.brand.val   // the resolved/frozen value
-color.brand.var   // the var() reference (already exists today)
-color.brand       // whichever the token's `is` config implies by default
+color.brand.$val   // the resolved/frozen value
+color.brand.$var   // the var() reference
+color.brand        // whichever the token's `is` config implies by default
 ```
 
-Used at composition time (§9), not a pair of free functions. Tokens with axes (§11) extend the family: `.axes` is the per-axis record (`accent.axes.scheme.dark`), `.val` is typed `undefined` there — generic code handles both with `token.axes ?? token.val`.
+Used at composition time (§9), not a pair of free functions. Tokens with axes (§11) extend the family: `$axes` is the per-axis record (`accent.$axes.scheme.dark`), `$val` is typed `undefined` there — generic code handles both with `token.$axes ?? token.$val`.
+
+**The `$` convention — vane keys take the prefix wherever they share a namespace with user keys.** On graph *access*, every vane-provided member is `$`-prefixed — `$val`, `$var`, `$name`, `$axes`, `$description`, `$updateCCPVal(…)`, the color methods — uniformly on groups and leaves, so system surface is visually distinct from user structure at a glance and no token or group name can ever be shadowed. (Today's unprefixed `token.var`/`token.name` rename accordingly.) In *definition* config objects (`{ val, is, validate }`), keys stay **unprefixed** — a config object is a closed, vane-controlled options shape, not user structure, so a prefix there would be friction without disambiguation value. Group-level keys sitting *inside* user structure (`$axes`, `$description`) take the prefix, by the same rule. Consistency holds where it matters — the same word at both ends of the tunnel (`axes`/`$axes`, `val`/`$val`); the prefix marks *namespace*, never meaning. Document this as a stated convention.
 
 **Settled — the label is `'var'`.** It's semantically exact (this token won't fold; anything referencing it emits a ccp-`var()`) and adds no new term to learn, unlike `'overridable'`/`'live'`/`'mayChange'`. **The key is `is`** (accepting a string or array): it reads as natural language (`is: ['var', 'checked']` = "this token is var, is checked"), and avoids the `var: true` ceremony a boolean-key shape would impose. No better candidate found — both the `is` key and the `'var'` value are decided; the object-syntax shape was already settled.
 
@@ -192,7 +194,7 @@ Config axes gathered so far:
 
 **String emission rule (worth speccing, since there's no stated convention today):** strings emit verbatim/unquoted — `small: '16'` → `--vane-small: 16`. To force a quoted CSS string literal, include inner quotes — `content: '"hi"'` → `content: "hi"`. State this so it's predictable rather than discovered.
 
-**`createEngine` also returns the axis-aware `defineTokens`** (§11) and the branding utils (§5), alongside `color`/`oklch`/`length`/etc. — everything whose behavior the engine configures. The simple path stays simple: a default engine backs the bare importable versions, so a project that never calls `createEngine` still gets working `oklch`/`defineTokens` with default rules (same pattern as the importable-defaults-plus-configured-versions split throughout).
+**`createEngine` also returns the axis-aware `defineTokens`** (§11) and the branding utils (§5), alongside `color`/`oklch`/`length`/etc. — everything whose behavior the engine configures. **The import surface is the two factories.** The package root exports `createEngine`, `createSystem`, the `Vane*` types, and `/standards` — nothing else; every value-defining and system util is factory-derived, never imported directly. One mental model (derive, don't import), and the zero-config path costs exactly one argument-less line — `const { defineTokens, oklch } = createEngine()` — which teaches the pipeline rather than taxing it.
 
 **Extensibility — chain links, because extensions must see the engine being built.** A single options object can't let one custom util reference another defined beside it (object values evaluate eagerly), can't hand `$derive` callbacks the *configured* utils, and can't type sibling references. The chain form fixes all three with the mental model the family already uses — `defineTokens().derive()`, idb-dux's perms chains: **the staged builder is the dux composition primitive.** Seed = static config; links = anything that references the accumulated engine:
 
@@ -233,7 +235,7 @@ What full parity needs:
 ```TS
 oklch(0.58, 0.2, 285)                          // explicit literals — today
 
-oklch(lightness.val, chroma.val, hue.var)       // token refs per channel — mix frozen + live (NOT possible today)
+oklch(lightness.$val, chroma.$val, hue.$var)    // token refs per channel — mix frozen + live (NOT possible today)
 
 oklch.from(brand, { l: 0.9 })                    // relative-from-base, override a subset — oklch.from EXISTS today
 oklch.from(brand, { c: channel.multiply(0.5) })  // channel ops (add/subtract/multiply/divide) — EXIST today
@@ -303,20 +305,20 @@ shadow: { axes: {                                                // multi-axis: 
 } },
 ```
 
-- `axes` replaces the earlier `val`-as-object form, and the `.vals` record is dropped with it — under multi-axis a bare mode key (`.vals.dark`) is ambiguous; `token.axes.scheme.dark` never is.
-- **Reserved keys:** `val` and `axes` cannot be group or token names — they're the disambiguation anchor (an object is token config iff it has `val` or `axes`; other metadata keys stay unreserved).
+- `axes` replaces the earlier `val`-as-object form, and the `.vals` record is dropped with it — under multi-axis a bare mode key (`.vals.dark`) is ambiguous; `token.$axes.scheme.dark` never is.
+- **Reserved keys — definition side only:** `val` and `axes` cannot be group or token names in the tree, because they're the config-vs-group disambiguation anchor (an object is token config iff it has `val` or `axes`). Two words, cursor-diagnosable, and the *access* side needs no reservation at all — the `$` convention (§6) keeps system members out of the user namespace entirely.
 - **Totality per used axis is type-enforced** (`Record<AxisModes, V>`); `$derive` satisfies it implicitly. Intellisense: `const` type parameters preserve literals (no `as const`), `$expose` dot-paths match the current definition path via template-literal types (idb-dux dot-path precedent); TS-server perf at scale is a benchmark item (§3), not a design blocker.
 - Axed ⇒ `is: 'var'` automatically (varying by ambient state can never fold); explicit `is: 'var'` allowed, redundant. A token's axes map is **atomic** — reopening it in a later `.derive()` stage is an error; deriving one mode from another uses a plain `const` (TS is vane's `.stage()`).
 
-**Reading — `token.axes`, the same word as the definition:**
+**Reading — `token.$axes`, the same word as the definition (prefixed per the §6 convention):**
 
 ```TS
-t.color.shadow.axes.scheme.dark     // keys autocomplete per axis
-t.color.accent.val                  // typed undefined on axed tokens — an error to use where a value is expected
-const log = token => console.log(token.axes ?? token.val)   // generic code: no crash, no sentinel
+t.color.shadow.$axes.scheme.dark    // keys autocomplete per axis
+t.color.accent.$val                 // typed undefined on axed tokens — an error to use where a value is expected
+const log = token => console.log(token.$axes ?? token.$val)   // generic code: no crash, no sentinel
 ```
 
-Runtime returns `undefined`, never a `'$hasModes'`-style sentinel (a sentinel string can leak into CSS/logs as a plausible value; `undefined` can't), and `token.axes` doubles as the runtime discriminant. Naming flag stays: internal `VaneTokenMode` (`'static' | 'scheme' | 'live' | 'derived'`) collides with this vocabulary — rename when axes land.
+Runtime returns `undefined`, never a `'$hasModes'`-style sentinel (a sentinel string can leak into CSS/logs as a plausible value; `undefined` can't), and `token.$axes` doubles as the runtime discriminant. Naming flag stays: internal `VaneTokenMode` (`'static' | 'scheme' | 'live' | 'derived'`) collides with this vocabulary — rename when axes land.
 
 **Group-level `$axes` — the transposed bulk form.** Replaces the earlier standalone `modes()` helper: a `$`-key *inside the group* keeps contextual typing airtight (a loose function can't know which group it's called under; an in-tree key can) — which also dissolves the helper-naming question. Transposed inner shape matches how palettes are actually authored (whole light set, then whole dark set — a Figma variables table):
 
@@ -338,7 +340,9 @@ color: {
 
 **Runtime.** `setMode(el, 'density', 'compact')` generalizes `setScheme` (kept as the built-in axis's alias), writing the matching `data-*` for shorthand triggers.
 
-**Open:** sparse-combo API shape; axis emission order beyond declaration order (§12); the group `$`-key set.
+**A color-agnostic gauntlet moment (restored proposal).** `dux-vision.md`'s flagship acceptance test is written as "let a user pick a brand *color*" — which quietly licenses treating color as the one runtime-variable domain (exactly how `.live()` ended up color-only). Add a second, color-agnostic moment — "a user live-tunes a density or radius control, and every dependent surface follows" — so the spec itself demands the generality axes/`is: 'var'` now provide.
+
+**Open:** sparse-combo API shape; axis emission order beyond declaration order (§12); the group `$`-key set; manifest/DevTools surfacing of axes (provenance should show which axis/mode a declaration belongs to).
 
 ### 12. 🔵 Emission control — scope & order
 
@@ -371,7 +375,7 @@ icon: {
   fill:   { val: null, description: 'per-instance override channel — no global default' },
   stroke: { val: null },
 }
-// implies is:'var' (var-only consumption), emits nothing, .val typed undefined, .name/.var work everywhere
+// implies is:'var' (var-only consumption), emits nothing, $val typed undefined, $name/$var work everywhere
 ```
 
 **Not ports, deliberately.** A port gets a *hashed* name (`--vane-fraction__h4x`) and is a component-owned reactive input. These channels need **stable public names** external build tooling can compute (an svgo plugin rewriting SVG attributes to `var(--vane-icon-fill, currentColor)` at build time), plus a place in the system's vocabulary (described, audited, in the manifest). Port = reactive input with private identity; null token = override channel with public identity and no emission.
@@ -381,6 +385,25 @@ icon: {
 - Plane-neutral helpers for common extraction/transformation needs — e.g. `namesOf(t.icon)` → record of ccp-names, `varsOf(t.icon, fallbacks?)` → record of `var()` refs — so configs and plugins (svgo, PostCSS, anything) consume the system without reimplementing naming.
 - The deterministic naming contract (`--{prefix}-{kebab-path}`) documented as a public guarantee, so even contexts that can't import the graph can compute names by convention.
 - **Flag to verify:** config files run outside the vane compiler — a name-only read path for token modules (importable from `nuxt.config.ts`/svgo config without triggering emission) needs confirming; the existing "system modules are importable from app code" serialization machinery suggests it's close, not free.
+
+**Interplay with `updateTokenCCPVal` (§15).** A null token was never emitted, so the no-target form ("patch where it was emitted") has nothing to patch. Since `val: null` is known at the type level, that overload is **excluded at compile time** for null tokens — the error names the fix (pass a target, or use `setCCPVal`); untyped runtime callers get a dev-warn + no-op. With an explicit target, both utils work normally — writes go to the element or the ad-hoc overrides sheet, there's just no declaration site to patch.
+
+**Usage shape** (the hail-nuxt `IconFrame` workflow, in vane terms — defaults and overrides are ordinary custom-property keys, already supported in `css()`):
+
+```TS
+// IconFrame's own stylesheet — the component-level default
+export const frame = css({ [t.icon.fill.$name]: 'currentColor' })
+
+// any consumer — a build-time override, cascade does the rest
+export const brandIcon = css({ [t.icon.fill.$name]: t.color.brand })
+```
+
+```TS
+// runtime, per instance — a plain :style object (or setCCPVal with an explicit target)
+:style="{ [t.icon.fill.$name]: props.fill }"
+```
+
+Small open: `$var` carries no fallback slot, and the SVG-attribute wrapping wants `var(--vane-icon-fill, currentColor)` — compose it from `$name` manually, or ship a `$varOr(fallback)` accessor. Open.
 
 **Real-world context:** `packages/dux/__references__/hail-nuxt` — the Nuxt starter where this need originated: `IconFrame.vue`, the svgo `format-svg` plugin, and the hand-maintained TS↔Stylus mirror (`shared/utils/ds.ts` + vite `define` injection) this whole proposal replaces.
 
@@ -425,10 +448,10 @@ This matches idb-dux's boundary exactly (`register.ts`: *"Registration supplies 
 
 ```TS
 updateTokenCCPVal(t.color.brandHue, 42)     // free function
-t.color.brandHue.updateCCPVal(42)            // method — identical result, zero imports
+t.color.brandHue.$updateCCPVal(42)           // method — identical result, zero imports ($-prefixed per §6)
 ```
 
-The two single-token forms are near-identical in ergonomics; the method's one real edge is needing no import (though auto-imported system utils erase even that for many setups). The plural forms (`updateTokenCCPVals`, array or tree) have genuine advantages the method form can't match — one shared target across many updates, tree form for same-group discoverability in IntelliSense — so those stay free-function-only. Adding the method is low-cost (it delegates to the same logic, and every handle already carries `.var`/`.val`/color methods), so ship both: method + single free function + plural free-function batch forms.
+The two single-token forms are near-identical in ergonomics; the method's one real edge is needing no import (though auto-imported system utils erase even that for many setups). The plural forms (`updateTokenCCPVals`, array or tree) have genuine advantages the method form can't match — one shared target across many updates, tree form for same-group discoverability in IntelliSense — so those stay free-function-only. Adding the method is low-cost (it delegates to the same logic, and every handle already carries `$var`/`$val`/the color methods), so ship both: method + single free function + plural free-function batch forms.
 
 ### 16. 🔴 Runtime stylesheet ownership
 
