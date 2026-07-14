@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — token graph, axes, emission, and interoperability; implementation pending
+status: target spec — Phase 2 module/finalization foundation implemented; Phase 3+ traits, axes, and interoperability pending
 
 # vane-dux next — spec: tokens
 
@@ -17,6 +17,8 @@ Tokens are named design decisions in a typed dependency graph. They may resolve 
 | All tokens emitted at unlayered `:root` | Replace with effective roots and explicit token sublayers. |
 | `{ light, dark }` manifest values | Replace with declaration provenance across arbitrary axes/cases. |
 | Metadata/checks/graph edges/emitted names | Preserve and generalize. |
+
+Phase 2 completed the module half of this migration: `de.defineTokens()` now creates an immutable engine-bound unfinished module, composition checks semantic engine compatibility rather than object identity, the final system alone owns prefix/name resolution, module derivations inherit module root/layer metadata, and canonical modules expose no misleading `.build()` or final token names. The independent token traits and `$` handle model begin in Phase 3.
 
 ## 1. Definition forms
 

@@ -1,5 +1,6 @@
 /** The default configured internal engine and package-root compatibility adapters. */
 
+import type { VaneLengthConstructor, VaneLengthUnit } from './units'
 import { createEngineKernel } from '../internal/engineKernel'
 import {
   alpha as alphaImplementation,
@@ -28,9 +29,16 @@ import { defineCssOperation, defineCssValue } from './extensions'
 import { grid as gridImplementation } from './grid'
 import { calc as calcImplementation, clamp as clampImplementation, max as maxImplementation, min as minImplementation } from './math'
 import { rawValue } from './raw'
-import { angle, cssNumber, flex, frequency, integer, length, percent, resolution, time } from './units'
+import { angle, createLengthConstructor, cssNumber, flex, frequency, integer, percent, resolution, time } from './units'
 
-export const defaultEngine = createEngineKernel({
+export const VANE_CORE_EXTENSION_IDENTITIES = Object.freeze([
+  { id: 'org.vane-dux.core.color', version: 1 },
+  { id: 'org.vane-dux.core.color-function', version: 1 },
+  { id: 'org.vane-dux.core.color-mix', version: 1 },
+  { id: 'org.vane-dux.core.grid', version: 1 },
+] as const)
+
+const STATIC_CORE_CONSTRUCTORS = Object.freeze({
   alpha: alphaImplementation,
   angle,
   calc: calcImplementation,
@@ -40,8 +48,6 @@ export const defaultEngine = createEngineKernel({
   colorMix: colorMixImplementation,
   customProperty,
   darken: darkenImplementation,
-  defineCssOperation,
-  defineCssValue,
   desaturate: desaturateImplementation,
   displayP3: displayP3Implementation,
   flex,
@@ -53,7 +59,6 @@ export const defaultEngine = createEngineKernel({
   lab: labImplementation,
   lch: lchImplementation,
   legibleOn: legibleOnImplementation,
-  length,
   lighten: lightenImplementation,
   max: maxImplementation,
   min: minImplementation,
@@ -69,13 +74,26 @@ export const defaultEngine = createEngineKernel({
   saturate: saturateImplementation,
   scheme: schemeImplementation,
   time,
-}, {
-  extensions: [
-    { id: 'org.vane-dux.core.color', version: 1 },
-    { id: 'org.vane-dux.core.color-function', version: 1 },
-    { id: 'org.vane-dux.core.color-mix', version: 1 },
-    { id: 'org.vane-dux.core.grid', version: 1 },
-  ],
+} as const)
+
+/** Compact public name for the constructor surface carried by every core engine. */
+export interface VaneCoreConstructors<DefaultLengthUnit extends VaneLengthUnit = 'px'>
+  extends Readonly<typeof STATIC_CORE_CONSTRUCTORS> {
+  readonly length: VaneLengthConstructor<DefaultLengthUnit>
+}
+
+/** Construct the core environment once per configured engine revision. */
+export function createCoreConstructors<const DefaultLengthUnit extends VaneLengthUnit>(
+  defaultLengthUnit: DefaultLengthUnit,
+): VaneCoreConstructors<DefaultLengthUnit> {
+  return Object.freeze({
+    ...STATIC_CORE_CONSTRUCTORS,
+    length: createLengthConstructor(defaultLengthUnit),
+  })
+}
+
+export const defaultEngine = createEngineKernel(createCoreConstructors('px'), {
+  extensions: VANE_CORE_EXTENSION_IDENTITIES,
 })
 
 export const {
@@ -88,8 +106,6 @@ export const {
   colorMix,
   customProperty: defaultCustomProperty,
   darken,
-  defineCssOperation: defaultDefineCssOperation,
-  defineCssValue: defaultDefineCssValue,
   desaturate,
   displayP3,
   flex: defaultFlex,
@@ -118,3 +134,6 @@ export const {
   scheme,
   time: defaultTime,
 } = defaultEngine.constructors
+
+export const defaultDefineCssOperation = defineCssOperation
+export const defaultDefineCssValue = defineCssValue

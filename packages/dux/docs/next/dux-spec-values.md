@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 1 foundation implemented; canonical engine exposure follows in Phase 2
+status: target spec — Phase 1 foundation and Phase 2 canonical engine/system exposure implemented
 
 # vane-dux next — spec: typed CSS values
 

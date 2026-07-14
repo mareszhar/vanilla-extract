@@ -9,10 +9,21 @@
 
 import type { VaneAtomsFactory } from '../atoms/types'
 import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
+import type { VaneEngineKernel } from '../internal/engineKernel'
 import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
-import type { VaneCheck, VaneGraphInput, VaneResolvedTokens, VaneThemeOverrides, VaneTokenBuilder, VaneTokens } from '../tokens/types'
+import type {
+  VaneCheck,
+  VaneEngineRequirement,
+  VaneGraphInput,
+  VaneResolvedTokens,
+  VaneThemeOverrides,
+  VaneTokenBuilder,
+  VaneTokenModule,
+  VaneTokens,
+} from '../tokens/types'
+import type { VaneCssValue, VaneValue } from '../values/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
@@ -21,13 +32,15 @@ import { bindCss } from '../css/css'
 import { bindGlobalCss } from '../css/global'
 import { bindFontFace, bindKeyframes } from '../css/keyframes'
 import { diagnosticSource, VaneError } from '../diagnostics'
+import { checkSelector } from '../internal/cssParser'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
-import { defineTokens, graphOf, isTokenBuilder } from '../tokens/graph'
+import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, tokenModuleEngine } from '../tokens/graph'
 import { theme as standaloneTheme } from '../tokens/theme'
+import { defaultEngine } from '../values/defaultEngine'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
 
 export const VANE_DEFAULT_LAYERS = ['reset', 'tokens', 'recipes', 'utilities', 'overrides'] as const
@@ -62,6 +75,10 @@ export interface VaneSystemOptions<
   layers?: L
   /** The emitted custom-property prefix: `--vane-*` by default. */
   prefix?: P
+  /** The absolute selector that owns ordinary token declarations. */
+  root?: string
+  /** The declared layer that owns ordinary token declarations. */
+  tokenLayer?: L[number]
   /** Build-time checks over an inline token graph ([dux-spec-tokens.md §5]); a `defineTokens` result brings its own. */
   checks?: (tokens: VaneSystemTokens<T, P>) => readonly VaneCheck[]
   /** Opt out of the built-in base condition set. */
@@ -83,15 +100,26 @@ type VaneSystemTokenInput<T>
 /** Static graphs and unfinished builders compile here; built tokens pass through untouched. */
 export type VaneSystemTokens<T extends object, P extends string>
   = T extends VaneTokenBuilder<infer G> ? VaneTokens<G, P>
-    : T extends VaneGraphInput ? VaneTokens<T, P>
-      : T
+    : T extends VaneTokenModule<infer G> ? VaneTokens<G, P>
+      : T extends VaneGraphInput ? VaneTokens<T, P>
+        : T
+
+export type VaneEngineSystemOptions<
+  T extends object,
+  C extends Record<string, VaneConditionInput>,
+  L extends readonly string[],
+  P extends string,
+  B extends boolean,
+> = Omit<VaneSystemOptions<T, C, L, P, B>, 'tokens'> & {
+  tokens: T & (T extends VaneTokenModule<infer _Graph> ? unknown : T extends VaneGraphInput ? unknown : never)
+}
 
 export type VaneSystemConditionName<C, B extends boolean>
   = (keyof C & string) | (B extends false ? never : VaneBaseConditionName)
 
 // ─── The system ──────────────────────────────────────────────────────────────
 
-export interface VaneSystem<T, C extends string, L extends string> {
+export interface VaneBoundSystem<T, C extends string, L extends string> {
   /** The bound token graph — one import line serves every style file. */
   readonly t: T
   readonly css: VaneCssFunction<C, L>
@@ -108,8 +136,26 @@ export interface VaneSystem<T, C extends string, L extends string> {
   readonly port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) => VanePort<VanePortWiden<TValue>>
   /** The strict utility lane, defined over your token map ([dux-spec-preset.md §3]). */
   readonly defineAtoms: VaneAtomsFactory<C, L>
+  /** Serialize a portable value with this system's finalized reference map. */
+  readonly serialize: (value: VaneValue) => string
+  /** Read-only normalized authoring context for integrations and inspection. */
+  readonly conditions: Readonly<Record<C, string>>
+  readonly layers: readonly L[]
 }
 
+export type VaneSystem<
+  T,
+  C extends string,
+  L extends string,
+  Constructors extends object = Record<never, never>,
+> = VaneBoundSystem<T, C, L> & Readonly<Constructors>
+
+export interface VaneSystemEngineBinding<Constructors extends object> {
+  readonly kernel: VaneEngineKernel<Constructors>
+  readonly requirement: VaneEngineRequirement
+}
+
+/** @deprecated Use `createEngine().createSystem()`; removed at target-doc promotion. */
 export function createSystem<
   const T extends object,
   const C extends Record<string, VaneConditionInput> = Record<never, never>,
@@ -119,21 +165,56 @@ export function createSystem<
 >(
   options: VaneSystemOptions<T, C, L, P, B>,
 ): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]> {
+  return createSystemInternal(undefined, options)
+}
+
+export function createSystemForEngine<
+  const Constructors extends object,
+  const T extends object,
+  const C extends Record<string, VaneConditionInput> = Record<never, never>,
+  const L extends readonly string[] = VaneDefaultLayers,
+  P extends string = 'vane',
+  B extends boolean = true,
+>(
+  binding: VaneSystemEngineBinding<Constructors>,
+  options: VaneEngineSystemOptions<T, C, L, P, B>,
+): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors> {
+  return createSystemInternal(binding, options as VaneSystemOptions<T, C, L, P, B>)
+}
+
+function createSystemInternal<
+  const Constructors extends object,
+  const T extends object,
+  const C extends Record<string, VaneConditionInput>,
+  const L extends readonly string[],
+  P extends string,
+  B extends boolean,
+>(
+  binding: VaneSystemEngineBinding<Constructors> | undefined,
+  options: VaneSystemOptions<T, C, L, P, B>,
+): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors> {
   const file = requireStyleModule('createSystem')
   const prefix = options.prefix ?? 'vane'
-
-  // Static graphs and staged builders finalize exactly once at the system
-  // boundary. A built graph already carries its own prefix and checks.
-  const tokens = graphOf(options.tokens)
-    ? options.tokens
-    : (isTokenBuilder(options.tokens)
-        ? options.tokens as unknown as RuntimeTokenBuilder
-        : defineTokens(options.tokens as VaneGraphInput))
-        .build({
-          prefix,
-          ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
-        })
+  const root = options.root ?? ':root'
   const layers = options.layers ?? VANE_DEFAULT_LAYERS
+
+  if (!/^-?(?:[_a-z]|[^\0-\x7F])(?:[-\w]|[^\0-\x7F])*$/i.test(prefix)) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_INVALID_PREFIX',
+      message: `'${prefix}' is not a valid design-system prefix`,
+      file,
+      fix: 'use a stable CSS identifier such as \'app\', \'prism\', or \'acme-ui\'',
+    })
+  }
+
+  if (root.includes('&') || checkSelector(root)) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_INVALID_ROOT',
+      message: `'${root}' is not a valid absolute system root selector`,
+      file,
+      fix: 'use an absolute selector such as \':root\', \'#app\', or \'#widget\' without \'&\'',
+    })
+  }
 
   if (layers.length === 0) {
     throw new VaneError({
@@ -144,15 +225,71 @@ export function createSystem<
     })
   }
 
-  // The system's layers nest under one root named by the prefix: authoring
-  // says `layer: 'overrides'`, the CSS says `@layer vane.overrides`. The only
-  // global layer name a system claims is its own namespace, so coexisting
-  // frameworks' layer orders stay exactly as they declared them
-  // ([dux-patterns.md §6]).
-  globalLayer(prefix)
+  const declaredLayers = layers as readonly string[]
+  const tokenLayer = options.tokenLayer ?? (binding === undefined ? undefined : declaredLayers.includes('tokens') ? 'tokens' : layers[0])
+  if (tokenLayer !== undefined && !declaredLayers.includes(tokenLayer)) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_UNKNOWN_LAYER',
+      message: `token layer '${tokenLayer}' is not declared by this system`,
+      detail: [`declared layers: ${layers.join(', ')}`],
+      file,
+      fix: 'add the layer to layers, or choose one of the declared layer names',
+    })
+  }
+  const qualifiedTokenLayer = tokenLayer === undefined ? undefined : `${prefix}.${tokenLayer}`
 
+  // Establish the complete layer order before token/style declarations.
+  globalLayer(prefix)
   for (const layer of layers)
     globalLayer({ parent: prefix }, layer)
+
+  // Static graphs and staged builders finalize exactly once at the system
+  // boundary. Canonical engine systems refuse already-finalized graphs because
+  // their prefix/root identity has already been claimed elsewhere.
+  let tokens: object
+  if (graphOf(options.tokens)) {
+    if (binding !== undefined) {
+      throw new VaneError({
+        code: 'VANE_ENGINE_INCOMPATIBLE',
+        message: 'an engine system cannot consume an already-finalized token graph',
+        file,
+        fix: 'pass the unfinished module returned by de.defineTokens(); the system owns final names',
+      })
+    }
+    tokens = options.tokens
+  }
+  else {
+    const builder = isTokenBuilder(options.tokens)
+      ? options.tokens as unknown as RuntimeTokenBuilder
+      : binding === undefined
+        ? defineTokens(options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
+        : defineTokenModule(binding.requirement, options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
+
+    if (binding !== undefined) {
+      const moduleEngine = tokenModuleEngine(builder)
+      if (!moduleEngine || !binding.requirement.compatibleSignatures.includes(moduleEngine.signature)) {
+        throw new VaneError({
+          code: 'VANE_ENGINE_INCOMPATIBLE',
+          message: 'this token module is not compatible with the system engine',
+          detail: [
+            `system engine: ${binding.kernel.signature}`,
+            `module engine: ${moduleEngine?.signature ?? 'legacy/unbound'}`,
+          ],
+          file,
+          fix: 'define the module with this engine or an equivalent/compatible parent engine',
+        })
+      }
+    }
+
+    tokens = finalizeTokenModule(builder, {
+      prefix,
+      root,
+      layers,
+      ...(binding === undefined ? {} : { serializeValue: (value: VaneCssValue) => binding.kernel.serializeValue(value) }),
+      ...(qualifiedTokenLayer === undefined ? {} : { layer: qualifiedTokenLayer }),
+      ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
+    })
+  }
 
   const conditions = normalizeConditions(
     {
@@ -175,20 +312,29 @@ export function createSystem<
     file,
     ...diagnosticSource(),
     prefix,
+    root,
+    ...(qualifiedTokenLayer === undefined ? {} : { tokenLayer: qualifiedTokenLayer }),
+    ...(binding === undefined ? {} : { engine: binding.kernel.signature }),
     layers: [...layers],
     conditions: describeConditions(conditions),
     ...(options.audit === undefined ? {} : { audit: options.audit }),
   })
 
-  type Bound = VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]>
+  type Bound = VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors>
 
-  return {
+  const describedConditions = Object.freeze(describeConditions(conditions)) as Readonly<Record<VaneSystemConditionName<C, B>, string>>
+  const kernel = binding?.kernel ?? defaultEngine
+  const resolvedGraph = graphOf(tokens)!
+
+  const bound = {
+    ...(binding?.kernel.constructors ?? {} as Constructors),
+
     t: tokens as Bound['t'],
     css: buildPlane('css', bindCss(system) as Bound['css']),
     keyframes: buildPlane('keyframes', bindKeyframes(system)),
     fontFace: buildPlane('fontFace', bindFontFace()),
     globalCss: buildPlane('globalCss', bindGlobalCss(system) as Bound['globalCss']),
-    theme: buildPlane('theme', (overrides, debugId) => standaloneTheme(
+    theme: buildPlane('theme', (overrides: VaneThemeOverrides<Bound['t']>, debugId?: string) => standaloneTheme(
       tokens as Bound['t'],
       overrides as VaneThemeOverrides<Bound['t']>,
       debugId,
@@ -198,15 +344,24 @@ export function createSystem<
     port: buildPlane('port', <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
       createPort(defaultValue, options, { prefix }) as unknown as VanePort<VanePortWiden<TValue>>),
     defineAtoms: buildPlane('defineAtoms', bindAtoms(system) as Bound['defineAtoms']),
+    serialize: (value: VaneValue) => kernel.serializeValue(value, (reference) => {
+      if (reference.name)
+        return reference.name
+      if (reference.path) {
+        const node = resolvedGraph.nodes.get(reference.path)
+        if (node)
+          return node.name
+      }
+      throw new TypeError(`[vane] system '${prefix}' cannot resolve ${reference.path ?? 'an unnamed value reference'}`)
+    }),
+    conditions: describedConditions,
+    layers: Object.freeze([...layers]) as readonly L[number][],
   }
+
+  return Object.freeze(bound) as Bound
 }
 
-interface RuntimeTokenBuilder {
-  build: (options: {
-    prefix: string
-    checks?: () => readonly VaneCheck[]
-  }) => object
-}
+type RuntimeTokenBuilder = object
 
 /**
  * Let a bound authoring function cross the build/app boundary as a stub:

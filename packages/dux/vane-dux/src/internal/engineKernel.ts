@@ -1,10 +1,10 @@
 /**
- * Internal Phase-1 engine kernel. Phase 2 exposes this machinery as
- * `createEngine()`; root helpers temporarily delegate to one default instance.
+ * Portable semantic kernel behind public `createEngine()` revisions.
+ * Deprecated package-root helpers delegate to one configured default instance.
  */
 
 import type { VaneCssSupportTarget, VaneExtensionIdentity } from '../values/protocol'
-import type { VaneSelfValue } from '../values/types'
+import type { VaneSelfValue, VaneValue } from '../values/types'
 import {
   createSerializeContext,
   isNodeValue,
@@ -20,16 +20,23 @@ export interface VaneEngineKernelOptions {
   readonly support?: VaneCssSupportTarget
   readonly policies?: Readonly<Record<string, unknown>>
   readonly extensions?: readonly VaneExtensionIdentity[]
+  /** Compatible parent revisions retained by an immutable extension link. */
+  readonly ancestors?: readonly string[]
 }
 
-export interface VaneEngineKernel<Constructors extends Readonly<Record<string, unknown>>> {
+export interface VaneEngineKernel<Constructors extends object> {
   readonly protocol: typeof VANE_IR_PROTOCOL
   readonly signature: string
+  readonly compatibleSignatures: readonly string[]
   readonly support: VaneCssSupportTarget
   readonly policies: Readonly<Record<string, unknown>>
   readonly extensions: readonly VaneExtensionIdentity[]
   readonly constructors: Constructors
   serialize: <Type extends import('../values/types').VaneCssDataType>(value: VaneSelfValue<Type>) => string
+  serializeValue: (
+    value: VaneValue,
+    resolveReference?: import('../values/protocol').VaneSerializeContext['resolveReference'],
+  ) => string
   compatibleWith: (other: Pick<VaneEngineKernel<Record<string, unknown>>, 'signature'>) => boolean
   extend: <Added extends Readonly<Record<string, unknown>>>(
     identity: VaneExtensionIdentity,
@@ -37,7 +44,7 @@ export interface VaneEngineKernel<Constructors extends Readonly<Record<string, u
   ) => VaneEngineKernel<Constructors & Added>
 }
 
-export function createEngineKernel<const Constructors extends Readonly<Record<string, unknown>>>(
+export function createEngineKernel<const Constructors extends object>(
   constructors: Constructors,
   options: VaneEngineKernelOptions = {},
 ): VaneEngineKernel<Constructors> {
@@ -47,11 +54,16 @@ export function createEngineKernel<const Constructors extends Readonly<Record<st
   assertUniqueExtensionIds(extensions)
   const frozenConstructors = Object.freeze({ ...constructors }) as Constructors
   const signature = semanticSignature({ support, policies, extensions })
+  const compatibleSignatures = Object.freeze([
+    signature,
+    ...new Set(options.ancestors ?? []),
+  ])
   const context = createSerializeContext(support)
 
   return Object.freeze({
     protocol: VANE_IR_PROTOCOL,
     signature,
+    compatibleSignatures,
     support,
     policies,
     extensions,
@@ -61,6 +73,12 @@ export function createEngineKernel<const Constructors extends Readonly<Record<st
         throw new TypeError('[vane] this value does not belong to the portable vane expression protocol')
       requireExtensions(value[VANE_NODE], extensions)
       return serializeNode(value[VANE_NODE], context)
+    },
+    serializeValue(value: VaneValue, resolveReference?: import('../values/protocol').VaneSerializeContext['resolveReference']): string {
+      if (!isNodeValue(value))
+        throw new TypeError('[vane] this value does not belong to the portable vane expression protocol')
+      requireExtensions(value[VANE_NODE], extensions)
+      return serializeNode(value[VANE_NODE], createSerializeContext(support, resolveReference))
     },
     compatibleWith(other: Pick<VaneEngineKernel<Record<string, unknown>>, 'signature'>): boolean {
       return signature === other.signature
@@ -81,7 +99,12 @@ export function createEngineKernel<const Constructors extends Readonly<Record<st
       }
       return createEngineKernel(
         { ...frozenConstructors, ...added } as Constructors & Added,
-        { support, policies, extensions: [...extensions, normalized] },
+        {
+          support,
+          policies,
+          extensions: [...extensions, normalized],
+          ancestors: compatibleSignatures,
+        },
       )
     },
   })

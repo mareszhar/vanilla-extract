@@ -270,20 +270,23 @@ import { vaneDuxPlugin } from '@mszr/vane-dux/vite'
 export default defineConfig({ plugins: [vaneDuxPlugin()] })
 `)
   write(join(plainDir, 'index.html'), '<main id="app"></main><script type="module" src="/src/main.ts"></script>\n')
-  write(join(plainDir, 'src/palette.tokens.ts'), `import { alpha, defineTokens, oklch } from '@mszr/vane-dux'
+  write(join(plainDir, 'src/engine.ts'), `import { createEngine } from '@mszr/vane-dux'
 
-export const palette = defineTokens({ color: { brand: oklch(0.58, 0.2, 285).live() } })
-  .derive(({ color }) => ({ color: { brandSoft: alpha(color.brand, 0.12) } }))
+export const de = createEngine()
 `)
-  write(join(plainDir, 'src/system.style.ts'), `import { createSystem, defineTokens } from '@mszr/vane-dux'
+  write(join(plainDir, 'src/palette.tokens.ts'), `import { de } from './engine'
+
+export const palette = de.defineTokens({ color: { brand: de.oklch(0.58, 0.2, 285).live() } })
+  .derive(({ color }) => ({ color: { brandSoft: de.alpha(color.brand, 0.12) } }))
+`)
+  write(join(plainDir, 'src/system.style.ts'), `import { de } from './engine'
 import { palette } from './palette.tokens'
 
-export const { css, t } = createSystem({ tokens: defineTokens().compose(palette) })
+export const ds = de.createSystem({ tokens: de.defineTokens().compose(palette) })
 `)
-  write(join(plainDir, 'src/card.style.ts'), `import { length } from '@mszr/vane-dux'
-import { css, t } from './system.style'
+  write(join(plainDir, 'src/card.style.ts'), `import { ds } from './system.style'
 
-export const card = css({ color: t.color.brand, background: t.color.brandSoft, padding: length.rem(1) })
+export const card = ds.css({ color: ds.t.color.brand, background: ds.t.color.brandSoft, padding: ds.length.rem(1) })
 `)
   write(join(plainDir, 'src/main.ts'), `import { VANE_CSS_CAPABILITIES } from '@mszr/vane-dux/capabilities'
 import { card } from './card.style'
@@ -308,17 +311,23 @@ document.querySelector('#app')!.innerHTML = '<button class="' + card + '" data-c
   vite: { server: { watch: { usePolling: true, interval: 100 } } },
 })
 `)
-  write(join(nuxtDir, 'app/design/palette.tokens.ts'), `import { alpha, defineTokens, oklch } from '@mszr/vane-dux'
+  write(join(nuxtDir, 'app/design/engine.ts'), `import { createEngine } from '@mszr/vane-dux'
 
-export const palette = defineTokens({ color: { brand: oklch(0.58, 0.2, 285).live() } })
-  .derive(({ color }) => ({ color: { brandSoft: alpha(color.brand, 0.12) } }))
+export const de = createEngine()
 `)
-  write(join(nuxtDir, 'app/design/system.style.ts'), `import { createSystem, defineTokens } from '@mszr/vane-dux'
+  write(join(nuxtDir, 'app/design/palette.tokens.ts'), `import { de } from './engine'
+
+export const palette = de.defineTokens({ color: { brand: de.oklch(0.58, 0.2, 285).live() } })
+  .derive(({ color }) => ({ color: { brandSoft: de.alpha(color.brand, 0.12) } }))
+`)
+  write(join(nuxtDir, 'app/design/system.style.ts'), `import { de } from './engine'
 import { palette } from './palette.tokens'
 
-export const { css, t } = createSystem({ tokens: defineTokens().compose(palette) })
+export const ds = de.createSystem({ tokens: de.defineTokens().compose(palette) })
 `)
-  write(join(nuxtDir, 'app/app.style.ts'), `export const page = css({ color: t.color.brand, background: t.color.brandSoft, padding: '2rem' })
+  write(join(nuxtDir, 'app/app.style.ts'), `import { ds } from './design/system.style'
+
+export const page = ds.css({ color: ds.t.color.brand, background: ds.t.color.brandSoft, padding: ds.length.rem(2) })
 `)
   write(join(nuxtDir, 'app/app.vue'), `<script setup lang="ts">
 import { page } from './app.style'

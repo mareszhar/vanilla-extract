@@ -49,11 +49,11 @@ function tokenModuleSource(scale: BenchmarkScale, moduleIndex: number, start: nu
     return `    ${renameMarker}${tokenName(index)}: ${val},`
   }).join('\n')
 
-  return `${header}import { defineTokens, scheme } from '@mszr/vane-dux'
+  return `${header}import { de } from '../engine'
 
-export const ${moduleName(moduleIndex)} = defineTokens({
+export const ${moduleName(moduleIndex)} = de.defineTokens({
   ${groupName(moduleIndex)}: {
-${entries}
+${entries.replaceAll('scheme(', 'de.scheme(')}
   },
 })
 `
@@ -63,17 +63,14 @@ function systemSource(scale: BenchmarkScale): string {
   const imports = Array.from({ length: scale.modules }, (_, index) =>
     `import { ${moduleName(index)} } from './modules/module-${padded(index, 2)}.tokens'`).join('\n')
   const composition = Array.from({ length: scale.modules }, (_, index) =>
-    `  .compose(${moduleName(index)})`).join('\n')
+    `    .compose(${moduleName(index)})`).join('\n')
 
-  return `${header}import { createSystem, defineTokens } from '@mszr/vane-dux'
+  return `${header}import { de } from './engine'
 ${imports}
 
-export const t = defineTokens()
-${composition}
-  .build({ prefix: 'bench-${scale.name}' })
-
-export const { css, recipe } = createSystem({
-  tokens: t,
+export const ds = de.createSystem({
+  tokens: de.defineTokens()
+${composition},
   prefix: 'bench-${scale.name}',
 })
 `
@@ -87,8 +84,8 @@ function showcaseSource(scale: BenchmarkScale, ranges: Array<{ count: number, st
     const length = `${groupName(moduleIndex)}.${tokenName(range.start + Math.min(1, range.count - 1))}`
 
     if (index % 3 === 2) {
-      return `export const recipe${padded(index, 3)} = recipe({
-  base: { background: t.${color}, padding: t.${length} },
+      return `export const recipe${padded(index, 3)} = ds.recipe({
+  base: { background: ds.t.${color}, padding: ds.t.${length} },
   variants: {
     tone: {
       quiet: { opacity: 0.82 },
@@ -99,13 +96,13 @@ function showcaseSource(scale: BenchmarkScale, ranges: Array<{ count: number, st
 })`
     }
 
-    return `export const style${padded(index, 3)} = css({
-  background: t.${color},
-  padding: t.${length},
+    return `export const style${padded(index, 3)} = ds.css({
+  background: ds.t.${color},
+  padding: ds.t.${length},
 })`
   }).join('\n\n')
 
-  return `${header}import { css, recipe, t } from './system.style'
+  return `${header}import { ds } from './system.style'
 
 ${consumers}
 `
@@ -115,12 +112,12 @@ function probeSource(ranges: Array<{ count: number, start: number }>): string {
   const first = ranges[0]!
   const deep = first.start + Math.min(1, first.count - 1)
 
-  return `${header}import { css, t } from './system.style'
+  return `${header}import { ds } from './system.style'
 
-export const rootProbe = t./* @complete-root */${groupName(0)}
-export const deepProbe = t.${groupName(0)}./* @complete-deep */${tokenName(deep)}
-export const diagnosticProbe = t.${groupName(0)}./* @diagnostic */${tokenName(deep)}
-export const cssProbe = css({ /* @complete-css */padding: t.${groupName(0)}.${tokenName(deep)} })
+export const rootProbe = ds.t./* @complete-root */${groupName(0)}
+export const deepProbe = ds.t.${groupName(0)}./* @complete-deep */${tokenName(deep)}
+export const diagnosticProbe = ds.t.${groupName(0)}./* @diagnostic */${tokenName(deep)}
+export const cssProbe = ds.css({ /* @complete-css */padding: ds.t.${groupName(0)}.${tokenName(deep)} })
 `
 }
 
@@ -165,6 +162,8 @@ export default {
 function filesForScale(scale: BenchmarkScale): Map<string, string> {
   const files = new Map<string, string>()
   const ranges = moduleRanges(scale)
+
+  files.set('src/engine.ts', `${header}import { createEngine } from '@mszr/vane-dux'\n\nexport const de = createEngine()\n`)
 
   for (const [index, range] of ranges.entries()) {
     files.set(`src/modules/module-${padded(index, 2)}.tokens.ts`, tokenModuleSource(scale, index, range.start, range.count))

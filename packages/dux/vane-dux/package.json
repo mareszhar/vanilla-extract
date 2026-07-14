@@ -2,7 +2,7 @@
   "name": "@mszr/vane-dux",
   "type": "module",
   "version": "0.0.0",
-  "description": "A DX/UX-first design-system engine for TypeScript: typed tokens, styles, variants, and anatomy in; boring, zero-runtime CSS out.",
+  "description": "A delightful TypeScript harness for CSS: typed values, design systems, and styling APIs in; standards-aligned CSS out.",
   "author": "Mares (https://github.com/mareszhar)",
   "license": "AGPL-3.0-only",
   "homepage": "https://github.com/mareszhar/vane-dux",

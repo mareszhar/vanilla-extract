@@ -84,6 +84,7 @@ describe('the manifest artifact', () => {
             },
           },
         },
+        "root": ":root",
         "styles": {
           "chip__hash": {
             "file": "src/test-support/prism.style.ts",

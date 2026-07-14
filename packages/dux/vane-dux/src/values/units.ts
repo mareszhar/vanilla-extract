@@ -27,8 +27,8 @@ type UnitMethods<Type extends VaneCssDataType, Unit extends string> = {
   readonly [K in Unit]: <const Value extends number>(value: Value) => VaneUnitValue<Type, K, Value>
 }
 
-export type VaneLengthConstructor = {
-  <const Value extends number>(value: Value): VaneUnitValue<'length', 'px', Value>
+export type VaneLengthConstructor<DefaultUnit extends VaneLengthUnit = 'px'> = {
+  <const Value extends number>(value: Value): VaneUnitValue<'length', DefaultUnit, Value>
 } & UnitMethods<'length', VaneLengthUnit>
 
 export type VaneAngleConstructor = UnitMethods<'angle', VaneAngleUnit>
@@ -110,12 +110,18 @@ function unitGroup<Type extends VaneCssDataType, Unit extends string>(
 }
 
 const explicitLength = unitGroup('length', lengthUnits)
-const defaultLength = explicitLength.px
+export function createLengthConstructor<const DefaultUnit extends VaneLengthUnit>(
+  defaultUnit: DefaultUnit,
+): VaneLengthConstructor<DefaultUnit> {
+  const defaultLength = explicitLength[defaultUnit]
 
-export const length: VaneLengthConstructor = Object.assign(
-  <const Value extends number>(value: Value) => defaultLength(value),
-  explicitLength,
-)
+  return Object.freeze(Object.assign(
+    <const Value extends number>(value: Value) => defaultLength(value),
+    explicitLength,
+  )) as VaneLengthConstructor<DefaultUnit>
+}
+
+export const length = createLengthConstructor('px')
 export const angle: VaneAngleConstructor = unitGroup('angle', ['deg', 'grad', 'rad', 'turn'])
 export const time: VaneTimeConstructor = unitGroup('time', ['ms', 's'])
 export const frequency: VaneFrequencyConstructor = unitGroup('frequency', ['Hz', 'kHz'])

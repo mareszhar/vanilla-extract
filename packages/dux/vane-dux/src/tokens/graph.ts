@@ -14,11 +14,20 @@ import type { VaneCssValue } from '../values/types'
 import type { VaneColorExpr } from './color'
 import type { VaneOklch } from './math'
 import type { VaneExprTraits, VaneResolver, VaneScheme } from './resolve'
-import type { VaneGraphInput, VaneTokenBuilder, VaneTokens, VaneTokensOptions } from './types'
-import { createGlobalTheme, createGlobalThemeContract, globalStyle } from '@vanilla-extract/css'
+import type {
+  VaneEngineRequirement,
+  VaneGraphInput,
+  VaneTokenBuilder,
+  VaneTokenModule,
+  VaneTokenModuleOptions,
+  VaneTokens,
+  VaneTokensOptions,
+} from './types'
+import { globalStyle } from '@vanilla-extract/css'
 import { getFileScope, hasFileScope } from '@vanilla-extract/css/fileScope'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { diagnosticSource, didYouMean, VaneError } from '../diagnostics'
+import { checkSelector } from '../internal/cssParser'
 import { createHandle } from '../internal/handle'
 import { inspecting, record } from '../internal/inspect'
 import { collectNodeRequirements, nodeOf as valueNodeOf } from '../values/protocol'
@@ -26,11 +35,12 @@ import { isCssValue } from '../values/types'
 import { TextContrastCheck } from './checks'
 import { colorRequirements, handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
-import { kebab, tokenName } from './names'
+import { tokenName } from './names'
 import { collectRefs, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
 
 export const GRAPH = Symbol.for('vane.graph')
 export const TOKEN_BUILDER = Symbol.for('vane.tokenBuilder')
+const TOKEN_FINALIZE = Symbol.for('vane.tokenFinalize')
 const NODE = Symbol.for('vane.node')
 
 const CONTRAST_COLOR_SUPPORT = '(color: contrast-color(red))'
@@ -52,6 +62,9 @@ interface TokenNode {
   derived: boolean
   definition: VaneLeafDefinition
   meta: { description?: string, deprecated?: string }
+  /** Effective emission location, finalized by the owning system. */
+  root: string
+  layer?: string
 }
 
 interface NodeResult {
@@ -66,11 +79,17 @@ export interface TokenGraph {
   prefix: string
   nodes: Map<string, TokenNode>
   results: Map<string, NodeResult>
+  /** Engine-bound serializer; absent only on the deprecated root builder. */
+  serializeValue?: (value: VaneCssValue) => string
   file?: string
 }
 
 export function graphOf(tokens: object): TokenGraph | undefined {
   return (tokens as { [GRAPH]?: TokenGraph })[GRAPH]
+}
+
+function cssOf(graph: TokenGraph, value: VaneCssValue): string {
+  return graph.serializeValue?.(value) ?? value.css
 }
 
 function nodeOf(handle: VaneRuntimeHandle): TokenNode | undefined {
@@ -95,15 +114,25 @@ export function tokenKindOf(handle: VaneRuntimeHandle): 'color' | 'value' | unde
 
 type RuntimeStage = (tokens: Record<string, unknown>) => object
 type RuntimeContribution
-  = { readonly kind: 'seed', readonly graph: VaneGraphInput }
-    | { readonly kind: 'derive', readonly stage: RuntimeStage }
+  = { readonly kind: 'seed', readonly graph: VaneGraphInput, readonly emission: VaneTokenModuleOptions }
+    | { readonly kind: 'derive', readonly stage: RuntimeStage, readonly emission: VaneTokenModuleOptions }
 
 interface RuntimeTokenBuilder {
   readonly [TOKEN_BUILDER]: true
+  readonly [TOKEN_FINALIZE]: (options?: RuntimeBuildOptions) => VaneTokens<object, string>
   readonly contributions: readonly RuntimeContribution[]
+  readonly engine?: VaneEngineRequirement
   compose: (module: RuntimeTokenBuilder) => RuntimeTokenBuilder
   derive: (stage: RuntimeStage) => RuntimeTokenBuilder
-  build: (options?: VaneTokensOptions<object, string>) => VaneTokens<object, string>
+  /** Present only on the deprecated package-root builder. */
+  build?: (options?: RuntimeBuildOptions) => VaneTokens<object, string>
+}
+
+export interface RuntimeBuildOptions extends VaneTokensOptions<object, string> {
+  readonly root?: string
+  readonly layer?: string
+  readonly layers?: readonly string[]
+  readonly serializeValue?: (value: VaneCssValue) => string
 }
 
 /** Whether a value is the unfinished definition returned by `defineTokens`. */
@@ -115,27 +144,157 @@ export function isTokenBuilder(value: unknown): boolean {
 /**
  * Start a topological token definition. Derivation stages are immutable: a
  * shared base can safely branch into independent graphs without stage leakage.
+ *
+ * @deprecated Use `createEngine().defineTokens()`; this root adapter remains
+ * only while inherited domains migrate to the canonical engine dialect.
  */
 export function defineTokens<const T extends VaneGraphInput = Record<never, never>>(seed?: T): VaneTokenBuilder<T> {
   const graph = seed ?? {} as T
-  return createTokenBuilder([{ kind: 'seed', graph }]) as unknown as VaneTokenBuilder<T>
+  return createTokenBuilder([{ kind: 'seed', graph, emission: {} }], undefined, {}, true) as unknown as VaneTokenBuilder<T>
 }
 
-function createTokenBuilder(contributions: readonly RuntimeContribution[]): RuntimeTokenBuilder {
-  return {
-    [TOKEN_BUILDER]: true,
-    contributions,
-    compose: module => createTokenBuilder([...contributions, ...module.contributions]),
-    derive: stage => createTokenBuilder([...contributions, { kind: 'derive', stage }]),
-    build: options => buildTokens(contributions, options),
+/** Create the canonical unfinished module bound to one semantic engine. */
+export function defineTokenModule<const T extends VaneGraphInput = Record<never, never>>(
+  engine: VaneEngineRequirement,
+  seed?: T,
+  options: VaneTokenModuleOptions = {},
+): VaneTokenModule<T> {
+  validateModuleOptions(options)
+  const graph = snapshotGroup(seed ?? {} as T) as T
+  const emission = Object.freeze({ ...options })
+  return createTokenBuilder([{ kind: 'seed', graph, emission }], engine, emission) as unknown as VaneTokenModule<T>
+}
+
+function createTokenBuilder(
+  contributions: readonly RuntimeContribution[],
+  engine?: VaneEngineRequirement,
+  derivationEmission: VaneTokenModuleOptions = {},
+  exposeLegacyBuild = false,
+): RuntimeTokenBuilder {
+  const frozenContributions = Object.freeze([...contributions])
+  const frozenDerivationEmission = Object.freeze({ ...derivationEmission })
+  const finalize = (options?: RuntimeBuildOptions) => buildTokens(frozenContributions, options)
+  const builder: RuntimeTokenBuilder = {
+    [TOKEN_BUILDER]: true as const,
+    [TOKEN_FINALIZE]: finalize,
+    contributions: frozenContributions,
+    engine,
+    compose: (module: RuntimeTokenBuilder) => {
+      assertComposableEngine(engine, module.engine)
+      return createTokenBuilder(
+        [...frozenContributions, ...module.contributions],
+        engine ?? module.engine,
+        frozenDerivationEmission,
+        exposeLegacyBuild,
+      )
+    },
+    derive: (stage: RuntimeStage) => createTokenBuilder(
+      [...frozenContributions, Object.freeze({
+        kind: 'derive' as const,
+        stage,
+        emission: frozenDerivationEmission,
+      })],
+      engine,
+      frozenDerivationEmission,
+      exposeLegacyBuild,
+    ),
+    ...(exposeLegacyBuild ? { build: finalize } : {}),
   }
+  return Object.freeze(builder)
+}
+
+/** Internal system boundary: canonical modules have no public `.build()`. */
+export function finalizeTokenModule(
+  module: unknown,
+  options?: RuntimeBuildOptions,
+): VaneTokens<object, string> {
+  if (!isTokenBuilder(module))
+    throw new TypeError('[vane] only an unfinished token module can be finalized')
+  return (module as RuntimeTokenBuilder)[TOKEN_FINALIZE](options)
+}
+
+function snapshotGroup(group: object): object {
+  return Object.freeze(Object.fromEntries(Object.entries(group).map(([key, value]) => [
+    key,
+    isGroup(value) ? snapshotGroup(value) : value,
+  ])))
+}
+
+export function tokenModuleEngine(value: unknown): VaneEngineRequirement | undefined {
+  return isTokenBuilder(value) ? (value as RuntimeTokenBuilder).engine : undefined
+}
+
+function assertComposableEngine(
+  target: VaneEngineRequirement | undefined,
+  module: VaneEngineRequirement | undefined,
+): void {
+  if (target === undefined && module === undefined)
+    return
+
+  if (target === undefined || module === undefined || !target.compatibleSignatures.includes(module.signature)) {
+    throw new VaneError({
+      code: 'VANE_ENGINE_INCOMPATIBLE',
+      message: 'token modules were created by incompatible design engines',
+      detail: [
+        `target engine: ${target?.signature ?? 'legacy/unbound'}`,
+        `module engine: ${module?.signature ?? 'legacy/unbound'}`,
+      ],
+      fix: 'define and compose the module with an equivalent engine, or install the same plugin/policy revision',
+    })
+  }
+}
+
+function validateModuleOptions(options: VaneTokenModuleOptions): void {
+  if (options.root !== undefined) {
+    if (options.root.includes('&') || checkSelector(options.root))
+      throw new TypeError(`[vane] token module root '${options.root}' is not a valid absolute CSS selector`)
+  }
+  if (options.layer !== undefined && !isLayerPath(options.layer))
+    throw new TypeError(`[vane] token module layer '${options.layer}' is not a valid dotted CSS layer path`)
+}
+
+function isLayerPath(value: string): boolean {
+  return value.length > 0 && value.split('.').every(part => /^-?(?:[_a-z]|[^\0-\x7F])(?:[-\w]|[^\0-\x7F])*$/i.test(part))
+}
+
+function normalizeEmission(
+  module: VaneTokenModuleOptions,
+  system: {
+    readonly root: string
+    readonly layer?: string
+    readonly layers?: readonly string[]
+    readonly prefix?: string
+  },
+): { readonly root: string, readonly layer?: string } {
+  const root = module.root ?? system.root
+  const authoredLayer = module.layer
+
+  if (authoredLayer === undefined)
+    return system.layer === undefined ? { root } : { root, layer: system.layer }
+
+  const top = authoredLayer.split('.')[0]!
+  if (system.layers && !system.layers.includes(top)) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_UNKNOWN_LAYER',
+      message: `token module layer '${authoredLayer}' is outside this system's declared layers`,
+      detail: [`declared layers: ${system.layers.join(', ')}`],
+      fix: `start the module layer with one of: ${system.layers.join(', ')}`,
+    })
+  }
+
+  const layer = system.prefix === undefined || authoredLayer.startsWith(`${system.prefix}.`)
+    ? authoredLayer
+    : `${system.prefix}.${authoredLayer}`
+  return { root, layer }
 }
 
 function buildTokens<T extends object, Prefix extends string = 'vane'>(
   contributions: readonly RuntimeContribution[],
-  options: VaneTokensOptions<T, Prefix> = {},
+  options: RuntimeBuildOptions = {},
 ): VaneTokens<T, Prefix> {
   const prefix = options.prefix ?? 'vane'
+  const defaultRoot = options.root ?? ':root'
+  const defaultLayer = options.layer
   const file = hasFileScope() ? getFileScope().filePath : undefined
   const nodes = new Map<string, TokenNode>()
   const tree: Record<string, unknown> = {}
@@ -144,7 +303,13 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
 
   for (const contribution of contributions) {
     if (contribution.kind === 'seed') {
-      walkInto(contribution.graph, [], prefix, nodes, tree, false, file)
+      const emission = normalizeEmission(contribution.emission, {
+        root: defaultRoot,
+        layer: defaultLayer,
+        layers: options.layers,
+        prefix,
+      })
+      walkInto(contribution.graph, [], prefix, nodes, tree, false, emission, file)
       continue
     }
 
@@ -160,12 +325,26 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
       })
     }
 
-    walkInto(additions, [], prefix, nodes, tree, true, file)
+    const emission = normalizeEmission(contribution.emission, {
+      root: defaultRoot,
+      layer: defaultLayer,
+      layers: options.layers,
+      prefix,
+    })
+    walkInto(additions, [], prefix, nodes, tree, true, emission, file)
   }
 
-  const { results, diagnostics } = resolveGraph({ prefix, nodes, results: new Map(), file })
+  const unresolved: TokenGraph = {
+    prefix,
+    nodes,
+    results: new Map(),
+    file,
+    ...(options.serializeValue === undefined ? {} : { serializeValue: options.serializeValue }),
+  }
+  const { results, diagnostics } = resolveGraph(unresolved)
+  const resolved: TokenGraph = { ...unresolved, results }
 
-  diagnostics.push(...runChecks(options.checks?.(tree as VaneTokens<T, Prefix>) ?? [], { prefix, nodes, results, file }))
+  diagnostics.push(...runChecks(options.checks?.(tree as VaneTokens<T, Prefix>) ?? [], resolved))
 
   if (diagnostics.length > 0)
     throw new VaneError(diagnostics)
@@ -173,6 +352,8 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
   for (const node of nodes.values()) {
     const result = results.get(node.key)!
     node.handle.mode = result.mode
+    if (node.definition.kind === 'literal' || node.definition.kind === 'value')
+      node.handle.value = node.definition.kind === 'literal' ? node.definition.value : result.emitted
     node.handle.description = node.meta.description
     node.handle.deprecated = node.meta.deprecated
     addFunctionSerializer(node.handle as unknown as (...args: unknown[]) => unknown, {
@@ -182,18 +363,15 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
         name: node.name,
         path: node.key,
         mode: result.mode,
-        ...(node.definition.kind === 'literal'
-          ? { value: node.definition.value }
-          : node.definition.kind === 'value' ? { value: node.definition.value.css } : {}),
+        ...(node.definition.kind === 'literal' || node.definition.kind === 'value' ? { value: result.emitted } : {}),
         ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
         ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
       }],
     })
   }
 
-  emitGraph({ prefix, nodes, results, file })
+  emitGraph(resolved)
 
-  const resolved: TokenGraph = { prefix, nodes, results, file }
   Object.defineProperty(tree, GRAPH, { value: resolved })
 
   if (inspecting())
@@ -209,6 +387,7 @@ function walkInto(
   nodes: Map<string, TokenNode>,
   tree: Record<string, unknown>,
   derived: boolean,
+  emission: { readonly root: string, readonly layer?: string },
   file?: string,
 ): void {
   for (const [key, raw] of Object.entries(group)) {
@@ -223,14 +402,14 @@ function walkInto(
 
       const child = existing as Record<string, unknown> | undefined ?? {}
       tree[key] = child
-      walkInto(raw, leafPath, prefix, nodes, child, derived, file)
+      walkInto(raw, leafPath, prefix, nodes, child, derived, emission, file)
       continue
     }
 
     if (key in tree)
       duplicateToken(keyPath, file)
 
-    const node = createNode(leafPath, prefix, raw, derived)
+    const node = createNode(leafPath, prefix, raw, derived, emission)
     nodes.set(node.key, node)
     tree[key] = node.handle
   }
@@ -272,7 +451,13 @@ function refsProxy(tree: Record<string, unknown>, path: string[], context: strin
   })
 }
 
-function createNode(path: string[], prefix: string, raw: unknown, derived: boolean): TokenNode {
+function createNode(
+  path: string[],
+  prefix: string,
+  raw: unknown,
+  derived: boolean,
+  emission: { readonly root: string, readonly layer?: string },
+): TokenNode {
   const key = path.join('.')
   const handle = createHandle({ name: tokenName(prefix, path), path: key, mode: 'static' })
   Object.assign(handle, handleColorMethods(handle))
@@ -282,6 +467,8 @@ function createNode(path: string[], prefix: string, raw: unknown, derived: boole
     name: handle.name,
     handle,
     derived,
+    root: emission.root,
+    ...(emission.layer === undefined ? {} : { layer: emission.layer }),
     definition: { kind: 'literal', value: '' },
     meta: isColorValue(raw) || isContrastValue(raw) ? raw.meta : {},
   }
@@ -289,8 +476,8 @@ function createNode(path: string[], prefix: string, raw: unknown, derived: boole
   Object.defineProperty(handle, NODE, { value: node })
   node.definition = derived ? classifyLeaf(raw, node) : classifyLeafValue(raw, key)
 
-  if (node.definition.kind === 'literal' || node.definition.kind === 'value')
-    handle.value = node.definition.kind === 'literal' ? node.definition.value : node.definition.value.css
+  if (node.definition.kind === 'literal')
+    handle.value = node.definition.value
 
   return node
 }
@@ -407,7 +594,7 @@ export function resolveGraph(
       const definition = definitionOf(node)
 
       if (definition.kind === 'literal' || definition.kind === 'value') {
-        const css = definition.kind === 'literal' ? String(definition.value) : definition.value.css
+        const css = definition.kind === 'literal' ? String(definition.value) : cssOf(graph, definition.value)
         const parsed = parseColor(css)
 
         if (!parsed)
@@ -451,7 +638,7 @@ export function resolveGraph(
       return {
         traits: { cssLive: reactive, volatile: reactive, conditional: false },
         mode: node.derived || reactive ? 'derived' : 'static',
-        emitted: definition.value.css,
+        emitted: cssOf(graph, definition.value),
       }
     }
 
@@ -579,7 +766,7 @@ function checkResolver(graph: TokenGraph, scheme: VaneScheme): VaneResolver {
       const definition = node.definition
 
       if (definition.kind === 'literal' || definition.kind === 'value') {
-        const css = definition.kind === 'literal' ? String(definition.value) : definition.value.css
+        const css = definition.kind === 'literal' ? String(definition.value) : cssOf(graph, definition.value)
         const parsed = parseColor(css)
 
         if (!parsed)
@@ -620,7 +807,7 @@ function recordGraph(graph: TokenGraph): void {
       return String(definition.value)
 
     if (definition.kind === 'value')
-      return definition.value.css
+      return cssOf(graph, definition.value)
 
     if (definition.kind === 'contrast')
       return pickLegible(foldExpr(definition.expr.target, scheme, resolvers[scheme])).keyword
@@ -640,7 +827,8 @@ function recordGraph(graph: TokenGraph): void {
         return { status: 'unavailable', reason: 'runtime dependency' }
       if (valueNode.kind !== 'literal')
         return { status: 'unavailable', reason: 'no proven fold evaluator for this expression' }
-      return { status: 'available', light: definition.value.css, dark: definition.value.css }
+      const value = cssOf(graph, definition.value)
+      return { status: 'available', light: value, dark: value }
     }
 
     try {
@@ -683,6 +871,8 @@ function recordGraph(graph: TokenGraph): void {
       ...diagnosticSource(node.key),
       path: node.key,
       var: node.name,
+      root: node.root,
+      ...(node.layer === undefined ? {} : { layer: node.layer }),
       mode: result.mode,
       light: preview.status === 'available' ? preview.light : result.emitted,
       dark: preview.status === 'available' ? preview.dark : result.emitted,
@@ -723,37 +913,77 @@ function emitGraph(graph: TokenGraph): void {
   if (graph.nodes.size === 0)
     return
 
-  const values: Record<string, unknown> = {}
-  const supportsUpgrades: Record<string, string> = {}
-  let hasSchemePairs = false
-
-  for (const node of graph.nodes.values()) {
-    const result = graph.results.get(node.key)!
-    setAtPath(values, node.key.split('.'), result.emitted)
-
-    if (result.supportsUpgrade)
-      supportsUpgrades[node.name] = result.supportsUpgrade
-
-    if (result.emitted.includes('light-dark('))
-      hasSchemePairs = true
+  interface EmissionGroup {
+    readonly root: string
+    readonly layer?: string
+    readonly vars: Record<string, string>
+    readonly upgrades: Record<string, string>
+    hasSchemePairs: boolean
   }
 
-  if (hasSchemePairs)
-    globalStyle(':root', { colorScheme: 'light dark' })
+  const groups = new Map<string, EmissionGroup>()
+  let hasSchemePairs = false
 
-  const contract = createGlobalThemeContract(
-    values as Parameters<typeof createGlobalThemeContract>[0],
-    (_value, path) => `${graph.prefix}-${path.map(kebab).join('-')}`,
-  )
+  // The former nested contract emitter kept a reopened top-level group in its
+  // original position. Preserve that public declaration order while grouping
+  // by root/layer for modular emission.
+  const topOrder = new Map<string, number>()
+  for (const node of graph.nodes.values()) {
+    const top = node.key.split('.')[0]!
+    if (!topOrder.has(top))
+      topOrder.set(top, topOrder.size)
+  }
+  const orderedNodes = [...graph.nodes.values()].map((node, index) => ({ node, index })).sort((a, b) => {
+    const group = topOrder.get(a.node.key.split('.')[0]!)! - topOrder.get(b.node.key.split('.')[0]!)!
+    return group === 0 ? a.index - b.index : group
+  })
 
-  createGlobalTheme(':root', contract, values as never)
+  for (const { node } of orderedNodes) {
+    const result = graph.results.get(node.key)!
+    const key = `${node.root}\0${node.layer ?? ''}`
+    let group = groups.get(key)
+    if (!group) {
+      group = {
+        root: node.root,
+        ...(node.layer === undefined ? {} : { layer: node.layer }),
+        vars: {},
+        upgrades: {},
+        hasSchemePairs: false,
+      }
+      groups.set(key, group)
+    }
 
-  if (Object.keys(supportsUpgrades).length > 0) {
-    globalStyle(':root', {
-      '@supports': {
-        [CONTRAST_COLOR_SUPPORT]: { vars: supportsUpgrades },
-      },
-    })
+    group.vars[node.name] = result.emitted
+
+    if (result.supportsUpgrade)
+      group.upgrades[node.name] = result.supportsUpgrade
+
+    if (result.emitted.includes('light-dark(')) {
+      hasSchemePairs = true
+      group.hasSchemePairs = true
+    }
+  }
+
+  const schemeRoots = new Set<string>()
+  for (const group of groups.values()) {
+    if (group.hasSchemePairs && !schemeRoots.has(group.root)) {
+      schemeRoots.add(group.root)
+      globalStyle(group.root, { colorScheme: 'light dark' })
+    }
+
+    let rule: Record<string, unknown> = { vars: group.vars }
+    if (Object.keys(group.upgrades).length > 0) {
+      rule = {
+        ...rule,
+        '@supports': {
+          [CONTRAST_COLOR_SUPPORT]: { vars: group.upgrades },
+        },
+      }
+    }
+    if (group.layer !== undefined)
+      rule = { '@layer': { [group.layer]: rule } }
+
+    globalStyle(group.root, rule)
   }
 
   if (hasSchemePairs) {
@@ -762,16 +992,4 @@ function emitGraph(graph: TokenGraph): void {
     globalStyle('[data-scheme=\'light\']', { colorScheme: 'light' })
     globalStyle('[data-scheme=\'dark\']', { colorScheme: 'dark' })
   }
-}
-
-function setAtPath(target: Record<string, unknown>, path: string[], value: string): void {
-  const [head, ...rest] = path
-
-  if (rest.length === 0) {
-    target[head] = value
-    return
-  }
-
-  target[head] = target[head] ?? {}
-  setAtPath(target[head] as Record<string, unknown>, rest, value)
 }

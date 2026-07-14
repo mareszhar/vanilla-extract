@@ -1,6 +1,6 @@
 # @mszr/vane-dux
 
-**A DX/UX-first design-system engine for TypeScript: typed tokens, styles, variants, and anatomy in — boring, zero-runtime CSS out.**
+**A delightful TypeScript harness for CSS: typed values, design systems, and styling APIs in — standards-aligned, boring CSS out.**
 
 vane-dux replaces the CSS-preprocessor stack with the tooling code has had for a decade: autocomplete, real types, rename-symbol, find-references, instant diagnostics. It builds on [vanilla-extract](https://vanilla-extract.style)'s proven build-time compiler and asks one question of every surface: *what would feel most delightful to use?*
 
@@ -19,30 +19,34 @@ export default defineNuxtConfig({
 ```
 
 ```TS
-// design/system.style.ts — your whole design system, one call
-import { createSystem } from '@mszr/vane-dux'
-import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
+// design/system.style.ts — an engine defines your system
+import { createEngine } from '@mszr/vane-dux'
 
-export const { t, css, recipe, anatomy, port, theme } = createSystem({
-  tokens: presetTokens({ brand: '#635bff' }),
-  conditions: presetConditions(), // adds breakpoints, container sizes, headless states
+export const de = createEngine()
+
+export const ds = de.createSystem({
+  tokens: {
+    color: { brand: de.oklch(0.58, 0.2, 285), onBrand: 'white' },
+    space: { xs: de.length.rem(0.5), sm: de.length.rem(0.75), md: de.length.rem(1) },
+    radius: { sm: de.length.rem(0.375) },
+  },
 })
 ```
 
 ```TS
 // components/AppButton.style.ts
-import { recipe, t } from '~/design/system.style'
+import { ds } from '~/design/system.style'
 
-export const button = recipe({
-  base: { ...t.text.body, display: 'inline-flex', gap: t.space.xs, borderRadius: t.radius.sm },
+export const button = ds.recipe({
+  base: { display: 'inline-flex', gap: ds.t.space.xs, borderRadius: ds.t.radius.sm },
   variants: {
     intent: {
-      brand: { background: t.color.brand, color: t.color.onBrand, hover: { background: t.color.brandHover } },
-      ghost: { background: 'transparent', hover: { background: t.color.brandSoft } },
+      brand: { background: ds.t.color.brand, color: ds.t.color.onBrand },
+      ghost: { background: 'transparent' },
     },
     size: {
-      sm: { paddingInline: t.space.sm },
-      md: { paddingInline: t.space.md },
+      sm: { paddingInline: ds.t.space.sm },
+      md: { paddingInline: ds.t.space.md },
     },
   },
   defaults: { intent: 'brand', size: 'md' },
@@ -113,7 +117,7 @@ One package, a framework-agnostic core, thin overlays on top.
 
 | Entrypoint | What it is |
 | --- | --- |
-| `@mszr/vane-dux` | `createSystem` → `t`, `css`, `recipe`, `anatomy`, `keyframes`, `globalCss`, `port`, `theme`, `defineAtoms`; `defineTokens` for standalone token graphs |
+| `@mszr/vane-dux` | `createEngine()` → engine-bound token modules and `de.createSystem()` → `ds.t`, styling APIs, and the configured value constructors |
 | `@mszr/vane-dux/runtime` | the tree-shakeable live plane: `applyTheme`, `setScheme`, port helpers |
 | `@mszr/vane-dux/vite` | the Vite plugin: evaluates `*.style.ts`, emits CSS + the manifest |
 | `@mszr/vane-dux/vue` | `propsOf`, `usePorts`, `useAnatomy` |
@@ -126,55 +130,60 @@ One package, a framework-agnostic core, thin overlays on top.
 The preset is a furnished room, not the house. Hand-roll the token graph when you're ready — derivations, liveness, and legibility checks included:
 
 ```TS
-// design/tokens.style.ts
-import { alpha, defineTokens, legibleOn, mix, oklch, scale, scheme } from '@mszr/vane-dux'
+// design/engine.ts
+import { createEngine } from '@mszr/vane-dux'
 
-export const t = defineTokens({
+export const de = createEngine()
+```
+
+```TS
+// design/palette.tokens.ts
+import { de } from './engine'
+
+export const palette = de.defineTokens({
   color: {
-    brand: oklch(0.58, 0.2, 285).live(),                // user-themeable at runtime
-    surfacePlane: scheme({ light: oklch(0.96, 0, 0), dark: oklch(0.16, 0, 0) }),
-    inkPlane: scheme({ light: oklch(0.14, 0, 0), dark: oklch(0.94, 0, 0) }),
+    brand: de.oklch(0.58, 0.2, 285).live(),                // user-themeable at runtime
+    surfacePlane: de.scheme({ light: de.oklch(0.96, 0, 0), dark: de.oklch(0.16, 0, 0) }),
+    inkPlane: de.scheme({ light: de.oklch(0.14, 0, 0), dark: de.oklch(0.94, 0, 0) }),
   },
-  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
+  space: de.scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
   radius: { sm: '4px', md: '8px', pill: '999px' },
 })
   .derive(({ color }) => ({
     color: {
-      surface: mix(color.surfacePlane, color.brand, 0.04), // explicit graph edge
-      ink: mix(color.inkPlane, color.brand, 0.04),
-      brandSoft: alpha(color.brand, 0.12),                 // live in the browser
+      surface: de.mix(color.surfacePlane, color.brand, 0.04), // explicit graph edge
+      ink: de.mix(color.inkPlane, color.brand, 0.04),
+      brandSoft: de.alpha(color.brand, 0.12),                 // live in the browser
       brandHover: color.brand.lighten(0.06),
-      onBrand: legibleOn(color.brand),                     // checked at build (APCA)
+      onBrand: de.legibleOn(color.brand),                     // checked at build (APCA)
     },
   }))
-  .build()
 ```
 
-Stages are the topological order. A stage can reference every earlier token and cannot reference its own output; the next stage sees that output with exact completions. Cycles and forward references are therefore unrepresentable. `createSystem` accepts the unfinished builder directly and calls `.build()` for you.
+Stages are the topological order. A stage can reference every earlier token and cannot reference its own output; the next stage sees that output with exact completions. Cycles and forward references are therefore unrepresentable. Modules deliberately have no `.build()`—the final system is the only owner of prefix, names, root, and emission.
 
 Large systems split without a parallel module API—the same builder is useful alone or as part of a larger graph:
 
 ```TS
 // palette.tokens.ts
-export const palette = defineTokens({
-  color: { brand: oklch(0.58, 0.2, 285).live() },
+export const palette = de.defineTokens({
+  color: { brand: de.oklch(0.58, 0.2, 285).live() },
 }).derive(({ color }) => ({
-  color: { brandSoft: alpha(color.brand, 0.12) },
+  color: { brandSoft: de.alpha(color.brand, 0.12) },
 }))
 
 // foundations.tokens.ts
-export const foundations = defineTokens({
-  space: scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }),
+export const foundations = de.defineTokens({
+  space: de.scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }),
 })
 
-// tokens.style.ts
-export const t = defineTokens()
-  .compose(palette)
-  .compose(foundations)
-  .build()
+// system.style.ts
+export const ds = de.createSystem({
+  tokens: de.defineTokens().compose(palette).compose(foundations),
+})
 ```
 
-`palette.build()` remains a complete standalone graph. Composition is immutable, rejects duplicate leaf paths at the `.compose()` call, and keeps rename-symbol connected to the contributing source module.
+Composition is immutable, rejects duplicate leaf paths at the `.compose()` call, and keeps rename-symbol connected from the contributing source module through `ds.t` consumers.
 
 ## Coming from hail-styl
 
@@ -182,7 +191,7 @@ The architectural split survives intact: vane-dux’s root entrypoint is hail-st
 
 | hail-styl | vane-dux |
 | --- | --- |
-| `dsSetToken('color:accent', value)` | `defineTokens({ color: { accent: value } })` |
+| `dsSetToken('color:accent', value)` | `de.defineTokens({ color: { accent: value } })` |
 | a later `dsSetToken` using `Var(...)` | a later `.derive(({ color }) => …)` with exact completion |
 | token definitions split across imported Stylus files | independently buildable token modules joined with `.compose()` |
 | `Var('c:primary')` / `UseToken(...)` | the typed handle `t.color.primary` |
@@ -195,12 +204,12 @@ The important migration is conceptual, not syntactic: relationships that were st
 CSS values use the same config-agnostic primitives everywhere—tokens, styles, keyframes, ports, atoms, and raw interpolation:
 
 ```TS
-import { calc, channel, clamp, grid, oklch } from '@mszr/vane-dux'
+import { ds } from '~/design/system.style'
 
-const fluidSpace = clamp('1rem', calc('2vw').add('0.5rem'), '3rem')
-const cards = grid.repeat('auto-fit', grid.minmax('16rem', '1fr'))
-const quietBrand = oklch.from(t.color.brand, {
-  c: channel.multiply(0.5),
+const fluidSpace = ds.clamp('1rem', ds.calc('2vw').add('0.5rem'), '3rem')
+const cards = ds.grid.repeat('auto-fit', ds.grid.minmax('16rem', '1fr'))
+const quietBrand = ds.oklch.from(ds.t.color.brand, {
+  c: ds.channel.multiply(0.5),
   alpha: 0.72,
 })
 ```
@@ -211,14 +220,14 @@ And cross the runtime boundary through a typed port — reactive values, no runt
 
 ```TS
 // components/Progress.style.ts
-import { css, port, t } from '~/design/system.style'
+import { ds } from '~/design/system.style'
 
-export const fraction = port(0) // typed by its default, named by its export
+export const fraction = ds.port(0) // typed by its default, named by its export
 
-export const track = css({ background: t.color.surface, borderRadius: t.radius.pill })
-export const fill = css({
+export const track = ds.css({ background: ds.t.color.surface, borderRadius: ds.t.radius.pill })
+export const fill = ds.css({
   inlineSize: `calc(${fraction} * 100%)`, // strings stay natural when the CSS already reads cleanly
-  background: t.color.brand,
+  background: ds.t.color.brand,
   motionOk: { transition: 'inline-size 200ms ease' },
 })
 ```

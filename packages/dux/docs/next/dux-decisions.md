@@ -99,6 +99,7 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D63 | The flagship demo is rebuilt as a design-system studio, not mechanically migrated from the current color-picker concept. | Phase 8 proves one coherent system across live palette, scheme, density, radius, elevation, typography, motion, responsive/container behavior, and runtime persistence. The comparison demo uses a smaller parity-friendly brief; neither demo dictates product architecture. |
 | D64 | Core CSS support targets are explicit versioned feature sets. | `defineCssSupportTarget({ id, features })` is the stable adapter; optional Browserslist/bundler integrations may derive it, but core behavior never floats with external market data. |
 | D65 | Relative performance thresholds have a 1ms measurement floor for editor micro-operations. | Below that floor, repeated-run stability, completion/diagnostic counts, and absolute latency govern acceptance; percentage changes between sub-millisecond medians are treated as timer noise, not fictitious user-visible regressions. |
+| D66 | Deprecated package-root authoring functions are migration adapters, not a second canonical dialect. | Until target-doc promotion they preserve inherited regression gates and receive no new language features. The target root centers `createEngine`, public types, and explicit standards/adapter entrypoints; engine-derived constructors and `de.createSystem()` are the only canonical authoring path. |
 
 ## Deliberately open implementation details
 

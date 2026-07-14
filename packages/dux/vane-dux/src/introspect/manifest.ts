@@ -33,6 +33,9 @@ export interface VaneManifestSource {
 export interface VaneManifestToken extends VaneManifestSource {
   /** The emitted custom property: `--vane-color-brand`. */
   var: string
+  /** Effective selector/layer that owns the declaration. */
+  root?: string
+  layer?: string
   /** The built value per scheme — equal strings when the token is scheme-blind. */
   value: { light: string, dark: string }
   /** The emitted CSS value — the live expression when the token stays live. */
@@ -106,6 +109,10 @@ export interface VaneManifestStyle extends VaneManifestSource {
 
 export interface VaneManifest {
   version: 1
+  /** Final system identity and ordinary token emission location. */
+  root?: string
+  tokenLayer?: string
+  engine?: string
   /** Cascade-layer order, as the system declared it. */
   layers: string[]
   /** Condition name → its compiled circumstance, readably serialized. */
@@ -147,12 +154,24 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
   const tokenRecords: VaneTokenRecord[] = []
   const styleRecords: VaneStyleRecord[] = []
   let audit: VaneAuditConfig | undefined
+  let systemRoot: string | undefined
+  let systemTokenLayer: string | undefined
 
   for (const record of records) {
     switch (record.kind) {
       case 'system':
         manifest.layers = record.layers
         manifest.conditions = record.conditions
+        if (record.root !== undefined) {
+          manifest.root = record.root
+          systemRoot = record.root
+        }
+        if (record.tokenLayer !== undefined) {
+          manifest.tokenLayer = record.tokenLayer
+          systemTokenLayer = record.tokenLayer
+        }
+        if (record.engine !== undefined)
+          manifest.engine = record.engine
         if (record.audit)
           audit = { ...audit, ...record.audit }
         break
@@ -209,6 +228,8 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
   for (const token of tokenRecords) {
     manifest.tokens[token.path] = {
       var: token.var,
+      ...(token.root === undefined || token.root === systemRoot ? {} : { root: token.root }),
+      ...(token.layer === undefined || token.layer === systemTokenLayer ? {} : { layer: token.layer }),
       value: { light: token.light, dark: token.dark },
       css: token.css,
       mode: token.mode,

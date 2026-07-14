@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — phases 0–1 complete; phase 2 ready
+status: active migration ledger — phases 0–2 complete; phase 3 ready
 
 # vane-dux next — implementation plan
 
@@ -39,7 +39,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | --- | --- | --- |
 | 0 | Documentation, inventory, characterization, and performance baseline | ☑ |
 | 1 | Unified typed CSS value IR and public extension contracts | ☑ |
-| 2 | Canonical engine authoring environment and two-stage setup | ☐ |
+| 2 | Canonical engine authoring environment and two-stage setup | ☑ |
 | 3 | Token configuration, traits, handles, modules, and projections | ☐ |
 | 4 | Axes, cases, roots, conditions, registrations, and emission order | ☐ |
 | 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☐ |
@@ -153,31 +153,31 @@ Phase 2 is unblocked.
 
 ### Engine
 
-- [ ] Implement `createEngine()` default authoring environment.
-- [ ] Expose the phase-1 engine kernel as public `createEngine()` rather than rehoming constructors a second time.
-- [ ] Implement deterministic semantic engine signatures from protocol, normalized policy, and stable plugin/extension identities; never use object equality for compatibility.
-- [ ] Define plugin configuration fingerprints and reject anonymous opaque extension semantics.
-- [ ] Implement immutable `.use()` and `.extend()` links.
-- [ ] Make built-ins/preset candidates consume public extension contracts.
-- [ ] Decide the minimal package-root exports: `createEngine`, public types, adapters/standards entrypoints.
-- [ ] Reject incompatible engine/module/value composition locally.
+- [x] Implement `createEngine()` default authoring environment.
+- [x] Expose the phase-1 engine kernel as public `createEngine()` rather than rehoming constructors a second time.
+- [x] Implement deterministic semantic engine signatures from protocol, normalized policy, and stable plugin/extension identities; never use object equality for compatibility.
+- [x] Define plugin configuration fingerprints and reject anonymous opaque extension semantics.
+- [x] Implement immutable `.use()` and `.extend()` links.
+- [x] Make built-ins/preset candidates consume public extension contracts.
+- [x] Decide the minimal package-root exports: `createEngine`, public types, adapters/standards entrypoints.
+- [x] Reject incompatible engine/module/value composition locally.
 
 ### System
 
-- [ ] Implement `de.createSystem()` as canonical finalization.
-- [ ] Remove double prefix ownership; system finalizes names once.
-- [ ] Preserve bound CSS/recipe/anatomy/port/atoms/global/keyframe/font APIs.
-- [ ] Re-expose configured value constructors/plugins directly on `ds` for one-import daily style authoring, while keeping definition/finalization methods engine-only.
-- [ ] Export/version the closed system-member and built-in-constructor reservation set; add namespaced extension conventions and collision diagnostics.
-- [ ] Add `root` and token-layer configuration without generic scope terminology.
-- [ ] Preserve build/app function serialization and framework boundaries.
-- [ ] Decide whether standalone `createSystem(de => ...)` remains deferred; do not ship both dialects by accident.
+- [x] Implement `de.createSystem()` as canonical finalization.
+- [x] Remove double prefix ownership; system finalizes names once.
+- [x] Preserve bound CSS/recipe/anatomy/port/atoms/global/keyframe/font APIs.
+- [x] Re-expose configured value constructors/plugins directly on `ds` for one-import daily style authoring, while keeping definition/finalization methods engine-only.
+- [x] Export/version the closed system-member and built-in-constructor reservation set; add namespaced extension conventions and collision diagnostics.
+- [x] Add `root` and token-layer configuration without generic scope terminology.
+- [x] Preserve build/app function serialization and framework boundaries.
+- [x] Decide whether standalone `createSystem(de => ...)` remains deferred; do not ship both dialects by accident.
 
 ### Modules
 
-- [ ] Make engine-bound `defineTokens()` modules carry identity but no fake final names.
-- [ ] Preserve composition, immutable branching, checks, exact staged inference, and rename bridge.
-- [ ] Add module emission metadata normalization.
+- [x] Make engine-bound `defineTokens()` modules carry identity but no fake final names.
+- [x] Preserve composition, immutable branching, checks, exact staged inference, and rename bridge.
+- [x] Add module emission metadata normalization.
 
 ### Exit gate
 
@@ -187,6 +187,20 @@ Phase 2 is unblocked.
 - Prefix/name identity cannot silently diverge.
 - Equivalent HMR/package-duplicate engine instances compose; semantic changes fail locally.
 - Style modules can use `ds.css`, `ds.t`, and configured value constructors from one import.
+
+Accepted 2026-07-14. Phase 2 establishes the canonical public spine while D66 keeps the former package-root functions only as deprecated migration adapters until target-doc promotion.
+
+Acceptance evidence:
+
+- `pnpm run sdk:test`: 52 files, 441 tests, and no type errors. New runtime/type/editor/rename fixtures cover engine policy and identity, plugin fingerprints/prerequisites/collisions, immutable modules, incompatible value/module composition, system namespace separation, one-import constructor identity, root/layer output, manifest ownership, and canonical rename from both definitions and consumers.
+- Generated declaration fixtures compile the ordinary `export const de = createEngine()` and `export const ds = de.createSystem(...)` forms without annotations or TS7056 expansion. The public declarations retain compact named `VaneCoreEngine`/`VaneCoreConstructors` references.
+- The large 5,000-token fixture remained within compiler budgets: 2.06s TypeScript total time, 2,169,398 instantiations, and 385,618 kB memory versus the pre-refactor 2.15s, 2,163,934, and 442,321 kB. Declaration output was 396,788 B versus 396,933 B.
+- The graph-aware rename bridge now prefilters impossible leaf spellings before semantic graph work. Large-fixture rename improved to 5.12ms from the pre-refactor 25.52ms while returning the same four locations; all completion/diagnostic result counts remained exact and CSS completion was 3.11ms.
+- Canonical generated CSS remained effectively level at 205,932 B / 19,815 B gzip versus 205,924 B / 19,842 B. Manifest output was 1,667,819 B, a 0.24% increase over baseline for engine/root/layer/value-requirement provenance.
+- The build-only root entry is 171 kB unminified / 31 kB gzip after exposing the engine, extension registry, system reservations, and transition adapters. The browser runtime entry remains 10.2 kB / 2.14 kB gzip, and the full distribution is 423 kB across 14 files.
+- Packed strict TypeScript 5.8 Vite and Nuxt consumers use the canonical engine → module → system dialect, import only `ds` in style modules, and pass typecheck/build/dev/HTTP/HMR. The repository validation matrix remains green.
+
+Phase 3 is unblocked.
 
 ## 7. Phase 3 — token traits, configuration, and handles
 

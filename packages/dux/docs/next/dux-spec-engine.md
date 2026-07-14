@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — engine/system authoring model, implementation pending
+status: target spec — Phase 2 engine/system foundation implemented; axes and later projections pending
 
 # vane-dux next — spec: engine and system
 
@@ -9,12 +9,14 @@ The engine defines the design-system language. The system finalizes one design s
 
 | Contract | Current asset | Target state |
 | --- | --- | --- |
-| Root free functions | Broad package-root imports | Derive value/token helpers from `createEngine()`. |
-| `createSystem(options)` | Implemented | Move canonical creation to `engine.createSystem(options)`. |
-| Conditions/layers | Implemented and shared across surfaces | Preserve; integrate root-anchored conditions and token sublayers. |
-| Token prefix | Accepted by builder and system | Final system is the sole owner. |
-| Extensions | Ad hoc/internal/preset | Public `.use()`/`.extend()` dogfooded by built-ins. |
+| Root free functions | Deprecated migration adapters | Canonical authoring derives value/token helpers from `createEngine()`; D66 removes the adapters at target-doc promotion. |
+| `createSystem(options)` | Canonical `engine.createSystem(options)` implemented | Preserve the root function only as a deprecated migration adapter. |
+| Conditions/layers | Implemented and shared across surfaces | Root and token/module layers are integrated; axis sublayers follow with axes. |
+| Token prefix | Final system is the sole owner | Preserve single finalization as later token traits arrive. |
+| Extensions | Public `.use()`/`.extend()` plus value-extension contracts implemented | Expand the same protocol to later plugins/presets. |
 | Scheme | Hardcoded color/light/dark concept | Engine-defined general axes. |
+
+Phase 2 implements the complete two-stage spine: zero-config/configured engines, deterministic semantic signatures, immutable extensions/plugins, engine-bound unfinished modules, engine-owned system finalization, module/system roots and token layers, manifest ownership, and direct constructor/plugin re-exposure on `ds`. The existing package-root authoring functions remain deprecated internal-transition adapters under D66; they are not another supported design language.
 
 ## 1. `createEngine()`
 

@@ -78,6 +78,38 @@ function modularFixture(cursorFile: 'colors.ts' | 'consumer.ts'): RenameFixture 
   return fixtureFromSources(marked, cursorFile)
 }
 
+function engineModularFixture(cursorFile: 'colors.ts' | 'consumer.ts'): RenameFixture {
+  const marked = {
+    'engine.ts': `
+      import { createEngine } from '@mszr/vane-dux'
+      export const de = createEngine()
+    `,
+    'colors.ts': `
+      import { de } from './engine'
+      export const colors = de.defineTokens({ color: { ${cursorFile === 'colors.ts' ? MARK : ''}brand: de.oklch(0.58, 0.2, 285) } })
+        .derive(({ color }) => ({ color: { brandSoft: de.alpha(color.brand, 0.12) } }))
+    `,
+    'metrics.ts': `
+      import { de } from './engine'
+      export const metrics = de.defineTokens({ space: { sm: de.length.rem(0.5) } })
+    `,
+    'design.ts': `
+      import { de } from './engine'
+      import { colors } from './colors'
+      import { metrics } from './metrics'
+      export const ds = de.createSystem({
+        tokens: de.defineTokens().compose(colors).compose(metrics),
+      })
+    `,
+    'consumer.ts': `
+      import { ds } from './design'
+      void ds.t.color.${cursorFile === 'consumer.ts' ? MARK : ''}brand
+    `,
+  }
+
+  return fixtureFromSources(marked, cursorFile)
+}
+
 function fixtureFromSources(marked: Record<string, string>, cursorFile: string): RenameFixture {
   const project = process.cwd()
   const virtualRoot = resolve(project, '__rename__')
@@ -182,6 +214,20 @@ describe('token rename-symbol', () => {
     }
     finally {
       project.service.dispose()
+    }
+  })
+
+  it('preserves rename identity through canonical engine modules and a finalized system', () => {
+    const fromDefinition = engineModularFixture('colors.ts')
+    const fromConsumer = engineModularFixture('consumer.ts')
+
+    try {
+      expect(renamed(fromDefinition)).toEqual(modularExpected)
+      expect(renamed(fromConsumer)).toEqual(modularExpected)
+    }
+    finally {
+      fromDefinition.service.dispose()
+      fromConsumer.service.dispose()
     }
   })
 })

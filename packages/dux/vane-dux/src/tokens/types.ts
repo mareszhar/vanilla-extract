@@ -240,23 +240,56 @@ type VaneAddition<G, S> = {
     : S[K]
 }
 
+/** Semantic engine requirement carried by an unfinished module. */
+export interface VaneEngineRequirement {
+  readonly protocol: number
+  readonly signature: string
+  readonly compatibleSignatures: readonly string[]
+}
+
+/** Emission intent retained by a module until one system finalizes it. */
+export interface VaneTokenModuleOptions {
+  readonly root?: string
+  readonly layer?: string
+}
+
 /**
- * A topological token definition. Each `.derive()` callback sees the exact
- * graph accumulated by earlier stages; its own output becomes visible only to
- * the next stage. `.build()` resolves and emits the finished graph once.
+ * An unfinished, engine-bound token graph. It has structure and derivations,
+ * but no prefix, custom-property names, or emitted CSS until `createSystem()`.
  */
-export interface VaneTokenBuilder<G extends object> {
+declare const VANE_TOKEN_DEFINITION: unique symbol
+
+export interface VaneTokenDefinition<G extends object> {
+  /** Type-only graph carrier; runtime identity uses `Symbol.for`. */
+  readonly [VANE_TOKEN_DEFINITION]: G
+}
+
+export interface VaneTokenModule<G extends object> extends VaneTokenDefinition<G> {
   /**
-   * Compose an independently buildable token module into this definition.
+   * Compose an independently authored token module into this definition.
    * Modules retain their internal stage order; later derivations see the
    * exact combined graph. Duplicate paths fail at this call.
    */
   compose: <const M extends object>(
-    module: VaneTokenBuilder<M> & VaneCompositionGuard<G, M>,
+    module: VaneTokenDefinition<M> & VaneCompositionGuard<G, M>,
+  ) => VaneTokenModule<VaneMergeGraph<G, M>>
+  derive: <const S extends VaneTokenStage>(
+    stage: (tokens: VaneTokens<G, string>) => S & VaneAddition<G, S>,
+  ) => VaneTokenModule<VaneMergeGraph<G, VaneMarkDerived<S>>>
+}
+
+/**
+ * Transitional root-helper builder. Canonical engine modules deliberately do
+ * not expose `.build()` because the finalized system is the sole name owner.
+ */
+export interface VaneTokenBuilder<G extends object> extends VaneTokenDefinition<G> {
+  compose: <const M extends object>(
+    module: VaneTokenDefinition<M> & VaneCompositionGuard<G, M>,
   ) => VaneTokenBuilder<VaneMergeGraph<G, M>>
   derive: <const S extends VaneTokenStage>(
     stage: (tokens: VaneTokens<G, string>) => S & VaneAddition<G, S>,
   ) => VaneTokenBuilder<VaneMergeGraph<G, VaneMarkDerived<S>>>
+  /** @deprecated Finalize engine-bound modules with `de.createSystem()`. */
   build: <Prefix extends string = 'vane'>(
     options?: VaneTokensOptions<G, Prefix>,
   ) => VaneTokens<G, Prefix>

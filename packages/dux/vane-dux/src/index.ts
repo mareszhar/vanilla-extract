@@ -47,6 +47,25 @@ export type {
 export { didYouMean, VaneError } from './diagnostics'
 export type { VaneDiagnostic, VaneDiagnosticCode } from './diagnostics'
 
+// ─── Engine: the canonical authoring environment (phase 2) ──────────────────
+
+export { createEngine, defineEnginePlugin } from './engine/createEngine'
+export type {
+  VaneCoreEngine,
+  VaneEngine,
+  VaneEngineMethods,
+  VaneEngineOptions,
+  VaneEnginePlugin,
+  VaneEngineTokenPolicy,
+  VaneSemanticPolicy,
+} from './engine/createEngine'
+export {
+  VANE_BUILTIN_CONSTRUCTOR_NAMES,
+  VANE_SYSTEM_MEMBERS,
+  VANE_SYSTEM_SURFACE_VERSION,
+} from './engine/reservations'
+export type { VaneBuiltinConstructorName, VaneSystemMember } from './engine/reservations'
+
 // ─── Introspection: the audit config the system carries (phase 8) ────────────
 
 export type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from './internal/inspect'
@@ -94,7 +113,9 @@ export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneCondit
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'
 
 export type {
+  VaneBoundSystem,
   VaneDefaultLayers,
+  VaneEngineSystemOptions,
   VaneSystem,
   VaneSystemConditionName,
   VaneSystemOptions,
@@ -133,6 +154,7 @@ export type {
   VaneContrastGuarantee,
   VaneContrastToken,
   VaneDerived,
+  VaneEngineRequirement,
   VaneGraphInput,
   VaneHueInterpolation,
   VaneInterpolatedColor,
@@ -143,6 +165,8 @@ export type {
   VaneThemeOverrides,
   VaneTokenBuilder,
   VaneTokenMode,
+  VaneTokenModule,
+  VaneTokenModuleOptions,
   VaneTokens,
   VaneTokensOptions,
   VaneTokenStage,
@@ -192,6 +216,7 @@ export {
   scheme,
   defaultTime as time,
 } from './values/defaultEngine'
+export type { VaneCoreConstructors } from './values/defaultEngine'
 export type {
   VaneCssOperationDefinition,
   VaneCssValueDefinition,

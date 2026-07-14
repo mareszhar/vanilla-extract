@@ -97,6 +97,7 @@ function identityAt(ts, program, fileName, position) {
 function locationsFor(ts, program, identity) {
   const checker = program.getTypeChecker()
   const locations = []
+  const leaf = identity.path.split('.').at(-1)
 
   for (const source of program.getSourceFiles()) {
     if (source.isDeclarationFile)
@@ -107,7 +108,10 @@ function locationsFor(ts, program, identity) {
     function visit(node) {
       const name = candidateName(ts, node)
 
-      if (name) {
+      // A matching semantic path must end in the same property spelling. This
+      // cheap syntax filter avoids asking TypeScript to instantiate the type of
+      // every property in large, composed graphs during one rename.
+      if (name && propertyName(ts, name) === leaf) {
         const typedPath = typedTokenPath(ts, checker, name)
 
         if (typedPath === identity.path && graphForUse(ts, checker, name, typedPath) === identity.graph)

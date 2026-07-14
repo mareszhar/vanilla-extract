@@ -28,6 +28,9 @@ export interface VaneTokenRecord extends VaneSourceRecord {
   path: string
   /** The emitted custom property: `--vane-color-brand`. */
   var: string
+  /** Effective selector and layer where this declaration was finalized. */
+  root?: string
+  layer?: string
   mode: VaneTokenMode
   /** The built value per scheme — equal strings when the token is scheme-blind. */
   light: string
@@ -53,6 +56,9 @@ export type VaneTokenPreviewRecord
 export interface VaneSystemRecord extends VaneSourceRecord {
   kind: 'system'
   prefix: string
+  root?: string
+  tokenLayer?: string
+  engine?: string
   layers: string[]
   /** Condition name → its compiled arms, serialized readably. */
   conditions: Record<string, string>
