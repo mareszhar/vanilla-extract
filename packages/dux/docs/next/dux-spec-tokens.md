@@ -77,9 +77,10 @@ brand: de.token({
 ```ts
 fill: null
 fill: de.token.color()
+fill: de.token.color({ mutable: true })
 ```
 
-The token receives a path/name/handle but no ordinary value declaration. Bare null is unknown-typed; typed constructors preserve runtime/property validation.
+The token receives a path/name/handle but no ordinary value declaration. Bare null is unknown-typed; typed constructors preserve runtime/property validation. A typed no-default constructor accepts the configured-token traits that remain meaningful without `val`, including `mutable`, `register`, description, deprecation, and runtime validation.
 
 ### 1.4 Known nonemitted value
 
@@ -297,32 +298,40 @@ Case contracts:
 
 ### 5.5 No-default runtime reservations
 
-An author may reserve a mutable branch without giving it a build-time value:
+An author may reserve a mutable base or branch without giving it a build-time value:
 
 ```ts
-accent: de.token({
-  val: baseAccent,
-  mutable: true,
+const reservations = {
+  fill: de.token.color({
+    mutable: true,
+  }),
 
-  axes: {
-    scheme: {
-      dark: null,
-    },
-  },
+  accent: de.token({
+    val: baseAccent,
+    mutable: true,
 
-  cases: [
-    {
-      when: {
-        scheme: 'dark',
-        density: 'compact',
+    axes: {
+      scheme: {
+        dark: null,
       },
-      val: null,
     },
-  ],
-})
+
+    cases: [
+      {
+        when: {
+          scheme: 'dark',
+          density: 'compact',
+        },
+        val: null,
+      },
+    ],
+  }),
+}
 ```
 
-Here `dark` and the dark/compact case are authored addresses, so they appear in branch-handle types and receive runtime slots, but no initial slot declaration is emitted. Until `$set()` supplies a value, each binding falls through to the expression that would have won without that reserved branch. `$unset()` restores that same fallback.
+`fill` has a public binding and an addressable base slot, but no initial slot declaration. It is CSS-invalid until set unless `@property` registration supplies an `initial-value`; in that registered form, the platform initial value is the effective default and `$unset()` restores it.
+
+For `accent`, `dark` and the dark/compact case are authored addresses, so they appear in branch-handle types and receive runtime slots, but no initial slot declaration is emitted. Until `$set()` supplies a value, each binding falls through to the expression that would have won without that reserved branch. `$unset()` restores that same fallback.
 
 The compiler serializes the prior effective expression into the slot fallback chain; it must not create a self-referential public-property cycle. If no prior effective value exists, the branch remains CSS-invalid until set and ordinary consumer `$var(fallback)` behavior remains available.
 
@@ -545,7 +554,7 @@ interface VaneManifestDeclaration {
 }
 ```
 
-`explain(token)` returns or renders:
+`ds.explain(token)` returns or renders:
 
 - authored source/module;
 - data type and expression kind;

@@ -96,6 +96,7 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D60 | Var-default derivations may raise the CSS feature floor, never silently the supported-browser floor. | Engine target policy gates expression emission. Vane emits a proven fallback/enhancement pair or diagnoses the unsupported dependency and suggests `reference: 'val'`; manifests/explanations include a resolved preview or an explicit preview-unavailable reason. |
 | D61 | Scheme selection locality is declared per trigger arm. | Native used-color-scheme arms may be element-local; root-anchored attribute/class arms may be subtree-local; preference media-query fallbacks are document-global and cannot silently claim element-local equivalence. |
 | D62 | Resolution context is a semantic trait; the public generic encoding is performance-contingent. | Phase 1 benchmarks self-only and mixed-resolution graphs. The implementation may use a cheaper branded/erased representation if it preserves compile-time rejection and context-bound serialization. |
+| D63 | The flagship demo is rebuilt as a design-system studio, not mechanically migrated from the current color-picker concept. | Phase 8 proves one coherent system across live palette, scheme, density, radius, elevation, typography, motion, responsive/container behavior, and runtime persistence. The comparison demo uses a smaller parity-friendly brief; neither demo dictates product architecture. |
 
 ## Deliberately open implementation details
 

@@ -42,8 +42,9 @@ When a target document conflicts with a current document, the target document go
 7. [Token specification](./dux-spec-tokens.md) — token configuration, modules, axes/cases, custom properties, and manifests.
 8. [Runtime specification](./dux-spec-runtime.md) — custom-property writes, mutable slots, runtime binding, validation, reset, and SSR.
 9. [Testing](./dux-testing.md) — permanent evidence planes, performance budgets, integration matrices, and release gates.
-10. [Current baseline](./dux-current-baseline.md) — pre-refactor exports, build sizes, verification results, and characterization map.
-11. [Implementation plan](./dux-implementation-plan.md) — migration inventory, phases, task ledger, and promotion procedure.
+10. [Demo brief](./dux-demo-brief.md) — Phase 8 flagship studio, comparison scope, implementation boundaries, and acceptance evidence.
+11. [Current baseline](./dux-current-baseline.md) — pre-refactor exports, build sizes, verification results, and characterization map.
+12. [Implementation plan](./dux-implementation-plan.md) — migration inventory, phases, task ledger, and promotion procedure.
 
 ## Contract inheritance
 

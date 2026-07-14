@@ -25,6 +25,10 @@
     "sdk:test": "pnpm --dir vane-dux exec vitest run --typecheck --passWithNoTests",
     "sdk:test:watch": "pnpm --dir vane-dux exec vitest --typecheck",
 
+    "bench:generate": "tsx scripts/generate-benchmarks.ts",
+    "bench:fixtures:check": "tsx scripts/generate-benchmarks.ts --check",
+    "bench:baseline": "pnpm run sdk:build && pnpm run bench:fixtures:check && tsx scripts/benchmark.ts",
+
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
     "demo:typecheck": "pnpm --dir sandbox/demo-main run typecheck && pnpm --dir sandbox/demo-comparisons run typecheck",

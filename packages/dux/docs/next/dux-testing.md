@@ -63,6 +63,8 @@ Strict Vite and Nuxt apps install the packed package with no repository aliases,
 
 Keep a focused Nuxt flagship and a small comparison/integration fixture. The flagship may be rebuilt later; architecture completion never depends on its visual concept.
 
+Phase 8 follows the separate [demo brief](./dux-demo-brief.md). Until the rebuilt flagship and comparison fixture replace their evidence, the existing demos remain phase-boundary regression gates rather than templates to migrate literally.
+
 ## 3. Value conformance
 
 Every same-named CSS helper receives a capability table and fixtures for:
@@ -102,6 +104,7 @@ Test each data type against:
 - element-local scheme plus universal-syntax registration preservation;
 - explicitly root-bound scheme plus registration;
 - mutable base slot;
+- typed mutable no-default base reservation, both unregistered/invalid-until-set and registered with `initial-value` as its effective default;
 - one complete axis;
 - base plus partial axis;
 - multiple independent axes in each order;
@@ -109,11 +112,12 @@ Test each data type against:
 - mutable base/mode/case set and unset;
 - authored/reserved branches appear in handle types while omitted partial modes and unauthored cases do not;
 - mutable `null` mode/case reservation has no authored slot value, accepts `$set()`, and `$unset()` restores the prior effective expression;
+- native scheme output composes a reserved branch fallback inside `light-dark()` and selector emission preserves the equivalent fallback behavior;
 - module composition/derivation;
 - token override class;
 - resolved environment snapshot;
 - manifest and DTCG projections;
-- resolved expression preview or explicit preview-unavailable reason in manifest/`explain()`.
+- resolved expression preview or explicit preview-unavailable reason in manifest/`ds.explain()`.
 
 Root/condition output matrix:
 
@@ -270,6 +274,8 @@ The current workspace commands remain the starting point:
 pnpm run sdk:typecheck
 pnpm run sdk:test
 pnpm run sdk:build
+pnpm run bench:fixtures:check
+pnpm run bench:baseline
 pnpm run demo:typecheck
 pnpm run demo:build
 pnpm run demo:e2e

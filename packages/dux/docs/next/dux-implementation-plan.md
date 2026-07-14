@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — architecture preparation complete; phase-0 baselines pending; implementation not started
+status: active migration ledger — phase 0 complete; phase 1 ready; implementation not started
 
 # vane-dux next — implementation plan
 
@@ -37,7 +37,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 0 | Documentation, inventory, characterization, and performance baseline | ◐ |
+| 0 | Documentation, inventory, characterization, and performance baseline | ☑ |
 | 1 | Unified typed CSS value IR and public extension contracts | ☐ |
 | 2 | Canonical engine authoring environment and two-stage setup | ☐ |
 | 3 | Token configuration, traits, handles, modules, and projections | ☐ |
@@ -61,19 +61,20 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 - [x] Remove dated review/release/DX tracker files after every surviving requirement is represented here or in testing.
 - [x] Resolve shorthand defaults, semantic engine identity, branch-handle parity, context-bound serialization, scheme/registration semantics, daily constructor access, optional axis order, slot naming, and runtime snapshot addressing.
 - [x] Resolve additive snapshot reconciliation, authored/no-default runtime addresses, versioned system names, expression support/preview policy, per-arm scheme locality, plane-neutral batch entries, extension example identity, and resolution-generic performance risk.
+- [x] Lock base no-default reservations, reserved-branch/native-scheme composition, canonical `ds.explain()` ownership, and the Phase 8 demo rebuild brief.
 
 ### Characterization
 
 - [x] Record current public export/build/test snapshots for intentional comparison in `dux-current-baseline.md`.
 - [x] Map existing characterization fixtures for current color IR, graph modes, theme/applyTheme, schemes, token manifest, roots/layers, ports, and system serialization.
 - [x] Identify behavior to preserve versus architecture/API spellings intentionally replaced.
-- [ ] Capture current packed Vite/Nuxt smoke result.
+- [x] Capture current packed Vite/Nuxt smoke result and current production/dev/HMR/process matrix.
 
 ### Performance baseline
 
-- [ ] Add small/medium/large generated fixtures.
-- [ ] Record cold/incremental typecheck, declarations, completion, diagnostics, rename, build, CSS/manifest size, and runtime bundle baselines.
-- [ ] Add stable benchmark commands and machine-readable artifacts.
+- [x] Add small/medium/large generated fixtures with a deterministic source-control drift check.
+- [x] Record cold/incremental typecheck, declarations, completion, diagnostics, rename, build, CSS/manifest size, and runtime bundle baselines.
+- [x] Add stable benchmark commands and ignored machine-readable protocol-1 artifacts.
 
 ### Exit gate
 
@@ -81,6 +82,8 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 - Current behavior worth preserving has characterization evidence.
 - Performance regression budgets have real baseline numbers.
 - No implementation refactor has begun under an unsettled semantic model.
+
+Accepted 2026-07-14. The human baseline is recorded in `dux-current-baseline.md`; Phase 1 is unblocked.
 
 ## 5. Phase 1 — unified CSS value foundation
 
@@ -186,6 +189,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 
 - [ ] Rename public members to `$name`, `$val`, `$var(fallback?)`, `$description`, `$axes`, etc.
 - [ ] Make axis modes and cases branch handles on both plane-neutral and runtime-bound trees; expose `$val`/metadata without public private-slot names.
+- [ ] Type a mutable no-default base constructor as a runtime-addressable base handle without inventing a value sentinel.
 - [ ] Enumerate authored/reserved branch addresses exactly; omit unconfigured partial modes/cases from handle types.
 - [ ] Keep `$val` a property and `$var()` a fallback-accepting method.
 - [ ] Ensure the handle default serialization follows `reference`.
@@ -238,6 +242,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 - [ ] Establish token sublayers before declarations.
 - [ ] Guarantee base → ordered axes → cases → overrides.
 - [ ] Add optional native `light-dark()` optimization behind support/toolchain policy.
+- [ ] Cover reserved light/dark branches in both native `light-dark()` and selector emission, including their slot fallback chains.
 - [ ] Implement `@property` registration with inferred syntax and validity checks.
 - [ ] Model element-local versus root-bound scheme selection; reject typed registration that would silently freeze element-local `light-dark()` behavior.
 - [ ] Ensure unlayered consumer CSS and system override layers behave predictably.
@@ -260,6 +265,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 ### Mutable slots
 
 - [ ] Emit uniform base slots for every `mutable: true` token.
+- [ ] Emit a public binding and empty base slot for typed mutable no-default tokens; let unregistered bindings remain invalid-until-set and registered `initial-value` supply the platform default.
 - [ ] Emit addressable mode/case slots and public bindings.
 - [ ] Emit no authored slot value for reserved `null` branches and compile a noncyclic fallback to the previously effective expression.
 - [ ] Keep slots inheritable/unregistered and public registration separate.
@@ -337,7 +343,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 - [ ] Replace `{ light, dark }` manifest shapes with declaration provenance.
 - [ ] Record data types, expressions, fold decisions, reference inference, axes/cases, roots, layers, registrations, mutable slots, and portability.
 - [ ] Record emitted feature requirements, fallback/enhancement path, and resolved preview or preview-unavailable reason.
-- [ ] Implement `explain(token)` structured output and devtools projection.
+- [ ] Implement `ds.explain(token)` structured output and devtools projection.
 - [ ] Add specificity/context audits and runtime override inspection.
 - [ ] Preserve exact class/style-call/source/token provenance.
 
@@ -369,9 +375,10 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 - [ ] Compile every next-doc example against the package.
 - [ ] Update Vue/Nuxt/public README guidance to the canonical engine → system setup.
 - [ ] Rebuild the flagship demo from the later maintainer prototype/brief rather than refactoring the current color-picker concept.
-- [ ] Demonstrate axes, non-color mutability, ports, plugins, raw CSS reach, provenance, SSR persistence, and custom-property integration.
+- [ ] Follow `dux-demo-brief.md`: a polished Prism design-system studio with live monochromatic hue/palette, light/dark/system scheme, radius, density, scheme+density shadows, elevation, fonts, and none/subtle/springy motion.
+- [ ] Demonstrate axes, cases, non-color mutability, media/container queries, responsive composition, ports, plugins, raw CSS reach, provenance, SSR persistence, and custom-property integration.
 - [ ] Keep Pug as the demo workspace convention if still desired.
-- [ ] Re-run maintained peer comparisons using current official sources.
+- [ ] Rebuild the comparison demo around a smaller parity-friendly concept, then re-run maintained peer comparisons using current official sources.
 - [ ] Walk every next delight-gauntlet moment and link evidence.
 
 ### Exit gate
@@ -492,3 +499,7 @@ This table makes the July 14, 2026 plan-polish review auditable rather than rely
 | 17 | Runtime tuple batches redundantly required `runtime.t` | D56; runtime spec §7; same-system plane-neutral `ds.t` handles are canonical. |
 | 18 | Anonymous `.extend()` example implied opaque semantics were portable | Engine/language staged-extension examples now use stable `{ id, version }` ownership. |
 | 19 | Resolution propagation could become a hidden TypeScript cost | D62; value spec §1/testing §6; dedicated mixed-resolution benchmark and cheaper-encoding escape. |
+| 20 | Base no-default runtime reservation was only implicit | Token spec §§1.3/5.5; testing §4; explicit typed base form, `@property initial-value` interaction, and phase-3/5 fixtures. |
+| 21 | Reserved branch plus native scheme output was untested | Testing §4; phases 4/5; native `light-dark()` and selector fallback-chain fixtures. |
+| 22 | Introspection spelling drifted from the reserved system surface | D59; token/value/pattern/testing specs; `ds.explain()` is canonical. |
+| 23 | Demo migration could preserve the obsolete concept by accident | D63; `dux-demo-brief.md`; Phase 8 is a deliberate flagship/comparison rebuild. |

@@ -1,0 +1,8 @@
+{
+  "name": "vane-benchmark-medium",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@mszr/vane-dux": "link:../../../vane-dux"
+  }
+}

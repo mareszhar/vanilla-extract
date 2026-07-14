@@ -9,7 +9,7 @@ This document records the implementation immediately before the semantic-foundat
 
 | Field | Value |
 | --- | --- |
-| Source commit | `b5c32c24` |
+| Source commit | `85cbfc3d` |
 | Platform used for this run | Darwin 25.4.0, arm64 |
 | Node | 24.18.0 |
 | pnpm | 11.8.0 |
@@ -26,10 +26,59 @@ Documentation changes in the working tree do not alter the implementation repres
 | `pnpm run sdk:typecheck` | Passed | 5.43s |
 | `pnpm run sdk:test` | 44 files, 397 tests, no type errors | 36.89s Vitest duration |
 | `pnpm run sdk:build` | Passed; obuild reported 3.84s | 5.40s command wall time |
+| `pnpm run bench:baseline` | Three generated scales passed; machine artifact written | 28.95s command wall time |
+| `pnpm run fresh:smoke` | Packed strict Vite and Nuxt types, builds, dev HTTP, and HMR passed | ~38s command wall time |
+| `pnpm run demo:e2e` | 4 production + 1 dev/HMR browser tests and 2 lifecycle repetitions passed | ~48s command wall time |
 
-These are orientation numbers from one local run, not yet the stable small/medium/large performance baseline required by [testing](./dux-testing.md#6-performance-benchmarks).
+The ordinary gate timings are orientation numbers from one local run. The generated-scale metrics below are the accepted same-machine comparison baseline required by [testing](./dux-testing.md#6-performance-benchmarks), not universal marketing claims.
 
-## 3. Current package output
+## 3. Generated scale baseline
+
+The source-controlled generator and fixtures live under `benchmarks/`; `pnpm run bench:fixtures:check` detects drift. `pnpm run bench:baseline` builds the SDK and writes the full protocol-1 result to ignored `.dux/benchmarks/current.json`. This document commits the accepted human summary only.
+
+Fixture shapes:
+
+| Scale | Tokens | Modules | Style/recipe consumers |
+| --- | ---: | ---: | ---: |
+| Small | 50 | 2 | 5 |
+| Medium | 500 | 10 | 30 |
+| Large | 5,000 | 50 | 150 |
+
+### 3.1 Compiler
+
+TypeScript's reported total time excludes process startup; wall time includes it. Incremental runs make no source edit and measure the unchanged-project fast path.
+
+| Scale | Cold TS / wall | Cold instantiations | Cold memory | Incremental TS / wall |
+| --- | ---: | ---: | ---: | ---: |
+| Small | 0.44s / 0.96s | 5,389 | 135,133 kB | 0.33s / 0.87s |
+| Medium | 0.51s / 1.12s | 31,402 | 159,017 kB | 0.33s / 0.91s |
+| Large | 2.15s / 2.71s | 2,163,934 | 442,321 kB | 0.37s / 0.90s |
+
+The large fixture's instantiation and memory jump is the primary Phase 1 warning signal. Resolution-context and axis encodings are compared against this figure before becoming dependencies of later public types.
+
+### 3.2 Warm editor operations
+
+Numbers are local median language-service latency after program warmup. Completion entry counts are 2/10/50 at the root, 25/50/100 in the probed group, and 870 for CSS at small/medium/large respectively. Rename resolves four graph-aware locations at every scale; the diagnostic probe produces one local error.
+
+| Scale | Root completion | Deep completion | CSS completion | Typo diagnostic | Graph rename |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Small | 0.122ms | 0.234ms | 3.282ms | 0.178ms | 2.006ms |
+| Medium | 0.121ms | 0.178ms | 3.236ms | 0.107ms | 4.009ms |
+| Large | 0.141ms | 0.265ms | 2.764ms | 0.105ms | 25.517ms |
+
+These microtimings are comparative signals, not promises of sub-millisecond behavior on every machine. The permanent 20% regression policy and explicit-decision escape apply on the same CI/machine class.
+
+### 3.3 Declarations and build artifacts
+
+| Scale | Declaration emit / bytes | Vite build | CSS raw / gzip | Manifest |
+| --- | ---: | ---: | ---: | ---: |
+| Small | 0.93s / 8,618 B | 0.99s | 3,037 B / 571 B | 18,426 B |
+| Medium | 1.13s / 48,367 B | 0.91s | 23,725 B / 2,702 B | 171,624 B |
+| Large | 2.94s / 396,933 B | 3.13s | 205,924 B / 19,842 B | 1,663,780 B |
+
+The Vite measurement includes manifest generation; the current plugin does not expose a trustworthy isolated manifest-timing hook. Generic axes/cases, mutable-slot overhead, and snapshot serialize/hydrate are recorded as **not representable in the current architecture**, not zero. Their owning phases extend these same fixture identities and begin their own before/after series.
+
+## 4. Current package output
 
 The successful build reported:
 
@@ -56,7 +105,7 @@ saturate, scale, scheme, schemeIs, supports, theme, unsafe
 
 The target intentionally changes this surface toward `createEngine()` and engine-derived helpers. The list is recorded to prevent accidental loss of capabilities, not to preserve names.
 
-## 4. Characterization evidence already present
+## 5. Characterization evidence already present
 
 ### Values
 
@@ -102,7 +151,19 @@ The target intentionally changes this surface toward `createEngine()` and engine
 
 The implementation phase should extend these suites rather than create a parallel unnamed test taxonomy.
 
-## 5. Preserve versus replace
+### 5.1 Snapshot interpretation
+
+| Evidence kind | Preservation rule |
+| --- | --- |
+| Browser, computed-value, cascade, optimizer, SSR/HMR, port, and process assertions | Semantic locks. Preserve the observed capability unless a target decision explicitly replaces it. |
+| Type/editor completion, useful diagnostic locality, graph rename, and module isolation | DX locks. Preserve the user moment; target member names and hover spellings may intentionally change. |
+| CSS output fixtures | Preserve valid value/cascade/layer/selector behavior and intelligibility. Exact custom-property names, old mode labels, and declarations deliberately changed by the target specs are transition evidence. |
+| Manifest/introspection snapshots | Preserve provenance and traceability coverage. The hardcoded light/dark shape and old field vocabulary are intentionally replaced. |
+| Export and package snapshots | Capability inventory and packaging locks, not an obligation to retain root helper names. |
+
+When an exact snapshot mixes both categories, the migration updates the intentionally replaced spelling and adds a semantic assertion for the behavior that survives. It must not blindly re-record the whole fixture.
+
+## 6. Preserve versus replace
 
 ### Preserve as behavior
 
@@ -130,13 +191,14 @@ The implementation phase should extend these suites rather than create a paralle
 - hardcoded light/dark manifest value shape;
 - proposed CSSOM stylesheet mutation path.
 
-## 6. Remaining pre-semantic-code baseline work
+## 7. Phase 0 baseline closure
 
-Before the first value/type refactor commit:
+Completed before the first value/type refactor:
 
-- add generated small/medium/large benchmark fixtures;
-- record numeric editor completion/diagnostic/rename and declaration-size baselines;
-- run and record the packed fresh-app smoke and current browser/dev matrix on the baseline commit;
-- mark which exact snapshots are semantic preservation locks and which encode intentionally replaced spellings/structure.
+- generated small/medium/large benchmark fixtures and stable drift check;
+- compiler, declaration, editor, build, CSS, manifest, and package-size baselines;
+- packed Vite/Nuxt fresh-app smoke;
+- production browser, development/HMR, and repeated process/port lifecycle matrix; and
+- explicit snapshot interpretation separating semantic/DX locks from replaced API/structure.
 
-These tasks remain phase 0 because the current test suite proves correctness well but does not yet provide durable type-performance comparison data.
+Phase 0 is complete. Phase 1 may begin on the internal engine kernel while every phase boundary continues to run these gates.

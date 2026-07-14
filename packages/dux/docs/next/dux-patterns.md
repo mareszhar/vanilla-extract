@@ -68,7 +68,7 @@ Build and live forms of the same public operation must have equivalent semantics
 
 The zero-config token policy is `reference: 'var'` plus `emit: true`; this is a product default, not an inference from literal shape. Engines may configure another stable default. Optimizer/folding improvements must not silently change whether a shorthand token has a public custom property.
 
-The compiler should explain the propagation path in diagnostics and `explain()` output.
+The compiler should explain the propagation path in diagnostics and `ds.explain()` output.
 
 ## 6. Root composition is visible
 
@@ -214,7 +214,7 @@ const manifestToken = {
 }
 ```
 
-`explain(token)` should answer value source, dependencies, reference choice, folding decision, emission context, runtime slots, and portability.
+`ds.explain(token)` should answer value source, dependencies, reference choice, folding decision, emission context, runtime slots, and portability.
 
 ## 16. Performance is part of DX
 

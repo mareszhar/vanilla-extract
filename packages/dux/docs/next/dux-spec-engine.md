@@ -187,7 +187,7 @@ Selection locality is recorded per trigger arm, because different CSS mechanisms
 
 The built-in element-local scheme policy may combine a native preference arm with explicit root/subtree selector arms, but it cannot silently label a media-query fallback element-local. If supported targets lack the required native mechanism, the author must either choose root-bound semantics, explicitly accept a documented degraded fallback, or receive a capability diagnostic.
 
-Trigger precedence and locality are separate: an explicit application arm may beat the preference arm while each remains honest about where it selects. Manifest/`explain()` output records mechanism, locality, priority, fallback, and any acknowledged degradation for every arm.
+Trigger precedence and locality are separate: an explicit application arm may beat the preference arm while each remains honest about where it selects. Manifest/`ds.explain()` output records mechanism, locality, priority, fallback, and any acknowledged degradation for every arm.
 
 ## 5. Token modules
 

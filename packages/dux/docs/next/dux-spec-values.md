@@ -327,7 +327,7 @@ Var-referenced graph edges commonly preserve platform expressions. The engine th
 - if no honest dynamic fallback exists, compilation diagnoses the dependency and suggests an explicit build-folded `reference: 'val'`, a target-policy change, or an acknowledged raw/experimental path;
 - vane never adds hidden JavaScript recomputation merely to mask unsupported CSS.
 
-Expression-emitted tokens remain inspectable. Manifest/`explain()` output includes a resolved preview for a declared environment when the graph can evaluate one, plus the actual emitted expression and support requirements. External/unknown/runtime-only inputs carry `preview: unavailable` with a reason rather than a fabricated value. A preview is diagnostic context, not a replacement for browser computed-value fixtures.
+Expression-emitted tokens remain inspectable. Manifest/`ds.explain()` output includes a resolved preview for a declared environment when the graph can evaluate one, plus the actual emitted expression and support requirements. External/unknown/runtime-only inputs carry `preview: unavailable` with a reason rather than a fabricated value. A preview is diagnostic context, not a replacement for browser computed-value fixtures.
 
 The exact target-input adapter (Browserslist, bundler target data, or an explicit vane matrix) is settled through Phase 1 integration fixtures; the behavioral contract above is invariant.
 
