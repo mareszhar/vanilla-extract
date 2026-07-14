@@ -11,6 +11,7 @@ export default defineConfig({
       // Tests import the package exactly the way userland does; the tsconfig
       // `paths` carry the same mapping for the type/editor-DX planes.
       '@test': local('./src/test-support/index.ts'),
+      '@mszr/vane-dux/capabilities': local('./src/capabilities.ts'),
       '@mszr/vane-dux/runtime': local('./src/runtime.ts'),
       '@mszr/vane-dux/preset': local('./src/preset.ts'),
       '@mszr/vane-dux/vite': local('./src/vite.ts'),

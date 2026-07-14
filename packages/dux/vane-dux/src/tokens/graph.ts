@@ -10,6 +10,7 @@
 
 import type { VaneDiagnostic } from '../diagnostics'
 import type { VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
+import type { VaneCssValue } from '../values/types'
 import type { VaneColorExpr } from './color'
 import type { VaneOklch } from './math'
 import type { VaneExprTraits, VaneResolver, VaneScheme } from './resolve'
@@ -20,9 +21,10 @@ import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { diagnosticSource, didYouMean, VaneError } from '../diagnostics'
 import { createHandle } from '../internal/handle'
 import { inspecting, record } from '../internal/inspect'
+import { collectNodeRequirements, nodeOf as valueNodeOf } from '../values/protocol'
 import { isCssValue } from '../values/types'
 import { TextContrastCheck } from './checks'
-import { handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
+import { colorRequirements, handleColorMethods, isColorValue, isContrastValue, toExpr } from './color'
 import { apcaContrast, formatOklch, parseColor, pickLegible, wcagContrast } from './math'
 import { kebab, tokenName } from './names'
 import { collectRefs, exprTraits, foldExpr, serializeContrastPick, serializeExpr } from './resolve'
@@ -37,6 +39,7 @@ const CONTRAST_COLOR_SUPPORT = '(color: contrast-color(red))'
 
 type VaneLeafDefinition
   = | { kind: 'literal', value: string | number }
+    | { kind: 'value', value: VaneCssValue }
     | { kind: 'color', expr: VaneColorExpr, markedLive: boolean }
     | { kind: 'contrast', expr: Extract<VaneColorExpr, { kind: 'contrast' }> }
 
@@ -85,7 +88,7 @@ export function tokenKindOf(handle: VaneRuntimeHandle): 'color' | 'value' | unde
   if (!node)
     return undefined
 
-  return node.definition.kind === 'literal' ? 'value' : 'color'
+  return node.definition.kind === 'literal' || (node.definition.kind === 'value' && node.definition.value.type !== 'color') ? 'value' : 'color'
 }
 
 // ─── defineTokens ────────────────────────────────────────────────────────────
@@ -179,7 +182,9 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
         name: node.name,
         path: node.key,
         mode: result.mode,
-        ...(node.definition.kind === 'literal' ? { value: node.definition.value } : {}),
+        ...(node.definition.kind === 'literal'
+          ? { value: node.definition.value }
+          : node.definition.kind === 'value' ? { value: node.definition.value.css } : {}),
         ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
         ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
       }],
@@ -284,8 +289,8 @@ function createNode(path: string[], prefix: string, raw: unknown, derived: boole
   Object.defineProperty(handle, NODE, { value: node })
   node.definition = derived ? classifyLeaf(raw, node) : classifyLeafValue(raw, key)
 
-  if (node.definition.kind === 'literal')
-    handle.value = node.definition.value
+  if (node.definition.kind === 'literal' || node.definition.kind === 'value')
+    handle.value = node.definition.kind === 'literal' ? node.definition.value : node.definition.value.css
 
   return node
 }
@@ -311,7 +316,7 @@ function classifyLeafValue(raw: unknown, key: string): VaneLeafDefinition {
     return { kind: 'literal', value: raw }
 
   if (isCssValue(raw))
-    return { kind: 'literal', value: raw.css }
+    return { kind: 'value', value: raw }
 
   throw new VaneError({
     code: 'VANE_TOKENS_INVALID_COLOR',
@@ -401,11 +406,12 @@ export function resolveGraph(
     return guardCycles(node, () => {
       const definition = definitionOf(node)
 
-      if (definition.kind === 'literal') {
-        const parsed = parseColor(String(definition.value))
+      if (definition.kind === 'literal' || definition.kind === 'value') {
+        const css = definition.kind === 'literal' ? String(definition.value) : definition.value.css
+        const parsed = parseColor(css)
 
         if (!parsed)
-          return resolver.invalidColor(`${node.key} holds '${definition.value}', which is not a color`)
+          return resolver.invalidColor(`${node.key} holds '${css}', which is not a color`)
 
         return parsed
       }
@@ -433,9 +439,19 @@ export function resolveGraph(
 
     if (definition.kind === 'literal') {
       return {
-        traits: { cssLive: false, volatile: originallyLive },
+        traits: { cssLive: false, volatile: originallyLive, conditional: false },
         mode: node.derived ? 'derived' : 'static',
         emitted: String(definition.value),
+      }
+    }
+
+    if (definition.kind === 'value') {
+      const valueNode = valueNodeOf(definition.value)
+      const reactive = valueNode.dependencies.length > 0
+      return {
+        traits: { cssLive: reactive, volatile: reactive, conditional: false },
+        mode: node.derived || reactive ? 'derived' : 'static',
+        emitted: definition.value.css,
       }
     }
 
@@ -445,13 +461,13 @@ export function resolveGraph(
     const { expr } = definition
     const markedLive = definition.markedLive || originallyLive
     const inner = exprTraits(expr, resolver)
-    const traits = { cssLive: inner.cssLive, volatile: inner.volatile || markedLive }
+    const traits = { ...inner, volatile: inner.volatile || markedLive }
 
     const mode: VaneTokenMode = markedLive
       ? 'live'
       : node.derived
         ? 'derived'
-        : traits.cssLive ? 'scheme' : 'static'
+        : traits.conditional ? 'scheme' : traits.volatile ? 'derived' : 'static'
 
     // A pure alias keeps the graph edge visible: always the `var()` reference.
     if (expr.kind === 'ref')
@@ -562,11 +578,12 @@ function checkResolver(graph: TokenGraph, scheme: VaneScheme): VaneResolver {
       const node = nodeOf(handle)!
       const definition = node.definition
 
-      if (definition.kind === 'literal') {
-        const parsed = parseColor(String(definition.value))
+      if (definition.kind === 'literal' || definition.kind === 'value') {
+        const css = definition.kind === 'literal' ? String(definition.value) : definition.value.css
+        const parsed = parseColor(css)
 
         if (!parsed)
-          throw new VaneError({ code: 'VANE_TOKENS_INVALID_COLOR', message: `${node.key} holds '${definition.value}', which is not a color`, path: node.key, file: graph.file })
+          throw new VaneError({ code: 'VANE_TOKENS_INVALID_COLOR', message: `${node.key} holds '${css}', which is not a color`, path: node.key, file: graph.file })
 
         return parsed
       }
@@ -575,7 +592,7 @@ function checkResolver(graph: TokenGraph, scheme: VaneScheme): VaneResolver {
     },
     refTraits: (handle) => {
       const result = graph.results.get(nodeOf(handle)!.key)
-      return result?.traits ?? { cssLive: false, volatile: false }
+      return result?.traits ?? { cssLive: false, volatile: false, conditional: false }
     },
     invalidColor: (detail) => {
       throw new VaneError({ code: 'VANE_TOKENS_INVALID_COLOR', message: `a check cannot resolve: ${detail}`, file: graph.file })
@@ -602,18 +619,63 @@ function recordGraph(graph: TokenGraph): void {
     if (definition.kind === 'literal')
       return String(definition.value)
 
+    if (definition.kind === 'value')
+      return definition.value.css
+
     if (definition.kind === 'contrast')
       return pickLegible(foldExpr(definition.expr.target, scheme, resolvers[scheme])).keyword
 
     return formatOklch(foldExpr(definition.expr, scheme, resolvers[scheme]))
   }
 
+  const previewOf = (node: TokenNode): import('../internal/inspect').VaneTokenPreviewRecord => {
+    const definition = node.definition
+    if (definition.kind === 'literal') {
+      const value = String(definition.value)
+      return { status: 'available', light: value, dark: value }
+    }
+    if (definition.kind === 'value') {
+      const valueNode = valueNodeOf(definition.value)
+      if (valueNode.dependencies.length > 0)
+        return { status: 'unavailable', reason: 'runtime dependency' }
+      if (valueNode.kind !== 'literal')
+        return { status: 'unavailable', reason: 'no proven fold evaluator for this expression' }
+      return { status: 'available', light: definition.value.css, dark: definition.value.css }
+    }
+
+    try {
+      return {
+        status: 'available',
+        light: schemeValue(node, 'light'),
+        dark: schemeValue(node, 'dark'),
+      }
+    }
+    catch (error) {
+      return {
+        status: 'unavailable',
+        reason: error instanceof Error ? error.message : 'color expression cannot be previewed',
+      }
+    }
+  }
+
   for (const node of graph.nodes.values()) {
     const result = graph.results.get(node.key)!
     const refs = new Set<string>()
 
-    if (node.definition.kind !== 'literal')
+    if (node.definition.kind === 'value') {
+      for (const reference of valueNodeOf(node.definition.value).dependencies) {
+        if (reference.path)
+          refs.add(reference.path)
+      }
+    }
+    else if (node.definition.kind !== 'literal') {
       collectRefs(node.definition.expr, refs)
+    }
+
+    const requirements = node.definition.kind === 'value'
+      ? [...collectNodeRequirements(valueNodeOf(node.definition.value))]
+      : node.definition.kind === 'literal' ? [] : [...colorRequirements(node.definition.expr)]
+    const preview = previewOf(node)
 
     record({
       kind: 'token',
@@ -622,9 +684,11 @@ function recordGraph(graph: TokenGraph): void {
       path: node.key,
       var: node.name,
       mode: result.mode,
-      light: schemeValue(node, 'light'),
-      dark: schemeValue(node, 'dark'),
+      light: preview.status === 'available' ? preview.light : result.emitted,
+      dark: preview.status === 'available' ? preview.dark : result.emitted,
       css: result.emitted,
+      requirements,
+      preview,
       ...(result.supportsUpgrade === undefined ? {} : { upgrade: result.supportsUpgrade }),
       refs: [...refs],
       ...(node.meta.description === undefined ? {} : { description: node.meta.description }),

@@ -27,6 +27,7 @@
 
     "bench:generate": "tsx scripts/generate-benchmarks.ts",
     "bench:fixtures:check": "tsx scripts/generate-benchmarks.ts --check",
+    "bench:resolution": "tsx scripts/benchmark-resolution.ts",
     "bench:baseline": "pnpm run sdk:build && pnpm run bench:fixtures:check && tsx scripts/benchmark.ts",
 
     "demo:main": "pnpm --dir sandbox/demo-main run dev",

@@ -3,6 +3,7 @@
   "compilerOptions": {
     "paths": {
       "@mszr/vane-dux": ["./src/index.ts"],
+      "@mszr/vane-dux/capabilities": ["./src/capabilities.ts"],
       "@mszr/vane-dux/runtime": ["./src/runtime.ts"],
       "@mszr/vane-dux/preset": ["./src/preset.ts"],
       "@mszr/vane-dux/vite": ["./src/vite.ts"],

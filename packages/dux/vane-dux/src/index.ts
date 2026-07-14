@@ -104,27 +104,20 @@ export type {
 // ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
 
 export { check } from './tokens/checks'
-export {
-  alpha,
-  channel,
-  color,
-  darken,
-  desaturate,
-  displayP3,
-  hsl,
-  lab,
-  lch,
-  legibleOn,
-  lighten,
-  mix,
-  oklab,
-  oklch,
-  rgb,
-  rotate,
-  saturate,
-  scheme,
+export type {
+  VaneChannelOperation,
+  VaneColorChannel,
+  VaneColorMixItem,
+  VaneColorMixOptions,
+  VaneColorMixPercentage,
+  VaneCssColorSpace,
+  VaneHueChannel,
+  VaneLegibleOptions,
+  VaneNumericColorChannel,
+  VaneOklchChannels,
+  VaneOklchFunction,
+  VanePredefinedColorSpace,
 } from './tokens/color'
-export type { VaneChannelOperation, VaneLegibleOptions, VaneOklchChannels, VaneOklchFunction } from './tokens/color'
 export { defineTokens } from './tokens/graph'
 export { scale } from './tokens/scale'
 export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
@@ -132,6 +125,7 @@ export { theme } from './tokens/theme'
 export type {
   VaneCheck,
   VaneColor,
+  VaneColorInterpolationSpace,
   VaneColorish,
   VaneColorMode,
   VaneColorToken,
@@ -140,8 +134,11 @@ export type {
   VaneContrastToken,
   VaneDerived,
   VaneGraphInput,
+  VaneHueInterpolation,
+  VaneInterpolatedColor,
   VaneLiveOverrides,
   VaneModeOf,
+  VanePolarColorSpace,
   VaneResolvedTokens,
   VaneThemeOverrides,
   VaneTokenBuilder,
@@ -152,9 +149,105 @@ export type {
   VaneValueToken,
 } from './tokens/types'
 
-// ─── CSS values: config-agnostic math and layout composition ─────────────────
+// ─── CSS values: the default internal engine's compatibility adapters ───────
 
-export { grid } from './values/grid'
-export { calc, clamp, max, min } from './values/math'
-export type { VaneCalc, VaneDimensionOf, VaneMathDimension, VaneMathValue } from './values/math'
-export type { VaneCssInput, VaneCssReference, VaneCssValue } from './values/types'
+export type { VaneCustomProperty, VaneCustomPropertyOptions } from './values/customProperty'
+export {
+  alpha,
+  defaultAngle as angle,
+  calc,
+  defaultChannel as channel,
+  clamp,
+  color,
+  colorMix,
+  defaultCustomProperty as customProperty,
+  darken,
+  defaultDefineCssOperation as defineCssOperation,
+  defaultDefineCssValue as defineCssValue,
+  desaturate,
+  displayP3,
+  defaultFlex as flex,
+  defaultFrequency as frequency,
+  grid,
+  hsl,
+  hwb,
+  defaultInteger as integer,
+  lab,
+  lch,
+  legibleOn,
+  defaultLength as length,
+  lighten,
+  max,
+  min,
+  mix,
+  defaultNumber as number,
+  oklab,
+  oklch,
+  defaultPercent as percent,
+  defaultRawValue as rawValue,
+  defaultResolution as resolution,
+  rgb,
+  rotate,
+  saturate,
+  scheme,
+  defaultTime as time,
+} from './values/defaultEngine'
+export type {
+  VaneCssOperationDefinition,
+  VaneCssValueDefinition,
+  VaneCssValueRecipe,
+  VaneExtensionInput,
+} from './values/extensions'
+export type {
+  VaneCalc,
+  VaneDimensionOf,
+  VaneMathDimension,
+  VaneMathValue,
+  VaneProductDimension,
+  VaneQuotientDimension,
+  VaneSumDimension,
+} from './values/math'
+export {
+  createCssValueSerializer,
+  defineCssSupportTarget,
+  VANE_DEFAULT_CSS_SUPPORT,
+} from './values/protocol'
+export type {
+  VaneCssFeature,
+  VaneCssSupportTarget,
+  VaneExpressionKind,
+  VaneExtensionIdentity,
+  VaneFoldContext,
+  VaneFoldRefusal,
+  VaneFoldResult,
+  VaneReference,
+  VaneSerializeContext,
+  VaneSource,
+} from './values/protocol'
+export type { VaneRawValueConstructors } from './values/raw'
+export type {
+  VaneCssDataType,
+  VaneCssInput,
+  VaneCssReference,
+  VaneCssValue,
+  VaneDataTypeOf,
+  VaneResolution,
+  VaneSelfValue,
+  VaneSystemValue,
+  VaneValue,
+} from './values/types'
+export type {
+  VaneAngleConstructor,
+  VaneAngleUnit,
+  VaneFlexConstructor,
+  VaneFlexUnit,
+  VaneFrequencyConstructor,
+  VaneFrequencyUnit,
+  VaneLengthConstructor,
+  VaneLengthUnit,
+  VaneResolutionConstructor,
+  VaneResolutionUnit,
+  VaneTimeConstructor,
+  VaneTimeUnit,
+  VaneUnitValue,
+} from './values/units'

@@ -100,6 +100,9 @@ describe('the manifest artifact', () => {
             "file": "src/test-support/prism.style.ts",
             "live": true,
             "mode": "live",
+            "requirements": [
+              "color-level-4",
+            ],
             "usage": 1,
             "value": {
               "dark": "oklch(0.58 0.2 285)",
@@ -114,6 +117,10 @@ describe('the manifest artifact', () => {
             "mode": "derived",
             "refs": [
               "color.brand",
+            ],
+            "requirements": [
+              "color-level-4",
+              "relative-color",
             ],
             "usage": 1,
             "value": {

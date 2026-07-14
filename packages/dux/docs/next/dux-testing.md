@@ -201,10 +201,11 @@ Phase 1 has a dedicated resolution-propagation matrix:
 Initial regression policy:
 
 - no accepted phase may degrade a large-fixture editor/type metric by more than 20% without an explicit decision explaining the user-visible gain;
+- D65 applies a 1ms floor to that relative editor threshold; sub-millisecond interactions use absolute latency, repeated-run stability, and unchanged result counts because percentage deltas at timer-noise scale are not meaningful product regressions;
 - completion/diagnostic interactions must remain subjectively immediate, then receive a numeric budget from baseline measurements in phase 0;
 - mutable-slot overhead is reported separately for zero, typical, and all-token mutability;
 - type-level bulk axis syntax ships only if it stays within the same budget as canonical per-token syntax.
-- the public `Resolution` generic ships only if mixed-resolution instantiation/completion/declaration costs remain within budget; otherwise the cheaper semantically equivalent encoding is selected before other APIs depend on it.
+- D62 selected separate self/system brands plus focused overloads: at 5,000 mixed expressions the rejected generic used 1.25s TypeScript total time and 339,107 declaration bytes versus 0.77s and 279,177 bytes for the selected encoding.
 
 Store machine-readable results under a generated benchmark artifact path and commit a human summary only when a new baseline is accepted.
 
@@ -275,6 +276,7 @@ pnpm run sdk:typecheck
 pnpm run sdk:test
 pnpm run sdk:build
 pnpm run bench:fixtures:check
+pnpm run bench:resolution
 pnpm run bench:baseline
 pnpm run demo:typecheck
 pnpm run demo:build

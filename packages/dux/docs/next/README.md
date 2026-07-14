@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target documentation hub — normative for the semantic-foundation refactor, not yet the current implementation
+status: target documentation hub — phases 0–1 accepted; phase 2 is next
 
 # vane-dux next — documentation hub
 
@@ -30,6 +30,14 @@ Everything else — axes, custom properties, runtime updates, plugins, DTCG, sca
 | Tests and emitted output | Evidence. A target contract is not implemented until its named evidence exists. |
 
 When a target document conflicts with a current document, the target document governs new work; the current document continues to describe shipped behavior until promotion.
+
+## Current migration state
+
+- Phase 0 established the semantic contracts, preservation inventory, and pre-refactor evidence baseline.
+- Phase 1 is accepted: the internal engine kernel, unified typed CSS value IR, standards-aware serializers, public value-extension contracts, and compatibility adapters pass the permanent phase-boundary gates.
+- Phase 2 is next: expose the canonical configurable engine and finalized system model without rehoming the Phase 1 constructors.
+
+The detailed checklist and acceptance evidence live in the [implementation plan](./dux-implementation-plan.md). The [current baseline](./dux-current-baseline.md) remains the immutable pre-refactor comparison point rather than a rolling description of the new implementation.
 
 ## Reading order
 

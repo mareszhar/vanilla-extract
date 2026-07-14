@@ -24,6 +24,13 @@ export default defineBuildConfig({
     },
     {
       type: 'bundle',
+      input: ['./src/capabilities.ts'],
+      rolldown: {
+        platform: 'neutral',
+      },
+    },
+    {
+      type: 'bundle',
       input: ['./src/vite.ts'],
       rolldown: {
         platform: 'node',

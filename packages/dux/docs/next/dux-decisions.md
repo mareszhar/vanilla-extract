@@ -95,8 +95,10 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D59 | The top-level system member namespace is a closed, versioned contract. | Core publishes/reserves its member set; adding another core top-level name outside that set is a breaking change. Extensions should claim one unique namespace such as `ds.editorial.*`; collisions fail when the engine is built. |
 | D60 | Var-default derivations may raise the CSS feature floor, never silently the supported-browser floor. | Engine target policy gates expression emission. Vane emits a proven fallback/enhancement pair or diagnoses the unsupported dependency and suggests `reference: 'val'`; manifests/explanations include a resolved preview or an explicit preview-unavailable reason. |
 | D61 | Scheme selection locality is declared per trigger arm. | Native used-color-scheme arms may be element-local; root-anchored attribute/class arms may be subtree-local; preference media-query fallbacks are document-global and cannot silently claim element-local equivalence. |
-| D62 | Resolution context is a semantic trait; the public generic encoding is performance-contingent. | Phase 1 benchmarks self-only and mixed-resolution graphs. The implementation may use a cheaper branded/erased representation if it preserves compile-time rejection and context-bound serialization. |
+| D62 | Resolution context uses separate `VaneSelfValue`/`VaneSystemValue` brands and a plane-neutral union, not a propagated public generic. | The 5,000-expression candidate generic cost 62% more TypeScript total time and 21.5% more declaration bytes than the branded/overloaded encoding. Focused overloads retain call-site rejection and readable hovers without taxing every value operation. |
 | D63 | The flagship demo is rebuilt as a design-system studio, not mechanically migrated from the current color-picker concept. | Phase 8 proves one coherent system across live palette, scheme, density, radius, elevation, typography, motion, responsive/container behavior, and runtime persistence. The comparison demo uses a smaller parity-friendly brief; neither demo dictates product architecture. |
+| D64 | Core CSS support targets are explicit versioned feature sets. | `defineCssSupportTarget({ id, features })` is the stable adapter; optional Browserslist/bundler integrations may derive it, but core behavior never floats with external market data. |
+| D65 | Relative performance thresholds have a 1ms measurement floor for editor micro-operations. | Below that floor, repeated-run stability, completion/diagnostic counts, and absolute latency govern acceptance; percentage changes between sub-millisecond medians are treated as timer noise, not fictitious user-visible regressions. |
 
 ## Deliberately open implementation details
 
@@ -108,7 +110,6 @@ These questions do not block the architecture, but must be settled in their owni
 - Whether a one-shot `varRef()` convenience earns its surface beside `customProperty().$var()`.
 - Whether runtime selector strings are supported as a query-once convenience; they must never silently mean stylesheet injection.
 - The supported subset and maturity tier of `light-dark()` optimization versus selector-based scheme emission.
-- The exact engine/integration input format for the settled CSS support-target policy.
 - The exact public spelling for per-arm scheme locality and acknowledged degraded fallback; D61's semantics are fixed.
 - The minimum initial CSS data-type set beyond color, number, percentage, length, angle, time, resolution, custom-ident, and unknown.
 - How plugins namespace manifest/DTCG data and report nonportable IR nodes.

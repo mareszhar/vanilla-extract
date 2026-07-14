@@ -34,6 +34,10 @@
       "types": "./dist/runtime.d.mts",
       "import": "./dist/runtime.mjs"
     },
+    "./capabilities": {
+      "types": "./dist/capabilities.d.mts",
+      "import": "./dist/capabilities.mjs"
+    },
     "./vite": {
       "types": "./dist/vite.d.mts",
       "import": "./dist/vite.mjs"

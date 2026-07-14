@@ -280,13 +280,15 @@ import { palette } from './palette.tokens'
 
 export const { css, t } = createSystem({ tokens: defineTokens().compose(palette) })
 `)
-  write(join(plainDir, 'src/card.style.ts'), `import { css, t } from './system.style'
+  write(join(plainDir, 'src/card.style.ts'), `import { length } from '@mszr/vane-dux'
+import { css, t } from './system.style'
 
-export const card = css({ color: t.color.brand, background: t.color.brandSoft, padding: '1rem' })
+export const card = css({ color: t.color.brand, background: t.color.brandSoft, padding: length.rem(1) })
 `)
-  write(join(plainDir, 'src/main.ts'), `import { card } from './card.style'
+  write(join(plainDir, 'src/main.ts'), `import { VANE_CSS_CAPABILITIES } from '@mszr/vane-dux/capabilities'
+import { card } from './card.style'
 
-document.querySelector('#app')!.innerHTML = '<button class="' + card + '">Fresh Vite</button>'
+document.querySelector('#app')!.innerHTML = '<button class="' + card + '" data-color="' + VANE_CSS_CAPABILITIES.oklch.maturity + '">Fresh Vite</button>'
 `)
 
   write(join(nuxtDir, 'package.json'), JSON.stringify({

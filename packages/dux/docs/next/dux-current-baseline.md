@@ -201,4 +201,4 @@ Completed before the first value/type refactor:
 - production browser, development/HMR, and repeated process/port lifecycle matrix; and
 - explicit snapshot interpretation separating semantic/DX locks from replaced API/structure.
 
-Phase 0 is complete. Phase 1 may begin on the internal engine kernel while every phase boundary continues to run these gates.
+Phase 0 is complete. This file remains the immutable pre-refactor comparison point; Phase 1 acceptance and all later phase evidence are recorded in the [implementation plan](./dux-implementation-plan.md).

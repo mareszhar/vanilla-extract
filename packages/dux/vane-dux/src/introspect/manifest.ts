@@ -20,6 +20,7 @@ import type {
   VaneStyleRecord,
   VaneTokenRecord,
 } from '../internal/inspect'
+import type { VaneCssFeature } from '../values/protocol'
 
 // ─── The format ──────────────────────────────────────────────────────────────
 
@@ -43,6 +44,13 @@ export interface VaneManifestToken extends VaneManifestSource {
   usage: number
   /** Token paths this token derives from — the graph edges. */
   refs?: string[]
+  /** CSS capabilities the emitted expression requires from the support target. */
+  requirements?: VaneCssFeature[]
+  /**
+   * `value` is the proven resolved preview. This marker is present only when
+   * no such preview exists, avoiding duplicate data for ordinary tokens.
+   */
+  preview?: { status: 'unavailable', reason: string }
   description?: string
   deprecated?: string
 }
@@ -207,6 +215,8 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
       live: token.mode === 'live',
       usage: Math.max(0, countVarRefs(css, token.var) - (internal.get(token.path) ?? 0)),
       ...(token.refs.length === 0 ? {} : { refs: token.refs }),
+      ...(token.requirements.length === 0 ? {} : { requirements: token.requirements }),
+      ...(token.preview.status === 'available' ? {} : { preview: token.preview }),
       ...(token.description === undefined ? {} : { description: token.description }),
       ...(token.deprecated === undefined ? {} : { deprecated: token.deprecated }),
       ...manifestSource(token),

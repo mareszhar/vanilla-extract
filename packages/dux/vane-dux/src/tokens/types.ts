@@ -10,7 +10,7 @@
  *   half-clobbering it.
  */
 
-import type { VaneCssValue } from '../values/types'
+import type { VaneCssValue, VaneSelfValue } from '../values/types'
 
 // ─── Modes ───────────────────────────────────────────────────────────────────
 
@@ -25,9 +25,6 @@ export type VaneContrastGuarantee = 'checked' | 'live'
 
 /** The runtime-value mode a token contributes when used inside a derivation. */
 type VaneValueMode<M extends VaneTokenMode> = M extends 'derived' ? 'live' : M
-
-type VaneJoinMode<A extends VaneColorMode, B extends VaneColorMode>
-  = 'live' extends A | B ? 'live' : 'scheme' extends A | B ? 'scheme' : 'static'
 
 // ─── Authoring color values ──────────────────────────────────────────────────
 
@@ -48,7 +45,7 @@ export type VaneGuaranteeOf<M extends VaneColorMode> = M extends 'live' ? 'live'
  * build time or serializes to live CSS, per liveness. The method set is finite
  * by design — each entry has a defined live-CSS serialization.
  */
-export interface VaneColor<M extends VaneColorMode = VaneColorMode> {
+export interface VaneColor<out M extends VaneColorMode = VaneColorMode> extends VaneSelfValue<'color'> {
   readonly mode: M
   /** Marks the token as a runtime input: writable via `applyTheme`, emitted live. */
   live: () => VaneColor<'live'>
@@ -61,7 +58,22 @@ export interface VaneColor<M extends VaneColorMode = VaneColorMode> {
   saturate: (amount: number) => VaneColor<M>
   desaturate: (amount: number) => VaneColor<M>
   rotate: (degrees: number) => VaneColor<M>
-  mix: <O extends VaneColorish>(other: O, amount: number) => VaneColor<VaneJoinMode<M, VaneModeOf<O>>>
+  mix: (other: VaneColorish, amount: number) => VaneInterpolatedColor<VaneColorMode>
+}
+
+export type VaneColorInterpolationSpace
+  = | 'srgb' | 'srgb-linear' | 'display-p3' | 'display-p3-linear' | 'a98-rgb' | 'prophoto-rgb' | 'rec2020'
+    | 'lab' | 'oklab' | 'xyz' | 'xyz-d50' | 'xyz-d65' | 'hsl' | 'hwb' | 'lch' | 'oklch'
+    | `--${string}`
+export type VanePolarColorSpace = 'hsl' | 'hwb' | 'lch' | 'oklch'
+export type VaneHueInterpolation = 'shorter' | 'longer' | 'increasing' | 'decreasing'
+
+/** Only interpolation-producing operations expose CSS's `in <color-space>` choice. */
+export interface VaneInterpolatedColor<out M extends VaneColorMode = VaneColorMode> extends VaneColor<M> {
+  in: {
+    (space: VaneColorInterpolationSpace): VaneColor<M>
+    (space: VanePolarColorSpace, options: { hue: VaneHueInterpolation }): VaneColor<M>
+  }
 }
 
 /**
@@ -103,10 +115,10 @@ export interface VaneColorToken<
   saturate: (amount: number) => VaneColor<VaneValueMode<M>>
   desaturate: (amount: number) => VaneColor<VaneValueMode<M>>
   rotate: (degrees: number) => VaneColor<VaneValueMode<M>>
-  mix: <O extends VaneColorish>(other: O, amount: number) => VaneColor<VaneJoinMode<VaneValueMode<M>, VaneModeOf<O>>>
+  mix: (other: VaneColorish, amount: number) => VaneInterpolatedColor<VaneColorMode>
 }
 
-type VaneColorTokenAny = VaneColorToken<VaneTokenMode, string>
+type VaneColorTokenAny = VaneColorToken<any, string>
 
 export interface VaneContrastToken<
   G extends VaneContrastGuarantee = VaneContrastGuarantee,

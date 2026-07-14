@@ -10,6 +10,7 @@
  * the plugin (tests, the emit harness) pay one guarded push at most.
  */
 
+import type { VaneCssFeature } from '../values/protocol'
 import type { VaneTokenMode } from './handle'
 
 // ─── Records ─────────────────────────────────────────────────────────────────
@@ -37,9 +38,17 @@ export interface VaneTokenRecord extends VaneSourceRecord {
   upgrade?: string
   /** Token paths this token's definition references — the graph edges. */
   refs: string[]
+  /** CSS capabilities required by the expression that is actually emitted. */
+  requirements: VaneCssFeature[]
+  /** A proven resolved preview, or an honest reason no preview is available. */
+  preview: VaneTokenPreviewRecord
   description?: string
   deprecated?: string
 }
+
+export type VaneTokenPreviewRecord
+  = { status: 'available', light: string, dark: string }
+    | { status: 'unavailable', reason: string }
 
 export interface VaneSystemRecord extends VaneSourceRecord {
   kind: 'system'

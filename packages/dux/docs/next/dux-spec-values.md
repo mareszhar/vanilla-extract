@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — semantic value foundation, implementation pending
+status: target spec — Phase 1 foundation implemented; canonical engine exposure follows in Phase 2
 
 # vane-dux next — spec: typed CSS values
 
@@ -9,29 +9,38 @@ This is the foundation of the refactor. Tokens, CSS properties, ports, runtime s
 
 | Contract | Current asset | Target state |
 | --- | --- | --- |
-| General serialized CSS values | `VaneCssValue`/`CssValue` | Replace with typed expression IR. |
-| Color expression graph | Rich color-specific IR | Generalize into the common IR; preserve color features. |
-| Math values | `calc`, `min`, `max`, `clamp` with partial dimension tracking | General CSS arithmetic compatibility and data-type propagation. |
+| General serialized CSS values | `VaneCssValue`/`CssValue` compatibility adapter | Typed expression IR implemented; remove the adapter when canonical engines replace root helpers. |
+| Color expression graph | Rich color-specific behavior on common nodes | Common dependency/serialization/support protocol implemented; target token traits follow in Phase 3. |
+| Math values | Common operation/function nodes | Dimension compatibility and typed arithmetic requirements implemented. |
 | Raw strings | Accepted in CSS/token/port lanes | Preserve as ergonomic first-class input with parsing/audit policy. |
-| Data-type brands | Partial/inferred from constructors | Add explicit extensible brands. |
-| Custom values | Internal subclassing patterns | Public constructors/plugins used by built-ins. |
+| Data-type brands | Open `VaneCssDataType` plus self/system value brands | Implemented and performance-gated. |
+| Custom values | Public `defineCssValue`/`defineCssOperation` | Implemented and dogfooded by units and Grid. |
 
 ## 1. Core representation
 
-The public conceptual type is opaque and records whether final system context is required:
+The public type is opaque and records whether final system context is required. Phase 1 rejected a resolution generic after the 5,000-expression benchmark exceeded the type/declaration budget, so exactness uses two small brands and an ordinary union:
 
 ```ts
 declare const vaneValue: unique symbol
 
-interface VaneValue<
-  Type extends VaneCssDataType = VaneCssDataType,
-  Resolution extends 'self' | 'system' = 'self' | 'system',
-> {
+interface VaneValueBase<Type extends VaneCssDataType> {
   readonly type: Type
   readonly [vaneValue]: {
-    readonly resolution: Resolution
+    readonly resolution: 'self' | 'system'
   }
 }
+
+interface VaneSelfValue<Type extends VaneCssDataType> extends VaneValueBase<Type> {
+  readonly [vaneValue]: { readonly resolution: 'self' }
+}
+
+interface VaneSystemValue<Type extends VaneCssDataType> extends VaneValueBase<Type> {
+  readonly [vaneValue]: { readonly resolution: 'system' }
+}
+
+type VaneValue<Type extends VaneCssDataType>
+  = | VaneSelfValue<Type>
+    | VaneSystemValue<Type>
 ```
 
 There is deliberately no universal `.css` property or implicit string coercion. A literal length can serialize without a system, but an expression containing an unfinished token reference cannot know its final prefix/name yet. Public serialization is therefore explicit:
@@ -46,7 +55,7 @@ ds.serialize(ds.t.color.brand.$var())
 
 `de.serialize()` rejects system-dependent values at the call site. `ds.serialize()` accepts compatible self-contained and system-bound values. Style/token/runtime APIs normally serialize internally, so these functions are escape and integration tools rather than ceremony on ordinary authoring paths.
 
-`Resolution` above expresses a semantic requirement, not a mandate to thread a costly public union generic through every operation forever. Phase 1 must prove that self/system propagation stays inside editor/type budgets. A branded, covariant, overload-based, or partially erased internal encoding is allowed if it preserves call-site rejection, readable hovers, declaration portability, and context-bound serialization.
+Operations preserve the exact branch through focused overloads rather than propagating a second generic through the whole IR. The measured generic remained readable, but at 5,000 chained mixed-resolution expressions it took 1.25s of TypeScript total time versus 0.77s for the branded/overloaded form and emitted 339,107 declaration bytes versus 279,177. The cheaper encoding therefore owns the contract.
 
 The internal IR additionally records:
 
@@ -169,7 +178,7 @@ de.oklch(
 
 The requirement applies to `rgb`, `hsl`, `hwb`, `lab`, `lch`, `oklab`, `oklch`, `color`, `color-mix`, math functions, transforms, gradients, and future same-named helpers — not only OKLCH.
 
-Capability matrices record for each helper:
+The machine-readable matrix is published from `@mszr/vane-dux/capabilities`, keeping documentation metadata out of ordinary styling imports. It records for each helper:
 
 - accepted platform grammar;
 - accepted ergonomic shorthand;
@@ -329,7 +338,7 @@ Var-referenced graph edges commonly preserve platform expressions. The engine th
 
 Expression-emitted tokens remain inspectable. Manifest/`ds.explain()` output includes a resolved preview for a declared environment when the graph can evaluate one, plus the actual emitted expression and support requirements. External/unknown/runtime-only inputs carry `preview: unavailable` with a reason rather than a fabricated value. A preview is diagnostic context, not a replacement for browser computed-value fixtures.
 
-The exact target-input adapter (Browserslist, bundler target data, or an explicit vane matrix) is settled through Phase 1 integration fixtures; the behavioral contract above is invariant.
+Core accepts an explicit, versioned `{ id, features }` capability target through `defineCssSupportTarget()`. It never silently derives a moving browser baseline. Browserslist/bundler adapters may project into this shape in integrations without changing the core contract.
 
 ## 14. Evidence
 

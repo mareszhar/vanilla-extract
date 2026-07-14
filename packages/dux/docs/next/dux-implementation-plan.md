@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — phase 0 complete; phase 1 ready; implementation not started
+status: active migration ledger — phases 0–1 complete; phase 2 ready
 
 # vane-dux next — implementation plan
 
@@ -38,7 +38,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | Phase | Scope | State |
 | --- | --- | --- |
 | 0 | Documentation, inventory, characterization, and performance baseline | ☑ |
-| 1 | Unified typed CSS value IR and public extension contracts | ☐ |
+| 1 | Unified typed CSS value IR and public extension contracts | ☑ |
 | 2 | Canonical engine authoring environment and two-stage setup | ☐ |
 | 3 | Token configuration, traits, handles, modules, and projections | ☐ |
 | 4 | Axes, cases, roots, conditions, registrations, and emission order | ☐ |
@@ -89,41 +89,41 @@ Accepted 2026-07-14. The human baseline is recorded in `dux-current-baseline.md`
 
 ### IR
 
-- [ ] Create the internal engine kernel and its default configured instance before porting constructors.
-- [ ] Route existing package-root value helpers through compatibility adapters to that internal default engine.
-- [ ] Introduce data-type, expression, dependency, serialization, and optional fold traits.
-- [ ] Prototype generic and branded/erased resolution-context encodings; benchmark mixed self/system propagation before public value types depend on one.
-- [ ] Replace the minimal `VaneCssValue` string wrapper with the typed common interface.
-- [ ] Port the color expression graph into the common IR without behavior loss.
-- [ ] Port math/calc values and fix dimension compatibility for `min`, `max`, `clamp`, multiplication, and division.
-- [ ] Add literal/function/operation/var/raw/plugin/composite node support.
-- [ ] Preserve source/provenance through expressions.
+- [x] Create the internal engine kernel and its default configured instance before porting constructors.
+- [x] Route existing package-root value helpers through compatibility adapters to that internal default engine.
+- [x] Introduce data-type, expression, dependency, serialization, and optional fold traits.
+- [x] Prototype generic and branded/erased resolution-context encodings; benchmark mixed self/system propagation before public value types depend on one.
+- [x] Replace the minimal `VaneCssValue` string wrapper with the typed common interface.
+- [x] Port the color expression graph into the common IR without behavior loss.
+- [x] Port math/calc values and fix dimension compatibility for `min`, `max`, `clamp`, multiplication, and division.
+- [x] Add literal/function/operation/var/raw/plugin/composite node support.
+- [x] Preserve source/provenance through expressions.
 
 ### Data types and ergonomics
 
-- [ ] Implement the minimum data-type set from the value spec.
-- [ ] Add `length.px/rem/em`, angle/time/etc. unit constructors and configured bare constructors.
-- [ ] Preserve direct raw strings/numbers in compatible CSS contexts.
-- [ ] Add typed raw future-value constructors.
-- [ ] Add external `customProperty()` handles with `$name` and `$var(fallback?)`.
+- [x] Implement the minimum data-type set from the value spec.
+- [x] Add `length.px/rem/em`, angle/time/etc. unit constructors and configured bare constructors.
+- [x] Preserve direct raw strings/numbers in compatible CSS contexts.
+- [x] Add typed raw future-value constructors.
+- [x] Add external `customProperty()` handles with `$name` and `$var(fallback?)`.
 
 ### CSS parity
 
-- [ ] Expand every color constructor to full accepted channel types.
-- [ ] Add per-channel token/custom-property refs.
-- [ ] Restrict `.in()` to operations with interpolation/working-space semantics.
-- [ ] Add mix hue policy and native grammar coverage.
-- [ ] Build capability tables and spec/WPT-derived tests.
-- [ ] Define stable versus experimental helper maturity policy.
-- [ ] Define the CI-locked default CSS support target and project override adapter.
-- [ ] Require every expression serializer to declare feature requirements and implement a proven fallback/enhancement or actionable folded-path diagnostic.
+- [x] Expand every color constructor to full accepted channel types.
+- [x] Add per-channel token/custom-property refs.
+- [x] Restrict `.in()` to operations with interpolation/working-space semantics.
+- [x] Add mix hue policy and native grammar coverage.
+- [x] Build capability tables and spec/WPT-derived tests.
+- [x] Define stable versus experimental helper maturity policy.
+- [x] Define the CI-locked default CSS support target and project override adapter.
+- [x] Require every expression serializer to declare feature requirements and implement a proven fallback/enhancement or actionable folded-path diagnostic.
 
 ### Public extensions
 
-- [ ] Design `defineCssValue` and `defineCssOperation` through API fixtures.
-- [ ] Reimplement at least one simple and one advanced built-in through them.
-- [ ] Add engine/plugin identity, collision, serialization, and optional fold hooks.
-- [ ] Ensure extension authors do not import internal classes.
+- [x] Design `defineCssValue` and `defineCssOperation` through API fixtures.
+- [x] Reimplement at least one simple and one advanced built-in through them.
+- [x] Add engine/plugin identity, collision, serialization, and optional fold hooks.
+- [x] Ensure extension authors do not import internal classes.
 
 ### Exit gate
 
@@ -133,6 +133,21 @@ Accepted 2026-07-14. The human baseline is recorded in `dux-current-baseline.md`
 - Build/preserved expressions are semantically locked.
 - Performance stays within the accepted budget.
 - Default var-reference output never silently exceeds the declared CSS support target.
+
+Accepted 2026-07-14. Phase 1 is an internal vertical slice: the current package-root API remains available through the configured default-engine adapter, while Phase 2 will expose the canonical engine/system surface.
+
+Acceptance evidence:
+
+- `pnpm run sdk:test`: 49 files, 423 tests, and no type errors, including runtime, type, editor-DX, output, conformance, extension, and cross-plane value fixtures.
+- `pnpm run validate`: lint, SDK/demo typecheck and builds, audit, 4 production browser tests, the development/HMR browser test, and 2 lifecycle repetitions passed.
+- `pnpm run fresh:smoke`: the packed package passed strict TypeScript 5.8 Vite and Nuxt typecheck/build/dev/HTTP/HMR consumers, including the separate capabilities export.
+- D62's 5,000-expression comparison rejected the propagated resolution generic: 1.25s TypeScript total time and 339,107 declaration bytes versus 0.77s and 279,177 bytes for the accepted branded/overloaded encoding.
+- The final large generated fixture remained effectively level with the pre-refactor compiler baseline: 2.13s TypeScript total time, 2,163,567 instantiations, and 438,635 kB memory versus 2.15s, 2,163,934, and 442,321 kB. Editor result counts were unchanged; all medians remained under 4ms except the unchanged four-location graph rename at 25.41ms.
+- Large-fixture CSS output was byte-identical to baseline. Manifest output increased from 1,663,780 B to 1,667,730 B (0.24%) for requirements/preview evidence.
+- The build-only root entry grew from 108 kB to 156 kB unminified (19.7 kB to 27.9 kB gzip) for the common IR, constructors, serializers, extension APIs, and compatibility adapters. The browser runtime entry remained 10.2 kB / 2.14 kB gzip. Capability metadata is isolated in `@mszr/vane-dux/capabilities` at 4.89 kB / 1.13 kB gzip so ordinary consumers do not pay for the table. Phase 2 retains an explicit package-size watch while exposing the final engine surface.
+- The common serializer now enforces the explicit D64 support target. Phase 3 owns applying that serializer to D47's new default var-reference token policy; the compatibility token surface does not pretend that migration has already happened.
+
+Phase 2 is unblocked.
 
 ## 6. Phase 2 — canonical engine and system
 

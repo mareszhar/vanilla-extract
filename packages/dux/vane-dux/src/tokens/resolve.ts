@@ -15,8 +15,10 @@
  */
 
 import type { VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
-import type { VaneColorExpr } from './color'
+import type { VaneSerializeContext } from '../values/protocol'
+import type { VaneChannelOperation, VaneColorChannel, VaneColorExpr } from './color'
 import type { VaneOklch } from './math'
+import { inputNode, nodeOf, serializeSelf } from '../values/protocol'
 import { formatNumber, formatOklch, mixOklch, parseColor, pickLegible } from './math'
 
 export type VaneScheme = 'light' | 'dark'
@@ -26,6 +28,8 @@ export interface VaneExprTraits {
   cssLive: boolean
   /** A runtime write can change it — some `.live()` input sits upstream. */
   volatile: boolean
+  /** The expression itself selects a light/dark branch. */
+  conditional: boolean
 }
 
 export interface VaneResolver {
@@ -43,39 +47,87 @@ export function exprTraits(expr: VaneColorExpr, resolver: VaneResolver): VaneExp
   switch (expr.kind) {
     case 'oklch':
     case 'parse':
-      return { cssLive: false, volatile: false }
+      return { cssLive: false, volatile: false, conditional: false }
+    case 'value': {
+      const node = nodeOf(expr.value)
+      const dependency = node.dependencies.length > 0
+      return {
+        cssLive: dependency || preservesNative(node),
+        volatile: dependency,
+        conditional: false,
+      }
+    }
     case 'scheme': {
       const inner = join(exprTraits(expr.light, resolver), exprTraits(expr.dark, resolver))
-      return { cssLive: true, volatile: inner.volatile }
+      return { cssLive: true, volatile: inner.volatile, conditional: true }
     }
     case 'ref':
       return resolver.refTraits(expr.handle)
     case 'alpha':
     case 'adjust':
-    case 'channels':
       return exprTraits(expr.input, resolver)
-    case 'mix':
-      return join(exprTraits(expr.input, resolver), exprTraits(expr.other, resolver))
+    case 'channels': {
+      const inner = exprTraits(expr.input, resolver)
+      const channelValues = Object.values(expr.channels).map((value) => {
+        if (value && typeof value === 'object' && 'kind' in value && 'value' in value)
+          return value.value
+        return value
+      })
+      const dynamic = channelValues.some(value => value !== undefined && typeof value !== 'number')
+      const volatile = channelValues.some((value) => {
+        if (!value || (typeof value !== 'object' && typeof value !== 'function'))
+          return false
+        return ('var' in value ? inputNode(value as never) : nodeOf(value)).dependencies.length > 0
+      })
+      return { cssLive: inner.cssLive || dynamic, volatile: inner.volatile || volatile, conditional: inner.conditional }
+    }
+    case 'mix': {
+      const inner = join(exprTraits(expr.input, resolver), exprTraits(expr.other, resolver))
+      return { ...inner, cssLive: inner.cssLive || expr.space !== 'oklab' || expr.hue !== undefined }
+    }
     case 'contrast':
       return exprTraits(expr.target, resolver)
   }
 }
 
+function preservesNative(node: import('../values/protocol').VaneExpressionNode): boolean {
+  switch (node.kind) {
+    case 'raw':
+      return true
+    case 'plugin':
+      return node.fold === undefined
+    case 'function':
+      return node.values.some(preservesNative)
+    case 'operation':
+      return preservesNative(node.left) || preservesNative(node.right)
+    case 'var':
+      return true
+    case 'composite':
+      return node.parts.some(part => typeof part !== 'string' && preservesNative(part))
+    case 'literal':
+      return false
+  }
+}
+
 function join(a: VaneExprTraits, b: VaneExprTraits): VaneExprTraits {
-  return { cssLive: a.cssLive || b.cssLive, volatile: a.volatile || b.volatile }
+  return {
+    cssLive: a.cssLive || b.cssLive,
+    volatile: a.volatile || b.volatile,
+    conditional: a.conditional || b.conditional,
+  }
 }
 
 /** The traits a token contributes at a reference site, read off its resolved mode. */
 export function modeTraits(mode: VaneTokenMode): VaneExprTraits {
   switch (mode) {
     case 'static':
-      return { cssLive: false, volatile: false }
+      return { cssLive: false, volatile: false, conditional: false }
     case 'scheme':
-      return { cssLive: true, volatile: false }
+      return { cssLive: true, volatile: false, conditional: true }
     case 'live':
-      return { cssLive: false, volatile: true }
+      return { cssLive: false, volatile: true, conditional: false }
     case 'derived':
-      return { cssLive: true, volatile: true }
+      return { cssLive: true, volatile: true, conditional: false }
   }
 }
 
@@ -88,6 +140,7 @@ export function containsContrast(expr: VaneColorExpr): boolean {
   switch (expr.kind) {
     case 'oklch':
     case 'parse':
+    case 'value':
     case 'ref':
       return false
     case 'contrast':
@@ -108,6 +161,12 @@ export function collectRefs(expr: VaneColorExpr, into: Set<string>): void {
   switch (expr.kind) {
     case 'oklch':
     case 'parse':
+      return
+    case 'value':
+      for (const reference of nodeOf(expr.value).dependencies) {
+        if (reference.path)
+          into.add(reference.path)
+      }
       return
     case 'ref':
       into.add(expr.handle.path)
@@ -135,6 +194,8 @@ function containsRef(expr: VaneColorExpr): boolean {
     case 'oklch':
     case 'parse':
       return false
+    case 'value':
+      return nodeOf(expr.value).dependencies.length > 0
     case 'ref':
       return true
     case 'alpha':
@@ -164,6 +225,13 @@ export function foldExpr(expr: VaneColorExpr, scheme: VaneScheme, resolver: Vane
       if (!parsed)
         return resolver.invalidColor(`'${expr.css}' is not a color`)
 
+      return parsed
+    }
+    case 'value': {
+      const css = serializeSelf(expr.value)
+      const parsed = parseColor(css)
+      if (!parsed)
+        return resolver.invalidColor(`'${css}' cannot be folded as a color`)
       return parsed
     }
     case 'ref':
@@ -198,7 +266,7 @@ export function foldExpr(expr: VaneColorExpr, scheme: VaneScheme, resolver: Vane
 
 // ─── Live serialization ──────────────────────────────────────────────────────
 
-export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver): string {
+export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver, context?: VaneSerializeContext): string {
   const traits = exprTraits(expr, resolver)
 
   // An anonymous static subtree folds — graph edges stay `var()` references.
@@ -209,20 +277,23 @@ export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver): stri
     case 'oklch':
     case 'parse':
       return formatOklch(foldExpr(expr, 'light', resolver)) // unreachable via the fold above; kept total
+    case 'value':
+      return context ? context.serialize(expr.value) : serializeSelf(expr.value)
     case 'ref':
       return expr.handle.var
     case 'alpha':
-      return `oklch(from ${serializeExpr(expr.input, resolver)} l c h / ${formatNumber(expr.amount)})`
+      return `oklch(from ${serializeExpr(expr.input, resolver, context)} l c h / ${formatNumber(expr.amount)})`
     case 'adjust':
-      return serializeAdjust(expr, resolver)
+      return serializeAdjust(expr, resolver, context)
     case 'channels':
-      return serializeChannels(expr, resolver)
+      return serializeChannels(expr, resolver, context)
     case 'mix': {
       const amount = formatNumber(expr.amount * 100)
-      return `color-mix(in oklab, ${serializeExpr(expr.input, resolver)}, ${serializeExpr(expr.other, resolver)} ${amount}%)`
+      const hue = expr.hue ? ` ${expr.hue} hue` : ''
+      return `color-mix(in ${expr.space}${hue}, ${serializeExpr(expr.input, resolver, context)}, ${serializeExpr(expr.other, resolver, context)} ${amount}%)`
     }
     case 'scheme':
-      return `light-dark(${serializeExpr(expr.light, resolver)}, ${serializeExpr(expr.dark, resolver)})`
+      return `light-dark(${serializeExpr(expr.light, resolver, context)}, ${serializeExpr(expr.dark, resolver, context)})`
     case 'contrast':
       // Mid-expression, a legible pairing contributes its computed pick; the
       // `contrast-color()` upgrade applies only when it is a token's own value
@@ -231,11 +302,20 @@ export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver): stri
   }
 }
 
-function applyChannel(current: number, operation: number | import('./color').VaneChannelOperation | undefined): number {
+function applyChannel(current: number, operation: VaneColorChannel | VaneChannelOperation | undefined): number {
   if (operation === undefined)
     return current
-  if (typeof operation === 'number' || operation.kind === 'set')
-    return typeof operation === 'number' ? operation : operation.value
+  if (typeof operation === 'number')
+    return operation
+  if (operation === 'none' || !('kind' in operation))
+    throw new TypeError('[vane] a dynamic relative-color channel cannot be folded at build time')
+  if (operation.kind === 'set') {
+    if (typeof operation.value !== 'number')
+      throw new TypeError('[vane] a dynamic relative-color channel cannot be folded at build time')
+    return operation.value
+  }
+  if (typeof operation.value !== 'number')
+    throw new TypeError('[vane] a dynamic relative-color channel cannot be folded at build time')
 
   switch (operation.kind) {
     case 'add': return current + operation.value
@@ -245,24 +325,37 @@ function applyChannel(current: number, operation: number | import('./color').Van
   }
 }
 
-function serializeChannels(expr: Extract<VaneColorExpr, { kind: 'channels' }>, resolver: VaneResolver): string {
-  const value = (name: 'l' | 'c' | 'h' | 'alpha', operation: number | import('./color').VaneChannelOperation | undefined): string => {
+function serializeChannels(
+  expr: Extract<VaneColorExpr, { kind: 'channels' }>,
+  resolver: VaneResolver,
+  context?: VaneSerializeContext,
+): string {
+  const channelText = (input: VaneColorChannel): string => {
+    if (typeof input === 'number')
+      return formatNumber(input)
+    if (input === 'none')
+      return input
+    return context ? context.serialize(input) : serializeSelf(input)
+  }
+  const value = (name: 'l' | 'c' | 'h' | 'alpha', operation: VaneColorChannel | VaneChannelOperation | undefined): string => {
     if (operation === undefined)
       return name
-    if (typeof operation === 'number' || operation.kind === 'set')
-      return formatNumber(typeof operation === 'number' ? operation : operation.value)
+    if (typeof operation === 'number' || operation === 'none' || !('kind' in operation))
+      return channelText(operation)
+    if (operation.kind === 'set')
+      return channelText(operation.value)
 
     const operator = operation.kind === 'add' ? '+' : operation.kind === 'subtract' ? '-' : operation.kind === 'multiply' ? '*' : '/'
-    return `calc(${name} ${operator} ${formatNumber(operation.value)})`
+    return `calc(${name} ${operator} ${channelText(operation.value)})`
   }
 
   const { channels } = expr
   const alpha = channels.alpha === undefined ? '' : ` / ${value('alpha', channels.alpha)}`
-  return `oklch(from ${serializeExpr(expr.input, resolver)} ${value('l', channels.l)} ${value('c', channels.c)} ${value('h', channels.h)}${alpha})`
+  return `oklch(from ${serializeExpr(expr.input, resolver, context)} ${value('l', channels.l)} ${value('c', channels.c)} ${value('h', channels.h)}${alpha})`
 }
 
-function serializeAdjust(expr: Extract<VaneColorExpr, { kind: 'adjust' }>, resolver: VaneResolver): string {
-  const input = serializeExpr(expr.input, resolver)
+function serializeAdjust(expr: Extract<VaneColorExpr, { kind: 'adjust' }>, resolver: VaneResolver, context?: VaneSerializeContext): string {
+  const input = serializeExpr(expr.input, resolver, context)
   const delta = expr.delta >= 0 ? `+ ${formatNumber(expr.delta)}` : `- ${formatNumber(-expr.delta)}`
   const parts = ['l', 'c', 'h'].map(channel => channel === expr.channel ? `calc(${channel} ${delta})` : channel)
   return `oklch(from ${input} ${parts.join(' ')})`
