@@ -77,8 +77,10 @@ export function serializeDefault(value: VanePortValue, unit: string | undefined)
  * is a style-object fragment value any framework can bind.
  */
 function serializeSetValue(value: VanePortSetValue<VanePortInput>, unit: string | undefined): VanePortValue {
-  if (isPort(value) || isHandle(value))
+  if (isPort(value))
     return value.var
+  if (isHandle(value))
+    return String(value)
   if (typeof value === 'number')
     return unit ? `${value}${unit}` : value
   return value as VanePortValue

@@ -25,8 +25,11 @@ export function serializeStyleValue(value: unknown, path: string, ctx: VaneValue
   if (typeof value === 'string' || typeof value === 'number')
     return value
 
-  if (isPort(value) || isHandle(value))
+  if (isPort(value))
     return value.var
+
+  if (isHandle(value))
+    return String(value)
 
   if (isCssValue(value))
     return value.css
@@ -79,6 +82,7 @@ function contrastDiagnostic(path: string, ctx: VaneValueContext): VaneDiagnostic
 function valueResolver(path: string, ctx: VaneValueContext): VaneResolver {
   return {
     refTraits: handle => modeTraits(handle.mode),
+    serializeRef: handle => String(handle),
     foldRef: (handle: VaneRuntimeHandle) => {
       throw new VaneError({
         code: 'VANE_CSS_INVALID_VALUE',

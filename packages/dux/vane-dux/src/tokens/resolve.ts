@@ -39,6 +39,8 @@ export interface VaneResolver {
   refTraits: (handle: VaneRuntimeHandle) => VaneExprTraits
   /** Reject a non-color value with a diagnostic naming the offending token. */
   invalidColor: (detail: string) => never
+  /** Choose a token's declared val/var projection at a graph edge. */
+  serializeRef?: (handle: VaneRuntimeHandle) => string
 }
 
 // ─── Classification ──────────────────────────────────────────────────────────
@@ -280,7 +282,7 @@ export function serializeExpr(expr: VaneColorExpr, resolver: VaneResolver, conte
     case 'value':
       return context ? context.serialize(expr.value) : serializeSelf(expr.value)
     case 'ref':
-      return expr.handle.var
+      return resolver.serializeRef?.(expr.handle) ?? expr.handle.var
     case 'alpha':
       return `oklch(from ${serializeExpr(expr.input, resolver, context)} l c h / ${formatNumber(expr.amount)})`
     case 'adjust':

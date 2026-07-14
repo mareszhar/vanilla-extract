@@ -270,7 +270,7 @@ function dimensionOf(value: VaneCssInput): VaneMathDimension {
   if (typeof value === 'number')
     return 'number'
 
-  const text = typeof value === 'string' ? value : value.var
+  const text = typeof value === 'string' ? value : 'var' in value ? value.var : String(value)
   if (text === 'none')
     return 'none'
   if (/^-?(?:\d+(?:\.\d*)?|\.\d+)%$/.test(text))

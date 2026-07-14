@@ -43,7 +43,7 @@ function tokenModuleSource(scale: BenchmarkScale, moduleIndex: number, start: nu
   const entries = Array.from({ length: count }, (_, offset) => {
     const index = start + offset
     const val = offset === 0
-      ? `scheme({ light: 'oklch(0.96 0.01 ${index % 360})', dark: 'oklch(0.16 0.01 ${index % 360})' })`
+      ? `de.token({ val: scheme({ light: 'oklch(0.96 0.01 ${index % 360})', dark: 'oklch(0.16 0.01 ${index % 360})' }), description: 'Module ${moduleIndex} anchor' })`
       : `'${(index % 64) + 1}px'`
     const renameMarker = moduleIndex === 0 && offset === 0 ? '/* @rename */' : ''
     return `    ${renameMarker}${tokenName(index)}: ${val},`
@@ -112,12 +112,16 @@ function probeSource(ranges: Array<{ count: number, start: number }>): string {
   const first = ranges[0]!
   const deep = first.start + Math.min(1, first.count - 1)
 
-  return `${header}import { ds } from './system.style'
+  return `${header}import { tokenModule00 } from './modules/module-00.tokens'
+import { ds } from './system.style'
 
 export const rootProbe = ds.t./* @complete-root */${groupName(0)}
 export const deepProbe = ds.t.${groupName(0)}./* @complete-deep */${tokenName(deep)}
 export const diagnosticProbe = ds.t.${groupName(0)}./* @diagnostic */${tokenName(deep)}
 export const cssProbe = ds.css({ /* @complete-css */padding: ds.t.${groupName(0)}.${tokenName(deep)} })
+export const moduleTokens = ds.tokensOf(tokenModule00)
+export const moduleNames = ds.namesOf(tokenModule00)
+export const moduleVars = ds.varsOf(tokenModule00)
 `
 }
 

@@ -14,14 +14,20 @@ import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
 import type {
+  VaneCanonicalTokens,
   VaneCheck,
+  VaneDefaultTokenPolicy,
   VaneEngineRequirement,
   VaneGraphInput,
+  VaneNamesOf,
   VaneResolvedTokens,
   VaneThemeOverrides,
   VaneTokenBuilder,
   VaneTokenModule,
+  VaneTokenPolicy,
   VaneTokens,
+  VaneTokensFromDefinition,
+  VaneVarsOf,
 } from '../tokens/types'
 import type { VaneCssValue, VaneValue } from '../values/types'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
@@ -33,12 +39,13 @@ import { bindGlobalCss } from '../css/global'
 import { bindFontFace, bindKeyframes } from '../css/keyframes'
 import { diagnosticSource, VaneError } from '../diagnostics'
 import { checkSelector } from '../internal/cssParser'
+import { isHandle } from '../internal/handle'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
-import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, tokenModuleEngine } from '../tokens/graph'
+import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
 import { theme as standaloneTheme } from '../tokens/theme'
 import { defaultEngine } from '../values/defaultEngine'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
@@ -98,11 +105,17 @@ type VaneSystemTokenInput<T>
         : never
 
 /** Static graphs and unfinished builders compile here; built tokens pass through untouched. */
-export type VaneSystemTokens<T extends object, P extends string>
-  = T extends VaneTokenBuilder<infer G> ? VaneTokens<G, P>
-    : T extends VaneTokenModule<infer G> ? VaneTokens<G, P>
-      : T extends VaneGraphInput ? VaneTokens<T, P>
-        : T
+export type VaneSystemTokens<
+  T extends object,
+  P extends string,
+  Policy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+  Canonical extends boolean = false,
+> = T extends VaneTokenBuilder<infer G> ? VaneTokens<G, P>
+  : T extends VaneTokenModule<infer G, infer ModulePolicy>
+    ? Canonical extends true ? VaneCanonicalTokens<G, P, ModulePolicy> : VaneTokens<G, P>
+    : T extends VaneGraphInput
+      ? Canonical extends true ? VaneCanonicalTokens<T, P, Policy> : VaneTokens<T, P>
+      : T
 
 export type VaneEngineSystemOptions<
   T extends object,
@@ -136,6 +149,18 @@ export interface VaneBoundSystem<T, C extends string, L extends string> {
   readonly port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) => VanePort<VanePortWiden<TValue>>
   /** The strict utility lane, defined over your token map ([dux-spec-preset.md §3]). */
   readonly defineAtoms: VaneAtomsFactory<C, L>
+  /** Resolve an unfinished module, subtree, or composed selection against this system. */
+  readonly tokensOf: <const Selection extends object>(
+    selection: Selection,
+  ) => VaneTokensFromDefinition<T, Selection>
+  /** Project final custom-property names without emitting CSS. */
+  readonly namesOf: <const Selection extends object>(
+    selection: Selection,
+  ) => VaneNamesOf<VaneTokensFromDefinition<T, Selection>>
+  /** Project final `var()` references without emitting CSS. */
+  readonly varsOf: <const Selection extends object>(
+    selection: Selection,
+  ) => VaneVarsOf<VaneTokensFromDefinition<T, Selection>>
   /** Serialize a portable value with this system's finalized reference map. */
   readonly serialize: (value: VaneValue) => string
   /** Read-only normalized authoring context for integrations and inspection. */
@@ -150,9 +175,13 @@ export type VaneSystem<
   Constructors extends object = Record<never, never>,
 > = VaneBoundSystem<T, C, L> & Readonly<Constructors>
 
-export interface VaneSystemEngineBinding<Constructors extends object> {
+export interface VaneSystemEngineBinding<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> {
   readonly kernel: VaneEngineKernel<Constructors>
   readonly requirement: VaneEngineRequirement
+  readonly tokenPolicy: TokenPolicy
 }
 
 /** @deprecated Use `createEngine().createSystem()`; removed at target-doc promotion. */
@@ -170,16 +199,20 @@ export function createSystem<
 
 export function createSystemForEngine<
   const Constructors extends object,
+  const TokenPolicy extends VaneTokenPolicy,
   const T extends object,
   const C extends Record<string, VaneConditionInput> = Record<never, never>,
   const L extends readonly string[] = VaneDefaultLayers,
   P extends string = 'vane',
   B extends boolean = true,
 >(
-  binding: VaneSystemEngineBinding<Constructors>,
+  binding: VaneSystemEngineBinding<Constructors, TokenPolicy>,
   options: VaneEngineSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors> {
-  return createSystemInternal(binding, options as VaneSystemOptions<T, C, L, P, B>)
+): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors> {
+  return createSystemInternal<Constructors, T, C, L, P, B, TokenPolicy, true>(
+    binding,
+    options as VaneSystemOptions<T, C, L, P, B>,
+  )
 }
 
 function createSystemInternal<
@@ -189,10 +222,12 @@ function createSystemInternal<
   const L extends readonly string[],
   P extends string,
   B extends boolean,
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+  Canonical extends boolean = false,
 >(
-  binding: VaneSystemEngineBinding<Constructors> | undefined,
+  binding: VaneSystemEngineBinding<Constructors, TokenPolicy> | undefined,
   options: VaneSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors> {
+): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors> {
   const file = requireStyleModule('createSystem')
   const prefix = options.prefix ?? 'vane'
   const root = options.root ?? ':root'
@@ -263,7 +298,7 @@ function createSystemInternal<
       ? options.tokens as unknown as RuntimeTokenBuilder
       : binding === undefined
         ? defineTokens(options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
-        : defineTokenModule(binding.requirement, options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
+        : defineTokenModule(binding.requirement, binding.tokenPolicy, options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
 
     if (binding !== undefined) {
       const moduleEngine = tokenModuleEngine(builder)
@@ -286,6 +321,7 @@ function createSystemInternal<
       root,
       layers,
       ...(binding === undefined ? {} : { serializeValue: (value: VaneCssValue) => binding.kernel.serializeValue(value) }),
+      ...(binding === undefined ? {} : { support: binding.kernel.support }),
       ...(qualifiedTokenLayer === undefined ? {} : { layer: qualifiedTokenLayer }),
       ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
     })
@@ -320,11 +356,50 @@ function createSystemInternal<
     ...(options.audit === undefined ? {} : { audit: options.audit }),
   })
 
-  type Bound = VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors>
+  type Bound = VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors>
 
   const describedConditions = Object.freeze(describeConditions(conditions)) as Readonly<Record<VaneSystemConditionName<C, B>, string>>
   const kernel = binding?.kernel ?? defaultEngine
   const resolvedGraph = graphOf(tokens)!
+  const projectTokens = (selection: object): object => {
+    if (!isTokenBuilder(selection))
+      return selection
+
+    const paths = tokenModulePaths(selection, tokens)
+    if (!paths) {
+      throw new VaneError({
+        code: 'VANE_ENGINE_INCOMPATIBLE',
+        message: 'this token module was not finalized into the current system',
+        file,
+        fix: 'compose the module into this system before projecting its tokens, names, or vars',
+      })
+    }
+
+    const projection: Record<string, unknown> = {}
+    for (const path of paths) {
+      const parts = path.split('.')
+      let source: any = tokens
+      let target = projection
+      for (let index = 0; index < parts.length; index++) {
+        const part = parts[index]!
+        source = source[part]
+        if (index === parts.length - 1) {
+          target[part] = source
+        }
+        else {
+          if (typeof target[part] !== 'object' || target[part] === null)
+            target[part] = {}
+          target = target[part] as Record<string, unknown>
+        }
+      }
+    }
+    return Object.freeze(projection)
+  }
+  const project = (selection: object, kind: 'name' | 'var'): unknown => mapTokenProjection(
+    projectTokens(selection),
+    kind,
+    [],
+  )
 
   const bound = {
     ...(binding?.kernel.constructors ?? {} as Constructors),
@@ -344,6 +419,9 @@ function createSystemInternal<
     port: buildPlane('port', <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
       createPort(defaultValue, options, { prefix }) as unknown as VanePort<VanePortWiden<TValue>>),
     defineAtoms: buildPlane('defineAtoms', bindAtoms(system) as Bound['defineAtoms']),
+    tokensOf: buildPlane('tokensOf', projectTokens as Bound['tokensOf']),
+    namesOf: buildPlane('namesOf', ((selection: object) => project(selection, 'name')) as Bound['namesOf']),
+    varsOf: buildPlane('varsOf', ((selection: object) => project(selection, 'var')) as Bound['varsOf']),
     serialize: (value: VaneValue) => kernel.serializeValue(value, (reference) => {
       if (reference.name)
         return reference.name
@@ -359,6 +437,26 @@ function createSystemInternal<
   }
 
   return Object.freeze(bound) as Bound
+}
+
+function mapTokenProjection(
+  selection: unknown,
+  kind: 'name' | 'var',
+  path: string[],
+): unknown {
+  if (isHandle(selection))
+    return kind === 'name' ? selection.$name : selection.$var()
+
+  if (typeof selection !== 'object' || selection === null) {
+    throw new TypeError(
+      `[vane] ${path.join('.') || 'projection'} is not a resolved token handle or token subtree`,
+    )
+  }
+
+  return Object.freeze(Object.fromEntries(Object.entries(selection).map(([key, value]) => [
+    key,
+    mapTokenProjection(value, kind, [...path, key]),
+  ])))
 }
 
 type RuntimeTokenBuilder = object

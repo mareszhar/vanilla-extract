@@ -177,9 +177,9 @@ describe('engine-owned system finalization', () => {
 
     expect(ds.length(2).css).toBe('2rem')
     expect(ds.oklch).toBe(de.oklch)
-    expect(ds.t.color.brand.name).toBe('--app-color-brand')
-    expect(ds.t.color.accent.name).toBe('--app-color-accent')
-    expect(ds.t.space.sm.name).toBe('--app-space-sm')
+    expect(ds.t.color.brand.$name).toBe('--app-color-brand')
+    expect(ds.t.color.accent.$name).toBe('--app-color-accent')
+    expect(ds.t.space.sm.$name).toBe('--app-space-sm')
     expect(ds.conditions.wide).toBe('@media (min-width: 60rem)')
     expect(ds.layers).toEqual(['reset', 'tokens', 'recipes', 'utilities', 'overrides'])
     expect(ds.serialize(ds.length.rem(2))).toBe('2rem')

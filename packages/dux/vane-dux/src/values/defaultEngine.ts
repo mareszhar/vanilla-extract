@@ -1,5 +1,6 @@
 /** The default configured internal engine and package-root compatibility adapters. */
 
+import type { VaneAuthoredColor, VaneAuthoredInterpolatedColor, VaneColor, VaneInterpolatedColor } from '../tokens/types'
 import type { VaneLengthConstructor, VaneLengthUnit } from './units'
 import { createEngineKernel } from '../internal/engineKernel'
 import {
@@ -81,6 +82,39 @@ export interface VaneCoreConstructors<DefaultLengthUnit extends VaneLengthUnit =
   extends Readonly<typeof STATIC_CORE_CONSTRUCTORS> {
   readonly length: VaneLengthConstructor<DefaultLengthUnit>
 }
+
+type VaneCanonicalConstructor<Constructor>
+  = Constructor extends (...args: infer Args) => infer Result
+    ? (...args: Args) => Result extends VaneInterpolatedColor<any>
+        ? VaneAuthoredInterpolatedColor
+        : Result extends VaneColor<any> ? VaneAuthoredColor : Result
+    : Constructor
+
+type VaneColorConstructorName
+  = | 'alpha'
+    | 'color'
+    | 'colorMix'
+    | 'darken'
+    | 'desaturate'
+    | 'displayP3'
+    | 'hsl'
+    | 'hwb'
+    | 'lab'
+    | 'lch'
+    | 'lighten'
+    | 'mix'
+    | 'oklab'
+    | 'oklch'
+    | 'rgb'
+    | 'rotate'
+    | 'saturate'
+    | 'scheme'
+
+/** Core constructors as seen from a canonical engine/system. */
+export type VaneCanonicalCoreConstructors<DefaultLengthUnit extends VaneLengthUnit = 'px'>
+  = Omit<VaneCoreConstructors<DefaultLengthUnit>, VaneColorConstructorName> & {
+    readonly [Key in VaneColorConstructorName]: VaneCanonicalConstructor<VaneCoreConstructors<DefaultLengthUnit>[Key]>
+  }
 
 /** Construct the core environment once per configured engine revision. */
 export function createCoreConstructors<const DefaultLengthUnit extends VaneLengthUnit>(

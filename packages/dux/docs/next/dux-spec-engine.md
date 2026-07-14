@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 2 engine/system foundation implemented; axes and later projections pending
+status: target spec — Phase 2 engine/system foundation and Phase 3 token projections implemented; axes pending
 
 # vane-dux next — spec: engine and system
 

@@ -4,7 +4,7 @@ import { de } from '../engine'
 
 export const tokenModule22 = de.defineTokens({
   group22: {
-    token2200: de.scheme({ light: 'oklch(0.96 0.01 40)', dark: 'oklch(0.16 0.01 40)' }),
+    token2200: de.token({ val: de.scheme({ light: 'oklch(0.96 0.01 40)', dark: 'oklch(0.16 0.01 40)' }), description: 'Module 22 anchor' }),
     token2201: '26px',
     token2202: '27px',
     token2203: '28px',

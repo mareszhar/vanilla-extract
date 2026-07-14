@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 2 module/finalization foundation implemented; Phase 3+ traits, axes, and interoperability pending
+status: target spec — Phase 3 token traits, handles, and projections implemented; Phase 4+ axis emission and interoperability pending
 
 # vane-dux next — spec: tokens
 
@@ -18,7 +18,7 @@ Tokens are named design decisions in a typed dependency graph. They may resolve 
 | `{ light, dark }` manifest values | Replace with declaration provenance across arbitrary axes/cases. |
 | Metadata/checks/graph edges/emitted names | Preserve and generalize. |
 
-Phase 2 completed the module half of this migration: `de.defineTokens()` now creates an immutable engine-bound unfinished module, composition checks semantic engine compatibility rather than object identity, the final system alone owns prefix/name resolution, module derivations inherit module root/layer metadata, and canonical modules expose no misleading `.build()` or final token names. The independent token traits and `$` handle model begin in Phase 3.
+Phases 2–3 completed the token-language foundation: `de.defineTokens()` creates immutable engine-bound unfinished modules; semantic engine compatibility governs composition; the system alone finalizes prefix/name identity; raw shorthand and `de.token()` normalize to independent reference/emission/mutability/registration/axis/case traits; canonical `$` handles survive build/app restoration; and `tokensOf`/`namesOf`/`varsOf` project modules or resolved selections without a mirrored registry. Phase 4 now owns axis conditions, sparse-case validation, registrations, roots, and declaration emission.
 
 ## 1. Definition forms
 

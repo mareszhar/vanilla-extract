@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — phases 0–2 complete; phase 3 ready
+status: active migration ledger — phases 0–3 complete; phase 4 ready
 
 # vane-dux next — implementation plan
 
@@ -40,7 +40,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | 0 | Documentation, inventory, characterization, and performance baseline | ☑ |
 | 1 | Unified typed CSS value IR and public extension contracts | ☑ |
 | 2 | Canonical engine authoring environment and two-stage setup | ☑ |
-| 3 | Token configuration, traits, handles, modules, and projections | ☐ |
+| 3 | Token configuration, traits, handles, modules, and projections | ☑ |
 | 4 | Axes, cases, roots, conditions, registrations, and emission order | ☐ |
 | 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☐ |
 | 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☐ |
@@ -206,30 +206,30 @@ Phase 3 is unblocked.
 
 ### Config
 
-- [ ] Implement raw shorthand plus `de.token({ ... })` branding.
-- [ ] Lock zero-config shorthand to `reference: 'var'`/`emit: true` and add engine-level `tokens` defaults.
-- [ ] Characterize the intentional shift from implicit static graph edges to CSS-reactive shorthand; prove explicit/engine-default `reference: 'val'` retains the folded path.
-- [ ] Implement `val`, `reference: 'val' | 'var'`, `emit`, `mutable`, `register`, `axes`, `cases`, metadata, and runtime validation fields as independent traits.
-- [ ] Add inference/diagnostics for implied/incompatible traits.
-- [ ] Implement bare `null`, typed `token.color()`/other no-default forms, and known `emit: false` values.
-- [ ] Remove `.live()` and old mode enum from the target public model.
+- [x] Implement raw shorthand plus `de.token({ ... })` branding.
+- [x] Lock zero-config shorthand to `reference: 'var'`/`emit: true` and add engine-level `tokens` defaults.
+- [x] Characterize the intentional shift from implicit static graph edges to CSS-reactive shorthand; prove explicit/engine-default `reference: 'val'` retains the folded path.
+- [x] Implement `val`, `reference: 'val' | 'var'`, `emit`, `mutable`, `register`, `axes`, `cases`, metadata, and runtime validation fields as independent traits.
+- [x] Add inference/diagnostics for implied/incompatible traits.
+- [x] Implement bare `null`, typed `token.color()`/other no-default forms, and known `emit: false` values.
+- [x] Remove `.live()` and old mode enum from the target public model.
 
 ### Handles
 
-- [ ] Rename public members to `$name`, `$val`, `$var(fallback?)`, `$description`, `$axes`, etc.
-- [ ] Make axis modes and cases branch handles on both plane-neutral and runtime-bound trees; expose `$val`/metadata without public private-slot names.
-- [ ] Type a mutable no-default base constructor as a runtime-addressable base handle without inventing a value sentinel.
-- [ ] Enumerate authored/reserved branch addresses exactly; omit unconfigured partial modes/cases from handle types.
-- [ ] Keep `$val` a property and `$var()` a fallback-accepting method.
-- [ ] Ensure the handle default serialization follows `reference`.
-- [ ] Preserve plane-neutral serialization across build/app boundaries.
-- [ ] Add readable public types/hover and no collision with user group keys.
+- [x] Rename public members to `$name`, `$val`, `$var(fallback?)`, `$description`, `$axes`, etc.
+- [x] Make axis modes and cases branch handles on both plane-neutral and runtime-bound trees; expose `$val`/metadata without public private-slot names.
+- [x] Type a mutable no-default base constructor as a runtime-addressable base handle without inventing a value sentinel.
+- [x] Enumerate authored/reserved branch addresses exactly; omit unconfigured partial modes/cases from handle types.
+- [x] Keep `$val` a property and `$var()` a fallback-accepting method.
+- [x] Ensure the handle default serialization follows `reference`.
+- [x] Preserve plane-neutral serialization across build/app boundaries.
+- [x] Add readable public types/hover and no collision with user group keys.
 
 ### Projections
 
-- [ ] Implement `ds.tokensOf`, `ds.namesOf`, and `ds.varsOf` for modules, resolved subtrees, and composed tree selections.
-- [ ] Make name/var projection usable from configuration contexts without CSS emission.
-- [ ] Lock deterministic naming as a public contract.
+- [x] Implement `ds.tokensOf`, `ds.namesOf`, and `ds.varsOf` for modules, resolved subtrees, and composed tree selections.
+- [x] Make name/var projection usable from configuration contexts without CSS emission.
+- [x] Lock deterministic naming as a public contract.
 
 ### Exit gate
 
@@ -237,6 +237,19 @@ Phase 3 is unblocked.
 - Current graph refactors and diagnostics remain credible.
 - Name/var integration replaces the Hail/Nuxt mirrored registry use case.
 - No old mode/liveness special case remains load-bearing.
+
+Accepted 2026-07-14. Phase 3 replaces the target token language end to end while preserving the former package-root graph only as D66's internal migration adapter. Axis/case declarations are typed, recorded, projected, and restored across planes here; Phase 4 owns their condition model and CSS emission.
+
+Acceptance evidence:
+
+- `pnpm run sdk:test`: 56 files, 457 tests, and no type errors. Dedicated runtime, type, editor-DX, output, and rename fixtures cover shorthand/configured/no-default/nonemitted forms, local trait diagnostics, reactive versus folded graph edges, exact authored branches/cases, fallback-compatible `$var()`, default handle serialization, plane restoration, group-name collisions, support-target failures, and all three projections.
+- Canonical engine/system values and token handles expose the target language only: engine color expressions no longer publish `.live()`/`.mode()`, resolved handles use `$name`/`$val`/`$var()`, and exact `$axes`/`$case()` branches preserve the same semantic address across build and app planes. Legacy aliases remain internal to the package-root regression adapter rather than load-bearing in canonical code.
+- The generated benchmark corpus now exercises branded token config plus module/token/name/var projections. At 5,000 tokens, cold typecheck is 2.10s / 2,217,483 instantiations / 414,338 kB, incremental typecheck is 0.34s, declarations are 448,337 B, and four-location graph rename is 4.97ms. Against Phase 2, the added config/projection surface costs 1.9% total time, 2.2% instantiations, 7.4% memory, and 13.0% declaration bytes—inside every accepted budget.
+- CSS-reactive shorthand emits platform expressions through the declared support policy; explicit or engine-default `reference: 'val'` retains inline/folded consumption. Deterministic projections reuse finalized graph identity without emitting CSS or maintaining a second name registry.
+- Large-fixture CSS remains 205,932 B / 19,815 B gzip and manifest output is 1,669,859 B. The build-only root is 194 kB / 34.6 kB gzip; the richer cross-plane token/branch restoration raises the browser runtime to 15.7 kB / 3.04 kB gzip while keeping it framework-free.
+- The permanent phase-boundary lint, SDK/demo typecheck/build, audit, browser/HMR/lifecycle, and packed Vite/Nuxt consumer gates remain green.
+
+Phase 4 is unblocked.
 
 ## 8. Phase 4 — axes, roots, cases, registration, and emission
 

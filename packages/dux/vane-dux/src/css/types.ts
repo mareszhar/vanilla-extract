@@ -9,7 +9,7 @@
 
 import type * as CSS from 'csstype'
 import type { VaneColor } from '../tokens/types'
-import type { VaneCssValue } from '../values/types'
+import type { VaneCssValue, VaneTokenInput } from '../values/types'
 
 type CSSTypeProperties = CSS.Properties<number | (string & {})>
 
@@ -30,7 +30,7 @@ export interface VaneVarReference {
  * design — the token map guides, it never gates.
  */
 export type VaneStyleValue<P extends VaneCssPropertyName = VaneCssPropertyName>
-  = CSSTypeProperties[P] | VaneVarReference | VaneColor<any> | VaneCssValue
+  = CSSTypeProperties[P] | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue
 
 /** A property-first condition map: `color: { base: …, hover: … }`. */
 export type VanePropertyArms<C extends string, V> = { base?: V } & { [K in C]?: V }
@@ -48,9 +48,10 @@ export type VaneRuleEntry<C extends string>
     | string
     | number
     | VaneVarReference
+    | VaneTokenInput
     | VaneColor<any>
     | VaneCssValue
-    | readonly (string | number | VaneVarReference | VaneCssValue)[]
+    | readonly (string | number | VaneVarReference | VaneTokenInput | VaneCssValue)[]
     | undefined
 
 /** Custom properties are plain keys; the escape audit sees them, `vars` ceremony doesn't exist. */
@@ -61,7 +62,7 @@ export interface VaneCustomProperties<C extends string> {
 export type VaneDeclarations<C extends string> = {
   [P in VaneCssPropertyName]?:
     | VaneStyleValue<P>
-    | readonly (CSSTypeProperties[P] | VaneVarReference)[]
+    | readonly (CSSTypeProperties[P] | VaneVarReference | VaneTokenInput)[]
     | VanePropertyArms<C, VaneStyleValue<P>>
 } & VaneCustomProperties<C>
 
@@ -103,7 +104,7 @@ export type VaneStyleRule<C extends string, L extends string> = VaneNestedRule<C
  * semantically meaningless inside one, so the grammar refuses them at the key.
  */
 export type VaneKeyframeStep = {
-  [P in VaneCssPropertyName]?: VaneStyleValue<P> | readonly (CSSTypeProperties[P] | VaneVarReference)[]
+  [P in VaneCssPropertyName]?: VaneStyleValue<P> | readonly (CSSTypeProperties[P] | VaneVarReference | VaneTokenInput)[]
 } & {
   [customProperty: `--${string}`]: string | number | VaneVarReference
 }
@@ -119,7 +120,7 @@ export type VaneFontFaceRule
 
 // ─── The bound authoring functions ───────────────────────────────────────────
 
-export type VaneRawValue = string | number | VaneVarReference | VaneColor<any> | VaneCssValue
+export type VaneRawValue = string | number | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue
 
 export interface VaneCssFunction<C extends string, L extends string> {
   /** The style unit: a scoped class whose rules compile away ([dux-spec-css.md §2]). */

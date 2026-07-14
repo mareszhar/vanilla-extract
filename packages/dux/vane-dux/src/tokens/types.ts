@@ -10,7 +10,13 @@
  *   half-clobbering it.
  */
 
-import type { VaneCssValue, VaneSelfValue } from '../values/types'
+import type {
+  VaneCssDataType,
+  VaneCssValue,
+  VaneDataTypeOf,
+  VaneSelfValue,
+  VaneValue,
+} from '../values/types'
 
 // ─── Modes ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +35,13 @@ type VaneValueMode<M extends VaneTokenMode> = M extends 'derived' ? 'live' : M
 // ─── Authoring color values ──────────────────────────────────────────────────
 
 /** Anything the color helpers accept: a color value/token, a contrast pick, or a CSS color literal. */
-export type VaneColorish = VaneColor<any> | VaneColorTokenAny | VaneContrast<any> | string
+export type VaneColorish
+  = | VaneColor<any>
+    | VaneAuthoredColor
+    | VaneColorTokenAny
+    | VaneColorTokenHandle
+    | VaneContrast<any>
+    | string
 
 export type VaneModeOf<S extends VaneColorish>
   = S extends VaneContrast<infer G> ? (G extends 'checked' ? 'scheme' : 'live')
@@ -73,6 +85,24 @@ export interface VaneInterpolatedColor<out M extends VaneColorMode = VaneColorMo
   in: {
     (space: VaneColorInterpolationSpace): VaneColor<M>
     (space: VanePolarColorSpace, options: { hue: VaneHueInterpolation }): VaneColor<M>
+  }
+}
+
+/** Canonical engine color value: expression/data type only, with no token liveness mode. */
+export interface VaneAuthoredColor extends VaneSelfValue<'color'> {
+  alpha: (amount: number) => VaneAuthoredColor
+  lighten: (amount: number) => VaneAuthoredColor
+  darken: (amount: number) => VaneAuthoredColor
+  saturate: (amount: number) => VaneAuthoredColor
+  desaturate: (amount: number) => VaneAuthoredColor
+  rotate: (degrees: number) => VaneAuthoredColor
+  mix: (other: VaneColorish, amount: number) => VaneAuthoredInterpolatedColor
+}
+
+export interface VaneAuthoredInterpolatedColor extends VaneAuthoredColor {
+  in: {
+    (space: VaneColorInterpolationSpace): VaneAuthoredColor
+    (space: VanePolarColorSpace, options: { hue: VaneHueInterpolation }): VaneAuthoredColor
   }
 }
 
@@ -140,18 +170,259 @@ export interface VaneValueToken<
   readonly value: V
 }
 
+// ─── Canonical token traits (Phase 3) ──────────────────────────────────────
+
+export type VaneTokenReference = 'val' | 'var'
+
+export interface VaneTokenPolicy<
+  Reference extends VaneTokenReference = VaneTokenReference,
+  Emit extends boolean = boolean,
+> {
+  readonly reference: Reference
+  readonly emit: Emit
+}
+
+export type VaneDefaultTokenPolicy = VaneTokenPolicy<'var', true>
+
+export interface VaneTokenRegistration<Val = unknown> {
+  /** CSS Properties and Values API syntax; inferred from the token type when omitted. */
+  readonly syntax?: string
+  readonly inherits?: boolean
+  readonly initialVal?: Val
+}
+
+export type VaneTokenDeprecation = string | {
+  readonly reason?: string
+  readonly use?: string
+}
+
+export type VaneTokenMetadataValue
+  = | string
+    | number
+    | boolean
+    | null
+    | readonly VaneTokenMetadataValue[]
+    | { readonly [key: string]: VaneTokenMetadataValue }
+
+export type VaneTokenMetadata = Readonly<Record<string, VaneTokenMetadataValue>>
+
+export interface VaneTokenCase<
+  When extends Readonly<Record<string, string>> = Readonly<Record<string, string>>,
+  Val = unknown,
+> {
+  readonly when: When
+  readonly val: Val | null
+}
+
+export interface VaneTokenConfig<
+  Val = unknown,
+  Axes extends Readonly<Record<string, Readonly<Record<string, unknown | null>>>> = Readonly<Record<string, Readonly<Record<string, unknown | null>>>>,
+  Cases extends readonly VaneTokenCase[] = readonly VaneTokenCase[],
+> {
+  readonly val?: Val
+  readonly reference?: VaneTokenReference
+  readonly emit?: boolean
+  readonly mutable?: boolean
+  readonly register?: boolean | VaneTokenRegistration<Val>
+  readonly axes?: Axes
+  readonly cases?: Cases
+  readonly description?: string
+  readonly deprecated?: VaneTokenDeprecation
+  readonly metadata?: VaneTokenMetadata
+  /** Runtime-bound validation policy; Standard Schema support lands with the runtime phase. */
+  readonly validate?: unknown
+}
+
+/** Runtime brand for an advanced token definition. Ordinary group keys stay unreserved. */
+export const VANE_CONFIGURED_TOKEN = Symbol.for('vane.configuredToken')
+
+export interface VaneConfiguredToken<
+  Config extends VaneTokenConfig = VaneTokenConfig,
+  Type extends VaneCssDataType = VaneCssDataType,
+> {
+  readonly [VANE_CONFIGURED_TOKEN]: true
+  readonly config: Config
+  readonly type: Type
+}
+
+type VaneTokenConfigGuard<Config extends VaneTokenConfig>
+  = {
+    readonly [Key in keyof Config]: Key extends 'reference'
+      ? Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] }
+        ? 'var'
+        : Config[Key]
+      : Key extends 'emit'
+        ? Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] }
+          ? true
+          : Config[Key]
+        : Config[Key]
+  }
+
+export interface VaneTypedNoDefaultTokenFactory<Type extends VaneCssDataType> {
+  (): VaneConfiguredToken<Record<never, never> & VaneTokenConfig<never>, Type>
+  <const Config extends Omit<VaneTokenConfig<never>, 'val'>>(
+    config: VaneTokenConfigGuard<Config>,
+  ): VaneConfiguredToken<Config, Type>
+}
+
+export interface VaneTokenFactory {
+  <const Config extends VaneTokenConfig>(
+    config: VaneTokenConfigGuard<Config>,
+  ): VaneConfiguredToken<Config, Config extends { readonly val: infer Val } ? VaneDataTypeOf<Val> : 'unknown'>
+
+  readonly unknown: VaneTypedNoDefaultTokenFactory<'unknown'>
+  readonly number: VaneTypedNoDefaultTokenFactory<'number'>
+  readonly integer: VaneTypedNoDefaultTokenFactory<'integer'>
+  readonly percentage: VaneTypedNoDefaultTokenFactory<'percentage'>
+  readonly numberPercentage: VaneTypedNoDefaultTokenFactory<'number-percentage'>
+  readonly length: VaneTypedNoDefaultTokenFactory<'length'>
+  readonly lengthPercentage: VaneTypedNoDefaultTokenFactory<'length-percentage'>
+  readonly angle: VaneTypedNoDefaultTokenFactory<'angle'>
+  readonly time: VaneTypedNoDefaultTokenFactory<'time'>
+  readonly frequency: VaneTypedNoDefaultTokenFactory<'frequency'>
+  readonly resolution: VaneTypedNoDefaultTokenFactory<'resolution'>
+  readonly flex: VaneTypedNoDefaultTokenFactory<'flex'>
+  readonly color: VaneTypedNoDefaultTokenFactory<'color'>
+  readonly image: VaneTypedNoDefaultTokenFactory<'image'>
+  readonly position: VaneTypedNoDefaultTokenFactory<'position'>
+  readonly easingFunction: VaneTypedNoDefaultTokenFactory<'easing-function'>
+  readonly transformFunction: VaneTypedNoDefaultTokenFactory<'transform-function'>
+  readonly transformList: VaneTypedNoDefaultTokenFactory<'transform-list'>
+  readonly customIdent: VaneTypedNoDefaultTokenFactory<'custom-ident'>
+  readonly dashedIdent: VaneTypedNoDefaultTokenFactory<'dashed-ident'>
+  readonly string: VaneTypedNoDefaultTokenFactory<'string'>
+  readonly url: VaneTypedNoDefaultTokenFactory<'url'>
+}
+
+export type VaneTokenFallback<Type extends VaneCssDataType>
+  = | VaneValue<Type>
+    | string
+    | (Type extends 'number' | 'integer' | 'percentage' | 'number-percentage' ? number : never)
+
+export interface VaneTokenBranchHandle<Val = unknown> {
+  /** Authored branch value; undefined denotes an explicit no-default reservation. */
+  readonly $val: VaneResolvedTokenVal<Val>
+  readonly $description?: string
+  readonly $metadata?: VaneTokenMetadata
+  toString: () => string
+}
+
+type VaneAxisHandles<Axes> = Axes extends object ? {
+  readonly [Axis in keyof Axes]: Axes[Axis] extends object ? {
+    readonly [Mode in keyof Axes[Axis]]: VaneTokenBranchHandle<Axes[Axis][Mode]>
+  } : never
+} : Record<never, never>
+
+type VaneCaseWhen<Cases> = Cases extends readonly (infer Case)[]
+  ? Case extends { readonly when: infer When } ? When : never
+  : never
+
+type VaneCaseVal<Cases, _When> = Cases extends readonly (infer Case)[]
+  ? Case extends { readonly val: infer Val } ? Val : never
+  : never
+
+type VaneConfiguredAxes<Node> = Node extends VaneConfiguredToken<infer Config, any>
+  ? Config extends { readonly axes: infer Axes } ? Axes : Record<never, never>
+  : Record<never, never>
+
+type VaneConfiguredCases<Node> = Node extends VaneConfiguredToken<infer Config, any>
+  ? Config extends { readonly cases: infer Cases } ? Cases : readonly []
+  : readonly []
+
+type VaneConfiguredVal<Node> = Node extends VaneConfiguredToken<infer Config, any>
+  ? Config extends { readonly val: infer Val } ? Val : undefined
+  : Node extends null ? undefined : Node
+
+type VaneConfiguredReference<Node, Policy extends VaneTokenPolicy>
+  = Node extends null ? 'var'
+    : Node extends VaneConfiguredToken<infer Config, any>
+      ? Config extends { readonly reference: infer Reference extends VaneTokenReference } ? Reference
+        : Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] } ? 'var'
+          : 'val' extends Policy['reference'] ? Policy['reference'] : 'var'
+      : Policy['reference']
+
+type VaneConfiguredEmit<Node, Policy extends VaneTokenPolicy>
+  = Node extends null ? false
+    : Node extends VaneConfiguredToken<infer Config, any>
+      ? Config extends { readonly emit: infer Emit extends boolean } ? Emit
+        : Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] } ? true
+          : Config extends { readonly val: unknown } ? Policy['emit'] : false
+      : Policy['emit']
+
+type VaneConfiguredMutable<Node> = Node extends VaneConfiguredToken<infer Config, any>
+  ? Config extends { readonly mutable: true } ? true : false
+  : false
+
+type VaneConfiguredDescription<Node> = Node extends VaneConfiguredToken<infer Config, any>
+  ? Config extends { readonly description: infer Description extends string } ? Description : undefined
+  : undefined
+
+export type VaneResolvedTokenVal<Val>
+  = Val extends null | undefined ? undefined
+    : Val extends VaneCssValue<infer Css> ? Css
+      : Val extends string | number ? Val
+        : string
+
+/** Canonical plane-neutral public-property handle. No legacy mode vocabulary leaks here. */
+export interface VaneTokenHandle<
+  Val = unknown,
+  Name extends string = string,
+  Path extends string = string,
+  Type extends VaneCssDataType = VaneCssDataType,
+  Reference extends VaneTokenReference = VaneTokenReference,
+  Emit extends boolean = boolean,
+  Mutable extends boolean = boolean,
+  Axes = Record<never, never>,
+  Cases = readonly [],
+  Description extends string | undefined = string | undefined,
+> {
+  readonly $name: `--${Name}`
+  readonly $val: VaneResolvedTokenVal<Val>
+  readonly $var: (fallback?: VaneTokenFallback<Type>) => `var(--${Name})` | `var(--${Name}, ${string})`
+  readonly $path: Path
+  readonly $type: Type
+  readonly $reference: Reference
+  readonly $emit: Emit
+  readonly $mutable: Mutable
+  readonly $description: Description
+  readonly $deprecated?: string
+  readonly $metadata?: VaneTokenMetadata
+  readonly $register?: boolean | VaneTokenRegistration<Val>
+  readonly $validate?: unknown
+  readonly $axes: VaneAxisHandles<Axes>
+  readonly $case: (
+    when: VaneCaseWhen<Cases>,
+  ) => VaneTokenBranchHandle<VaneCaseVal<Cases, VaneCaseWhen<Cases>>>
+  toString: () => string
+}
+
+export type VaneTokenHandleAny = VaneTokenHandle<any, string, string, any, any, any, any, any, any, any>
+export type VaneColorTokenHandle = VaneTokenHandle<any, string, string, 'color', any, any, any, any, any, any>
+
 // ─── The graph: input shape and inferred output ──────────────────────────────
 
-export type VaneLeafInput = VaneColor<any> | VaneContrast<any> | VaneCssValue | string | number
+export type VaneLeafInput
+  = | VaneColor<any>
+    | VaneAuthoredColor
+    | VaneContrast<any>
+    | VaneCssValue
+    | VaneConfiguredToken
+    | string
+    | number
+    | null
 export type VaneDerivedResult
   = | VaneColor<any>
+    | VaneAuthoredColor
     | VaneContrast<any>
     | VaneColorTokenAny
     | VaneContrastToken<any, any>
     | VaneValueToken<any, any, any>
+    | VaneTokenHandleAny
     | VaneCssValue
+    | VaneConfiguredToken
     | string
     | number
+    | null
 
 /**
  * The dependency-free seed accepted by `defineTokens`. Derivations live in
@@ -259,23 +530,31 @@ export interface VaneTokenModuleOptions {
  */
 declare const VANE_TOKEN_DEFINITION: unique symbol
 
-export interface VaneTokenDefinition<G extends object> {
+export interface VaneTokenDefinition<
+  G extends object,
+  Policy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> {
   /** Type-only graph carrier; runtime identity uses `Symbol.for`. */
   readonly [VANE_TOKEN_DEFINITION]: G
+  /** Type-only engine token policy captured when this unfinished module was defined. */
+  readonly __vaneTokenPolicy?: Policy
 }
 
-export interface VaneTokenModule<G extends object> extends VaneTokenDefinition<G> {
+export interface VaneTokenModule<
+  G extends object,
+  Policy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> extends VaneTokenDefinition<G, Policy> {
   /**
    * Compose an independently authored token module into this definition.
    * Modules retain their internal stage order; later derivations see the
    * exact combined graph. Duplicate paths fail at this call.
    */
   compose: <const M extends object>(
-    module: VaneTokenDefinition<M> & VaneCompositionGuard<G, M>,
-  ) => VaneTokenModule<VaneMergeGraph<G, M>>
+    module: VaneTokenDefinition<M, Policy> & VaneCompositionGuard<G, M>,
+  ) => VaneTokenModule<VaneMergeGraph<G, M>, Policy>
   derive: <const S extends VaneTokenStage>(
-    stage: (tokens: VaneTokens<G, string>) => S & VaneAddition<G, S>,
-  ) => VaneTokenModule<VaneMergeGraph<G, VaneMarkDerived<S>>>
+    stage: (tokens: VaneCanonicalTokens<G, string, Policy>) => S & VaneAddition<G, S>,
+  ) => VaneTokenModule<VaneMergeGraph<G, VaneMarkDerived<S>>, Policy>
 }
 
 /**
@@ -313,6 +592,13 @@ export interface VaneResolvedTokens {
 
 export type VaneTokens<T, Name extends string = 'vane'> = VaneResolvedTokens & VaneTokenGroup<T, Name, ''>
 
+/** The canonical Phase-3 graph: independent traits and `$`-prefixed handle members. */
+export type VaneCanonicalTokens<
+  T,
+  Name extends string = 'vane',
+  Policy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> = VaneResolvedTokens & VaneCanonicalTokenGroup<T, Name, '', Policy>
+
 type VaneTokenGroup<T, Name extends string, Path extends string> = {
   readonly [K in keyof T & string]: VaneTokenOf<T[K], `${Name}-${VaneKebab<K>}`, Path extends '' ? K : `${Path}.${K}`>
 }
@@ -324,6 +610,70 @@ type VaneTokenOf<N, Name extends string, Path extends string>
         : N extends VaneCssValue<infer Css> ? VaneValueToken<Css, Name, 'static', Path>
           : N extends string | number ? VaneValueToken<N, Name, 'static', Path>
             : VaneTokenGroup<N, Name, Path>
+
+type VaneCanonicalTokenGroup<
+  T,
+  Name extends string,
+  Path extends string,
+  Policy extends VaneTokenPolicy,
+> = {
+  readonly [K in keyof T & string as K extends `$${string}` ? never : K]: VaneCanonicalTokenOf<
+    T[K],
+    `${Name}-${VaneKebab<K>}`,
+    Path extends '' ? K : `${Path}.${K}`,
+    Policy
+  >
+}
+
+type VaneCanonicalTokenOf<
+  Node,
+  Name extends string,
+  Path extends string,
+  Policy extends VaneTokenPolicy,
+> = Node extends VaneDerived<infer Result>
+  ? VaneTokenHandleOf<Result, Name, Path, Policy>
+  : Node extends VaneLeafInput
+    ? VaneTokenHandleOf<Node, Name, Path, Policy>
+    : VaneCanonicalTokenGroup<Node, Name, Path, Policy>
+
+/** Readable resolved handle inferred from one canonical authored token node. */
+export type VaneTokenHandleOf<
+  Node,
+  Name extends string,
+  Path extends string,
+  Policy extends VaneTokenPolicy,
+> = VaneTokenHandle<
+  VaneConfiguredVal<Node>,
+  Name,
+  Path,
+  Node extends VaneConfiguredToken<any, infer Type> ? Type : VaneDataTypeOf<VaneConfiguredVal<Node>>,
+  VaneConfiguredReference<Node, Policy>,
+  VaneConfiguredEmit<Node, Policy>,
+  VaneConfiguredMutable<Node>,
+  VaneConfiguredAxes<Node>,
+  VaneConfiguredCases<Node>,
+  VaneConfiguredDescription<Node>
+>
+
+export type VaneTokensFromDefinition<SystemTokens, Definition>
+  = Definition extends VaneTokenDefinition<infer Graph, any>
+    ? VaneSelectionFromGraph<SystemTokens, Graph>
+    : Definition
+
+type VaneSelectionFromGraph<SystemTokens, Graph> = {
+  readonly [K in keyof Graph & keyof SystemTokens as K extends `$${string}` ? never : K]:
+  Graph[K] extends VaneDefinitionLeaf
+    ? SystemTokens[K]
+    : VaneSelectionFromGraph<SystemTokens[K], Graph[K]>
+}
+
+export type VaneNamesOf<Selection> = Selection extends VaneTokenHandle<any, infer Name, any, any, any, any, any, any, any, any>
+  ? `--${Name}`
+  : Selection extends object ? { readonly [K in keyof Selection]: VaneNamesOf<Selection[K]> } : never
+
+export type VaneVarsOf<Selection> = Selection extends VaneTokenHandle<any, infer Name, any, any, any, any, any, any, any, any>
+  ? `var(--${Name})`
+  : Selection extends object ? { readonly [K in keyof Selection]: VaneVarsOf<Selection[K]> } : never
 
 type VaneDerivedTokenOf<R, Name extends string, Path extends string>
   = R extends VaneContrast<infer G> ? VaneContrastToken<G, Name, Path>

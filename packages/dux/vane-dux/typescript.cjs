@@ -4,7 +4,8 @@
  * TypeScript deliberately treats a mapped property as synthesized, so native
  * rename cannot connect a `defineTokens` object key to the handle properties
  * inferred from it. Vane has more information: every handle carries a literal
- * `path` type, and every use can be traced to one graph-producing call. This
+ * `$path` type (or legacy `path` during migration), and every use can be traced
+ * to one graph-producing call. This
  * plugin adds only those missing rename locations; every other language-
  * service operation remains TypeScript's own.
  */
@@ -167,7 +168,7 @@ function typedTokenPath(ts, checker, name) {
     return undefined
 
   const type = checker.getTypeAtLocation(value)
-  const property = type.getProperty('path')
+  const property = type.getProperty('$path') || type.getProperty('path')
 
   if (!property)
     return undefined

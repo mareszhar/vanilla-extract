@@ -144,15 +144,21 @@ export { scale } from './tokens/scale'
 export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
 export { theme } from './tokens/theme'
 export type {
+  VaneAuthoredColor,
+  VaneAuthoredInterpolatedColor,
+  VaneCanonicalTokens,
   VaneCheck,
   VaneColor,
   VaneColorInterpolationSpace,
   VaneColorish,
   VaneColorMode,
   VaneColorToken,
+  VaneColorTokenHandle,
+  VaneConfiguredToken,
   VaneContrast,
   VaneContrastGuarantee,
   VaneContrastToken,
+  VaneDefaultTokenPolicy,
   VaneDerived,
   VaneEngineRequirement,
   VaneGraphInput,
@@ -160,17 +166,34 @@ export type {
   VaneInterpolatedColor,
   VaneLiveOverrides,
   VaneModeOf,
+  VaneNamesOf,
   VanePolarColorSpace,
   VaneResolvedTokens,
   VaneThemeOverrides,
+  VaneTokenBranchHandle,
   VaneTokenBuilder,
+  VaneTokenCase,
+  VaneTokenConfig,
+  VaneTokenDeprecation,
+  VaneTokenFactory,
+  VaneTokenFallback,
+  VaneTokenHandle,
+  VaneTokenHandleAny,
+  VaneTokenHandleOf,
+  VaneTokenMetadata,
+  VaneTokenMetadataValue,
   VaneTokenMode,
   VaneTokenModule,
   VaneTokenModuleOptions,
+  VaneTokenPolicy,
+  VaneTokenReference,
+  VaneTokenRegistration,
   VaneTokens,
   VaneTokensOptions,
   VaneTokenStage,
+  VaneTypedNoDefaultTokenFactory,
   VaneValueToken,
+  VaneVarsOf,
 } from './tokens/types'
 
 // ─── CSS values: the default internal engine's compatibility adapters ───────
@@ -216,7 +239,7 @@ export {
   scheme,
   defaultTime as time,
 } from './values/defaultEngine'
-export type { VaneCoreConstructors } from './values/defaultEngine'
+export type { VaneCanonicalCoreConstructors, VaneCoreConstructors } from './values/defaultEngine'
 export type {
   VaneCssOperationDefinition,
   VaneCssValueDefinition,
@@ -259,6 +282,7 @@ export type {
   VaneResolution,
   VaneSelfValue,
   VaneSystemValue,
+  VaneTokenInput,
   VaneValue,
 } from './values/types'
 export type {

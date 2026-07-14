@@ -276,7 +276,9 @@ export const de = createEngine()
 `)
   write(join(plainDir, 'src/palette.tokens.ts'), `import { de } from './engine'
 
-export const palette = de.defineTokens({ color: { brand: de.oklch(0.58, 0.2, 285).live() } })
+export const palette = de.defineTokens({
+  color: { brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }) },
+})
   .derive(({ color }) => ({ color: { brandSoft: de.alpha(color.brand, 0.12) } }))
 `)
   write(join(plainDir, 'src/system.style.ts'), `import { de } from './engine'
@@ -317,7 +319,9 @@ export const de = createEngine()
 `)
   write(join(nuxtDir, 'app/design/palette.tokens.ts'), `import { de } from './engine'
 
-export const palette = de.defineTokens({ color: { brand: de.oklch(0.58, 0.2, 285).live() } })
+export const palette = de.defineTokens({
+  color: { brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }) },
+})
   .derive(({ color }) => ({ color: { brandSoft: de.alpha(color.brand, 0.12) } }))
 `)
   write(join(nuxtDir, 'app/design/system.style.ts'), `import { de } from './engine'

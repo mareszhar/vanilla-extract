@@ -297,6 +297,8 @@ export function createSerializeContext(
       if (!isNodeValue(value)) {
         if ((typeof value === 'object' || typeof value === 'function') && value !== null && 'var' in value)
           return value.var
+        if ((typeof value === 'object' || typeof value === 'function') && value !== null && '$var' in value)
+          return String(value)
         throw new TypeError('[vane] the serializer received a value from an incompatible expression protocol')
       }
       return serializeNode(value[VANE_NODE], context)
@@ -469,6 +471,23 @@ export function inputNode(value: VaneCssInput, assertedType?: VaneCssDataType): 
     const reference: VaneReference = {
       kind: token ? 'token' : 'custom-property',
       name: customPropertyName(value.var),
+      ...(tokenPath === undefined ? {} : { path: tokenPath }),
+      type: assertedType ?? 'unknown',
+      resolution: 'self',
+    }
+    return varNode({ type: assertedType ?? 'unknown', reference })
+  }
+
+  if ((typeof value === 'object' || typeof value === 'function') && value !== null && '$var' in value) {
+    // Prior stages are hydrated before a derivation runs. An explicit val
+    // projection can therefore enter the portable IR as its resolved value.
+    if ('$reference' in value && value.$reference === 'val')
+      return literalNode(assertedType ?? 'unknown', String(value))
+
+    const tokenPath = '$path' in value && typeof value.$path === 'string' ? value.$path : undefined
+    const reference: VaneReference = {
+      kind: tokenPath === undefined ? 'custom-property' : 'token',
+      name: customPropertyName((value as { $var: () => string }).$var()),
       ...(tokenPath === undefined ? {} : { path: tokenPath }),
       type: assertedType ?? 'unknown',
       resolution: 'self',

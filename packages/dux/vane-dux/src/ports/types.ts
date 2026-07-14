@@ -15,7 +15,7 @@
 
 import type { VaneVarReference } from '../css/types'
 import type { VaneColor } from '../tokens/types'
-import type { VaneCssValue } from '../values/types'
+import type { VaneCssValue, VaneTokenInput } from '../values/types'
 
 /** The primitive values a port can hold and `set()` can return. */
 export type VanePortValue = string | number
@@ -24,7 +24,7 @@ export type VanePortValue = string | number
 export type VanePortStyle = Record<`--${string}`, VanePortValue>
 
 /** Anything acceptable as a port default: a primitive, a token/port reference, or a color expression. */
-export type VanePortInput = VanePortValue | VaneVarReference | VaneColor<any> | VaneCssValue
+export type VanePortInput = VanePortValue | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue
 
 /**
  * Widen literal primitives to their base type — `0` → `number`, `'4px'` →
@@ -64,7 +64,7 @@ export interface VanePortOptions {
  * token ports also take plain strings (a CSS literal is their currency).
  */
 export type VanePortSetValue<TValue extends VanePortInput>
-  = (TValue extends VaneVarReference | VaneColor<any> | VaneCssValue ? string : TValue) | VaneVarReference
+  = (TValue extends VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue ? string : TValue) | VaneVarReference | VaneTokenInput
 
 /**
  * What the handle stores as its default: references and color expressions
@@ -73,7 +73,7 @@ export type VanePortSetValue<TValue extends VanePortInput>
  * written.
  */
 export type VanePortDefault<TValue extends VanePortInput>
-  = TValue extends VaneVarReference | VaneColor<any> | VaneCssValue ? string : TValue
+  = TValue extends VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue ? string : TValue
 
 /**
  * A port — a declared, typed, defaulted CSS custom property

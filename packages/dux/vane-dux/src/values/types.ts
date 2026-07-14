@@ -82,6 +82,14 @@ export interface VaneCssReference {
   readonly var: `var(--${string})` | `var(--${string}, ${string})`
 }
 
+/** Canonical token input. `$var` is public; `.var` is a migration-only runtime alias. */
+export interface VaneTokenInput {
+  readonly $var: (fallback?: never) => `var(--${string})` | `var(--${string}, ${string})`
+  readonly $path: string
+  readonly $reference: 'val' | 'var'
+  toString: () => string
+}
+
 export type VaneDataTypeOf<Value>
   = Value extends VaneValue<infer Type> ? Type
     : Value extends number ? (number extends Value ? 'number' : `${Value}` extends `${bigint}` ? 'integer' : 'number')
@@ -123,7 +131,7 @@ export function isCssValue(value: unknown): value is VaneCssValue {
   return isVaneValue(value) && 'css' in value
 }
 
-export type VaneCssInput = string | number | VaneCssValue | VaneCssReference
+export type VaneCssInput = string | number | VaneCssValue | VaneCssReference | VaneTokenInput
 
 /** Serialize a self-contained compatibility input without losing references. */
 export function cssText(value: VaneCssInput): string {
@@ -144,5 +152,5 @@ export function cssText(value: VaneCssInput): string {
   if (isCssValue(value))
     return value.css
 
-  return value.var
+  return 'var' in value ? value.var : String(value)
 }

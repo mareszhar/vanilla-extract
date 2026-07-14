@@ -24,7 +24,7 @@ describe('canonical engine types', () => {
       conditions: { selected: '&[aria-selected="true"]' },
     })
 
-    expectTypeOf(ds.t.color.brand.name).toEqualTypeOf<'--app-color-brand'>()
+    expectTypeOf(ds.t.color.brand.$name).toEqualTypeOf<'--app-color-brand'>()
     expectTypeOf(ds.length(2).css).toEqualTypeOf<'2rem'>()
     expectTypeOf(ds.editorial.measure(70).css).toEqualTypeOf<'70ch'>()
     expectTypeOf(ds.conditions.selected).toEqualTypeOf<string>()

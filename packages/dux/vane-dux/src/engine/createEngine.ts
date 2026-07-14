@@ -10,12 +10,16 @@ import type {
   VaneSystemTokens,
 } from '../system/createSystem'
 import type {
+  VaneDefaultTokenPolicy,
   VaneEngineRequirement,
   VaneGraphInput,
+  VaneTokenFactory,
   VaneTokenModule,
   VaneTokenModuleOptions,
+  VaneTokenPolicy,
+  VaneTokenReference,
 } from '../tokens/types'
-import type { VaneCoreConstructors } from '../values/defaultEngine'
+import type { VaneCanonicalCoreConstructors } from '../values/defaultEngine'
 import type { VaneCssSupportTarget, VaneExtensionIdentity } from '../values/protocol'
 import type { VaneSelfValue } from '../values/types'
 import type { VaneLengthUnit } from '../values/units'
@@ -23,6 +27,7 @@ import { createEngineKernel } from '../internal/engineKernel'
 import { aria, container, data, media, schemeIs, supports } from '../system/conditions'
 import { createSystemForEngine } from '../system/createSystem'
 import { check } from '../tokens/checks'
+import { createTokenFactory } from '../tokens/config'
 import { defineTokenModule } from '../tokens/graph'
 import { scale } from '../tokens/scale'
 import { createCoreConstructors, VANE_CORE_EXTENSION_IDENTITIES } from '../values/defaultEngine'
@@ -43,16 +48,23 @@ export type VaneSemanticPolicy
     | readonly VaneSemanticPolicy[]
     | { readonly [key: string]: VaneSemanticPolicy }
 
-export interface VaneEngineTokenPolicy {
-  readonly reference?: 'val' | 'var'
-  readonly emit?: boolean
+export interface VaneEngineTokenPolicy<
+  Reference extends VaneTokenReference = VaneTokenReference,
+  Emit extends boolean = boolean,
+> {
+  readonly reference?: Reference
+  readonly emit?: Emit
 }
 
-export interface VaneEngineOptions<DefaultLengthUnit extends VaneLengthUnit = 'px'> {
+export interface VaneEngineOptions<
+  DefaultLengthUnit extends VaneLengthUnit = 'px',
+  Reference extends VaneTokenReference = 'var',
+  Emit extends boolean = true,
+> {
   readonly support?: VaneCssSupportTarget
   readonly length?: { readonly unitless?: DefaultLengthUnit }
-  /** Captured now; Phase 3 applies these defaults to the new token traits. */
-  readonly tokens?: VaneEngineTokenPolicy
+  /** Defaults applied to shorthand and omitted fields in branded token config. */
+  readonly tokens?: VaneEngineTokenPolicy<Reference, Emit>
   readonly color?: Readonly<Record<string, VaneSemanticPolicy>>
   readonly validation?: Readonly<Record<string, VaneSemanticPolicy>>
   /** Extension point for project policies whose semantics affect identity. */
@@ -61,17 +73,20 @@ export interface VaneEngineOptions<DefaultLengthUnit extends VaneLengthUnit = 'p
 
 export interface VaneEnginePlugin<
   Added extends Readonly<Record<string, unknown>>,
-  RequiredConstructors extends object = VaneCoreConstructors<VaneLengthUnit>,
+  RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 > extends VaneExtensionIdentity {
-  readonly setup: (engine: VaneEngine<RequiredConstructors>) => Added
+  readonly setup: (engine: VaneEngine<RequiredConstructors, VaneTokenPolicy>) => Added
 }
 
-type VaneEngineReserved<Constructors extends object> = keyof Constructors | keyof VaneEngineMethods<Constructors> | typeof VANE_SYSTEM_MEMBERS[number]
+type VaneEngineReserved<Constructors extends object> = keyof Constructors | keyof VaneEngineMethods<Constructors, VaneTokenPolicy> | typeof VANE_SYSTEM_MEMBERS[number]
 type VaneExtensionOutput<Constructors extends object, Added> = Added & {
   readonly [Key in Extract<keyof Added, VaneEngineReserved<Constructors>>]: never
 }
 
-export interface VaneEngineMethods<Constructors extends object> {
+export interface VaneEngineMethods<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> {
   readonly signature: string
   readonly support: VaneCssSupportTarget
   readonly policies: Readonly<Record<string, unknown>>
@@ -88,10 +103,11 @@ export interface VaneEngineMethods<Constructors extends object> {
   readonly data: typeof data
   readonly aria: typeof aria
   readonly schemeIs: typeof schemeIs
+  readonly token: VaneTokenFactory
   readonly defineTokens: <const T extends VaneGraphInput = Record<never, never>>(
     seed?: T,
     options?: VaneTokenModuleOptions,
-  ) => VaneTokenModule<T>
+  ) => VaneTokenModule<T, TokenPolicy>
   readonly createSystem: <
     const T extends object,
     const C extends Record<string, VaneConditionInput> = Record<never, never>,
@@ -100,8 +116,8 @@ export interface VaneEngineMethods<Constructors extends object> {
     B extends boolean = true,
   >(
     options: VaneEngineSystemOptions<T, C, L, P, B>,
-  ) => VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number], Constructors>
-  readonly compatibleWith: (other: Pick<VaneEngineMethods<object>, 'signature'>) => boolean
+  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors>
+  readonly compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy>, 'signature'>) => boolean
   readonly use: <
     const Added extends Readonly<Record<string, unknown>>,
     RequiredConstructors extends object,
@@ -109,24 +125,28 @@ export interface VaneEngineMethods<Constructors extends object> {
     plugin: Constructors extends RequiredConstructors
       ? VaneEnginePlugin<Added, RequiredConstructors>
       : never,
-  ) => VaneEngine<Constructors & Added>
+  ) => VaneEngine<Constructors & Added, TokenPolicy>
   readonly extend: {
     <const Added extends Readonly<Record<string, unknown>>>(
-      extension: (engine: VaneEngine<Constructors>) => VaneExtensionOutput<Constructors, Added>,
-    ): VaneEngine<Constructors & Added>
+      extension: (engine: VaneEngine<Constructors, TokenPolicy>) => VaneExtensionOutput<Constructors, Added>,
+    ): VaneEngine<Constructors & Added, TokenPolicy>
     <const Added extends Readonly<Record<string, unknown>>>(
       identity: VaneExtensionIdentity,
-      extension: (engine: VaneEngine<Constructors>) => VaneExtensionOutput<Constructors, Added>,
-    ): VaneEngine<Constructors & Added>
+      extension: (engine: VaneEngine<Constructors, TokenPolicy>) => VaneExtensionOutput<Constructors, Added>,
+    ): VaneEngine<Constructors & Added, TokenPolicy>
   }
 }
 
-export type VaneEngine<Constructors extends object>
-  = Readonly<Constructors> & VaneEngineMethods<Constructors>
+export type VaneEngine<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> = Readonly<Constructors> & VaneEngineMethods<Constructors, TokenPolicy>
 
 /** Named zero-config/configured engine surface, kept compact in consumer declarations. */
-export interface VaneCoreEngine<DefaultLengthUnit extends VaneLengthUnit = 'px'>
-  extends VaneCoreConstructors<DefaultLengthUnit>, VaneEngineMethods<VaneCoreConstructors<DefaultLengthUnit>> {}
+export interface VaneCoreEngine<
+  DefaultLengthUnit extends VaneLengthUnit = 'px',
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> extends VaneCanonicalCoreConstructors<DefaultLengthUnit>, VaneEngineMethods<VaneCanonicalCoreConstructors<DefaultLengthUnit>, TokenPolicy> {}
 
 export const VANE_ENGINE = Symbol.for('vane.engine')
 
@@ -154,6 +174,7 @@ const ENGINE_METHOD_NAMES = new Set<string>([
   'data',
   'aria',
   'schemeIs',
+  'token',
   'defineTokens',
   'createSystem',
   'compatibleWith',
@@ -165,7 +186,7 @@ const ENGINE_METHOD_NAMES = new Set<string>([
 
 export function defineEnginePlugin<
   const Added extends Readonly<Record<string, unknown>>,
-  RequiredConstructors extends object = VaneCoreConstructors<VaneLengthUnit>,
+  RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 >(plugin: VaneEnginePlugin<Added, RequiredConstructors>): VaneEnginePlugin<Added, RequiredConstructors> {
   validateIdentity(plugin)
   if (typeof plugin.setup !== 'function')
@@ -173,13 +194,21 @@ export function defineEnginePlugin<
   return Object.freeze({ ...plugin })
 }
 
-export function createEngine(): VaneCoreEngine<'px'>
-export function createEngine<const DefaultLengthUnit extends VaneLengthUnit>(
-  options: VaneEngineOptions<DefaultLengthUnit>,
-): VaneCoreEngine<DefaultLengthUnit>
-export function createEngine<const DefaultLengthUnit extends VaneLengthUnit = 'px'>(
-  options: VaneEngineOptions<DefaultLengthUnit> = {},
-): VaneCoreEngine<DefaultLengthUnit> {
+export function createEngine(): VaneCoreEngine<'px', VaneDefaultTokenPolicy>
+export function createEngine<
+  const DefaultLengthUnit extends VaneLengthUnit,
+  const Reference extends VaneTokenReference = 'var',
+  const Emit extends boolean = true,
+>(
+  options: VaneEngineOptions<DefaultLengthUnit, Reference, Emit>,
+): VaneCoreEngine<DefaultLengthUnit, VaneTokenPolicy<Reference, Emit>>
+export function createEngine<
+  const DefaultLengthUnit extends VaneLengthUnit = 'px',
+  const Reference extends VaneTokenReference = 'var',
+  const Emit extends boolean = true,
+>(
+  options: VaneEngineOptions<DefaultLengthUnit, Reference, Emit> = {},
+): VaneCoreEngine<DefaultLengthUnit, VaneTokenPolicy<Reference, Emit>> {
   const defaultLengthUnit = options.length?.unitless ?? 'px' as DefaultLengthUnit
   const policies = {
     ...(options.policies ?? {}),
@@ -205,22 +234,25 @@ export function createEngine<const DefaultLengthUnit extends VaneLengthUnit = 'p
   return materializeEngine(kernel)
 }
 
-export function enginePrivate<Constructors extends object>(
-  engine: VaneEngine<Constructors>,
+export function enginePrivate<Constructors extends object, TokenPolicy extends VaneTokenPolicy>(
+  engine: VaneEngine<Constructors, TokenPolicy>,
 ): EnginePrivate<Constructors>[typeof VANE_ENGINE] {
-  return (engine as VaneEngine<Constructors> & EnginePrivate<Constructors>)[VANE_ENGINE]
+  return (engine as VaneEngine<Constructors, TokenPolicy> & EnginePrivate<Constructors>)[VANE_ENGINE]
 }
 
-function materializeEngine<Constructors extends object>(
+function materializeEngine<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+>(
   kernel: VaneEngineKernel<Constructors>,
-): VaneEngine<Constructors> {
+): VaneEngine<Constructors, TokenPolicy> {
   const requirement: VaneEngineRequirement = Object.freeze({
     protocol: kernel.protocol,
     signature: kernel.signature,
     compatibleSignatures: kernel.compatibleSignatures,
   })
 
-  let engine: VaneEngine<Constructors>
+  let engine: VaneEngine<Constructors, TokenPolicy>
   const extend = ((...args: unknown[]) => {
     const [identity, factory] = typeof args[0] === 'function'
       ? [undefined, args[0]]
@@ -255,7 +287,19 @@ function materializeEngine<Constructors extends object>(
         )
       : kernel.extend(identity, added)
     return materializeEngine(next)
-  }) as VaneEngineMethods<Constructors>['extend']
+  }) as VaneEngineMethods<Constructors, TokenPolicy>['extend']
+
+  const tokenPolicy = Object.freeze({
+    reference: kernel.policies.tokens && typeof kernel.policies.tokens === 'object'
+      && 'reference' in kernel.policies.tokens
+      ? kernel.policies.tokens.reference as VaneTokenReference
+      : 'var',
+    emit: kernel.policies.tokens && typeof kernel.policies.tokens === 'object'
+      && 'emit' in kernel.policies.tokens
+      ? kernel.policies.tokens.emit as boolean
+      : true,
+  }) as TokenPolicy
+  const token = createTokenFactory()
 
   const common = {
     ...kernel.constructors,
@@ -275,10 +319,11 @@ function materializeEngine<Constructors extends object>(
     data,
     aria,
     schemeIs,
+    token,
     defineTokens: <const T extends VaneGraphInput = Record<never, never>>(
       seed?: T,
       options?: VaneTokenModuleOptions,
-    ) => defineTokenModule(requirement, seed, options),
+    ) => defineTokenModule(requirement, tokenPolicy, seed, options),
     createSystem: <
       const T extends object,
       const C extends Record<string, VaneConditionInput> = Record<never, never>,
@@ -286,10 +331,10 @@ function materializeEngine<Constructors extends object>(
       P extends string = 'vane',
       B extends boolean = true,
     >(options: VaneEngineSystemOptions<T, C, L, P, B>) => createSystemForEngine(
-      { kernel, requirement },
+      { kernel, requirement, tokenPolicy },
       options,
     ),
-    compatibleWith: (other: Pick<VaneEngineMethods<object>, 'signature'>) =>
+    compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy>, 'signature'>) =>
       kernel.signature === other.signature,
     use: <
       const Added extends Readonly<Record<string, unknown>>,
@@ -305,7 +350,7 @@ function materializeEngine<Constructors extends object>(
         )
       }
       return extend(plugin, current => plugin.setup(
-        current as unknown as VaneEngine<RequiredConstructors>,
+        current as unknown as VaneEngine<RequiredConstructors, VaneTokenPolicy>,
       ) as VaneExtensionOutput<Constructors, Added>)
     },
     extend,
@@ -315,7 +360,7 @@ function materializeEngine<Constructors extends object>(
     enumerable: false,
     value: Object.freeze({ kernel, requirement }),
   })
-  engine = Object.freeze(common) as VaneEngine<Constructors>
+  engine = Object.freeze(common) as VaneEngine<Constructors, TokenPolicy>
   return engine
 }
 
