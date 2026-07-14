@@ -28,7 +28,30 @@ space: '1rem'
 factor: 1.25
 ```
 
-The engine infers data type/expression and applies default reference/emission policy.
+The engine infers data type/expression. The zero-config policy normalizes shorthand to:
+
+```ts
+de.token({
+  val: authoredVal,
+  reference: 'var',
+  emit: true,
+})
+```
+
+Therefore a plain token graph emits inspectable custom properties and ordinary handle consumption uses `var()`. Graph edges are CSS-reactive by default: overriding an input custom property updates downstream expressions that have a CSS representation. This preserves vane's public custom-property contract and keeps design tokens open to consumer CSS without per-leaf ceremony.
+
+Projects may deliberately choose another policy once:
+
+```ts
+const de = createEngine({
+  tokens: {
+    reference: 'val',
+    emit: false,
+  },
+})
+```
+
+The engine policy applies both to raw shorthand and omitted fields in `de.token({ val })`. Explicit per-token fields win unless they violate a capability invariant. Choosing `reference: 'val'` is the deliberate build-folded/inline path; it is never inferred merely because today's input happens to be foldable.
 
 ### 1.2 Configured token
 
@@ -83,14 +106,40 @@ Each token independently records:
 
 Inference rules:
 
-- axes imply a var reference;
-- mutability implies a var reference and stable emitted slots;
-- no-default tokens imply a custom-property identity unless explicitly declared as another external contract;
+- axes require a var reference and an emitted public binding;
+- mutability requires a var reference, an emitted public binding, and stable emitted slots;
+- an explicit `reference: 'val'` or `emit: false` conflicting with axes/mutability is diagnosed at that field rather than silently rewritten;
+- no-default tokens imply a custom-property identity with `reference: 'var'` and no ordinary declaration unless axes/mutability require a binding;
 - references to mutable/axed inputs remain runtime-dependent;
 - runtime dependence does not necessarily require JS recomputation; CSS expressions remain preferred;
 - explicit incompatible configuration fails at the config key with a suggested correction.
 
 `reference: 'val'` means use the resolved CSS expression, not “guaranteed primitive folded literal.”
+
+The defaults are intentionally configurable, but never inferred from whether one literal happened to fold in the current compiler. That keeps CSS output stable across optimizer improvements.
+
+### 2.1 Token and branch handles
+
+The resolved token is the public-property handle. Its `$name`, `$var()`, `$val`, and default serialization follow the token contract.
+
+An axis mode or case is a **branch handle** on every plane:
+
+```ts
+const dark = ds.t.color.brand.$axes.scheme.dark
+
+dark.$val
+
+const compactDark = ds.t.shadow.card.$case({
+  scheme: 'dark',
+  density: 'compact',
+})
+
+compactDark.$val
+```
+
+Branch handles expose authored value/condition/provenance metadata. When used directly as a value, a branch handle serializes as its authored `$val`; it never inherits the parent token's default `var` projection. They do not expose `$name`/`$var()` because the branch is not another consumer-facing token property. Internal mutable-slot names remain opaque.
+
+`runtime.t` preserves the same tree and branch-handle shape, adding `$set()`/`$unset()` only for mutable addresses. Generic traversal can therefore move between `ds.t` and `runtime.t` without changing whether `$axes` yields a value or a handle.
 
 ## 3. Modules and graph derivation
 
@@ -121,7 +170,7 @@ Contracts preserved from the current graph:
 
 New requirements:
 
-- module engine identity;
+- module semantic engine requirements/signature;
 - data-type compatibility on graph edges;
 - reference/mutability propagation explanations;
 - portable versus plugin-owned node identity;
@@ -326,18 +375,28 @@ Emits internal inheritable value slots and a public binding:
 
 ```css
 :root {
-  --app-brand--base: oklch(...);
-  --app-brand: var(--app-brand--base);
+  --app-brand--slot-base: oklch(...);
+  --app-brand: var(--app-brand--slot-base);
 }
 ```
 
-Axed/case slots use private stable identifiers carried by runtime metadata. Their exact names are not a public consumer contract.
+The `--slot-*` spelling is illustrative only. Axed/case slots use opaque stable identifiers carried by runtime metadata. Their exact names are not a public consumer contract and are never returned as a branch `$name`.
 
 ### 8.4 Registered token
 
 The public custom property may emit `@property`. Internal slots remain unregistered/inheritable unless a future proven requirement changes that policy.
 
 Registration validates platform requirements, including syntax and initial-value constraints. A no-default token cannot silently synthesize an invalid initial value.
+
+Typed registration also changes computed-value timing. An unregistered custom property retains an unresolved token stream, while a registered property substitutes as its computed value. For `<color>`, that means `light-dark()` selects against the declaring element's color scheme before the result inherits. See [CSS Properties and Values API §2.4](https://www.w3.org/TR/css-properties-values-api-1/#calculation-of-computed-values) and [CSS Color 5 §7](https://drafts.csswg.org/css-color-5/#light-dark).
+
+Consequently:
+
+- the built-in scheme adapter defaults to **element-local** selection, preserving descendant `color-scheme` overrides;
+- element-local native scheme output plus a typed registered public property is an error, because registration would freeze selection at the broader declaration root;
+- an explicit universal (`syntax: '*'`) registration follows unregistered custom-property computation and may preserve element-local token-stream semantics, but it does not promise typed interpolation;
+- an author may explicitly choose **root-bound** scheme semantics, after which typed registration and root computation are compatible;
+- selector emission may replace native output only when it preserves the declared scheme semantics; it is not an excuse for a silent downgrade.
 
 ## 9. Schemes
 
@@ -353,9 +412,12 @@ Mutable scheme values compose with slots:
 
 ```css
 :root {
-  --app-brand--light: oklch(...);
-  --app-brand--dark: oklch(...);
-  --app-brand: light-dark(var(--app-brand--light), var(--app-brand--dark));
+  --app-brand--slot-scheme-light: oklch(...);
+  --app-brand--slot-scheme-dark: oklch(...);
+  --app-brand: light-dark(
+    var(--app-brand--slot-scheme-light),
+    var(--app-brand--slot-scheme-dark)
+  );
 }
 ```
 

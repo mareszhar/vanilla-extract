@@ -66,7 +66,7 @@ Binding validates where possible:
 - system/root compatibility;
 - duplicate runtime identity on the same target if unsafe;
 - mutable axis bindings whose substitution point lies outside the bound subtree;
-- initial snapshot system/version identity.
+- initial snapshot runtime schema/version identity.
 
 It does not observe or query every token trigger continuously.
 
@@ -90,7 +90,9 @@ runtime.t.color.brand.$axes.scheme.dark.$set(val)
 runtime.t.color.brand.$axes.scheme.dark.$unset()
 ```
 
-Case addressing should remain typed and discoverable. Candidate canonical shape:
+`ds.t.color.brand.$axes.scheme.dark` is already a plane-neutral branch handle with `$val` and provenance metadata. Runtime binding preserves that shape and adds side effects; it does not change a raw value into a handle.
+
+Case addressing is typed and discoverable through the same branch-handle model:
 
 ```ts
 runtime.t.shadow.card
@@ -110,15 +112,17 @@ Conceptual output:
 
 ```css
 :root {
-  --app-brand--base: oklch(...);
-  --app-brand--scheme-dark: oklch(...);
-  --app-brand: var(--app-brand--base);
+  --app-brand--slot-base: oklch(...);
+  --app-brand--slot-scheme-dark: oklch(...);
+  --app-brand: var(--app-brand--slot-base);
 }
 
 :root[data-scheme="dark"] {
-  --app-brand: var(--app-brand--scheme-dark);
+  --app-brand: var(--app-brand--slot-scheme-dark);
 }
 ```
+
+The `--slot-*` names in this document are one consistent illustration, not a naming contract. Runtime metadata owns opaque private addresses; public snapshots use semantic token/branch coordinates rather than copying these names.
 
 Runtime writes only slots:
 
@@ -131,7 +135,7 @@ Contracts:
 
 - public and private properties have different names, so selector specificity cannot block slot changes;
 - stylesheet-authored slot values provide reset/fallback;
-- slot names are serialized in runtime metadata and stable for one build/system identity;
+- slot names are serialized in runtime metadata and stable within one finalized system artifact;
 - slot names are not a supported external theming API;
 - public property bindings remain ordinary CSS visible in devtools;
 - no CSSRule index, stylesheet query, or original-value registry is required.
@@ -142,7 +146,7 @@ CSS custom-property `var()` substitution happens at the element on which the bin
 
 ```css
 [data-scheme="dark"] #widget {
-  --app-brand: var(--app-brand--scheme-dark);
+  --app-brand: var(--app-brand--slot-scheme-dark);
 }
 ```
 
@@ -161,16 +165,23 @@ When policy permits, slots compose with `light-dark()`:
 
 ```css
 :root {
-  --app-brand--light: oklch(...);
-  --app-brand--dark: oklch(...);
+  --app-brand--slot-scheme-light: oklch(...);
+  --app-brand--slot-scheme-dark: oklch(...);
   --app-brand: light-dark(
-    var(--app-brand--light),
-    var(--app-brand--dark)
+    var(--app-brand--slot-scheme-light),
+    var(--app-brand--slot-scheme-dark)
   );
 }
 ```
 
-The public binding and substitution occur at the root. Mode-specific setters update the corresponding slot. Toolchain/browser policy determines whether this optimization or selector emission is used.
+Mode-specific setters update the corresponding slot. Toolchain/browser policy determines whether this optimization or selector emission is used.
+
+The scheme adapter declares one of two semantics:
+
+- **element-local** (the built-in default): the unregistered public token stream lets `light-dark()` select using the consuming element's used color scheme, including nested overrides;
+- **root-bound**: scheme selection intentionally computes for the effective token root.
+
+A typed `@property` registration causes the public value to compute at its declaring element. Vane therefore diagnoses typed registration plus element-local native scheme output instead of silently freezing nested scheme selection. Root-bound selection may use registration. Selector fallback is valid only when it implements the declared semantics.
 
 ## 7. Setting and unsetting
 
@@ -202,7 +213,22 @@ runtime.applyTokenOverrides({
 })
 ```
 
-The batch is typed against mutable inputs and may support a structured axis/case section; exact syntax must receive its own API fixture.
+The object form is the ergonomic base-address tree. Axis and case writes use the same method with explicit branch-handle entries:
+
+```ts
+runtime.applyTokenOverrides([
+  [runtime.t.color.brand.$axes.scheme.dark, darkBrand],
+  [
+    runtime.t.shadow.card.$case({
+      scheme: 'dark',
+      density: 'compact',
+    }),
+    darkCompactShadow,
+  ],
+])
+```
+
+Both forms are typed against mutable handles and normalize to the same semantic override records as individual `$set()` calls. The array form is not a second snapshot format; it is the explicit-address batch authoring form.
 
 ## 8. Validation
 
@@ -263,7 +289,35 @@ Mode names autocomplete from the engine/system. Axes without a runtime-selectabl
 
 ## 11. SSR, hydration, and persistence
 
-Runtime override state is serializable:
+Runtime override state is serializable. Version 1 has this semantic shape:
+
+```ts
+interface VaneRuntimeSnapshotV1 {
+  version: 1
+  system: string
+  overrides: readonly {
+    token: readonly string[]
+    address:
+      | { kind: 'base' }
+      | { kind: 'axis', axis: string, mode: string }
+      | { kind: 'case', when: Readonly<Record<string, string>> }
+    val: string
+  }[]
+  modes: Readonly<Record<string, string>>
+}
+```
+
+`system` is the deterministic runtime schema ID, not an engine object ID. Override ordering is canonicalized by token path and semantic address; case `when` keys use engine axis order. `val` is the validated serialized CSS value; its data type comes from the system contract.
+
+The snapshot contains:
+
+- every currently explicit mutable base, axis-mode, and case override;
+- modes selected through this runtime's `setMode()` API;
+- no unmodified graph values, generic `setCustomProperty()` writes, private slot names, DOM references, or persistence transport state.
+
+Base-tree `applyTokenOverrides`, branch-entry `applyTokenOverrides`, and `$set()` all update this same record set. `$unset()` removes exactly one semantic address. This makes batch use, persistence, SSR projection, and later reset behavior round-trip through one model.
+
+The public call remains:
 
 ```ts
 const snapshot = runtime.snapshot()
@@ -273,9 +327,12 @@ The system can validate/project a snapshot without DOM access:
 
 ```ts
 const style = ds.runtimeStyle(snapshot)
+
+const rootProps = ds.runtimeProps(snapshot)
+// { style, attributes }
 ```
 
-Server frameworks place the resulting custom-property map on the effective root. Client binding receives the same snapshot:
+`runtimeStyle()` resolves semantic addresses through current system metadata to private slot names and returns only the custom-property map. `runtimeProps()` returns that map plus attributes for modes selected through the runtime's axis adapters. Server frameworks place both on the effective root so neither value overrides nor mode selection flashes. Client binding receives the same snapshot:
 
 ```ts
 const runtime = ds.runtime(document.documentElement, {
@@ -286,7 +343,7 @@ const runtime = ds.runtime(document.documentElement, {
 Contracts:
 
 - no flash caused by waiting for client setters;
-- snapshot includes system identity/schema version;
+- snapshot includes the runtime schema ID and snapshot version;
 - unknown/removed tokens and modes produce migration diagnostics;
 - only explicit overrides are serialized, never the entire resolved graph;
 - persistence transport/storage is application-owned;
@@ -315,7 +372,7 @@ Such a capability owns its sheet, replacement/deduplication, CSP diagnostics, sh
 
 Runtime metadata includes:
 
-- system identity and effective root;
+- runtime schema ID and effective root;
 - mutable token paths/types;
 - base/mode/case slot addresses;
 - public property binding contexts;
@@ -337,6 +394,6 @@ Completion requires:
 - runtime value serialization and invalid-input policies;
 - ports/mutable-token coexistence;
 - snapshot → SSR style → hydration round trip with no flash;
-- HMR preserving/rebinding runtime overrides or diagnosing incompatible system identity;
+- HMR preserving/rebinding runtime overrides by semantic address or diagnosing an incompatible runtime schema;
 - no CSS rule creation in core runtime;
 - runtime bundle/metadata budgets.

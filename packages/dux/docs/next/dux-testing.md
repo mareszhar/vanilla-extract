@@ -25,6 +25,12 @@ A contract is complete only when every relevant observation plane is green.
 
 Unit coverage cannot substitute for browser cascade behavior. Browser success cannot substitute for editor diagnostics. A green repository build cannot substitute for installing the tarball in a clean app.
 
+### 1.1 Phase-boundary gate
+
+The anti-mincho constraint applies throughout the migration: every accepted phase is an independently verifiable vertical slice. At each phase boundary, the current public suite, typecheck, build, demos, package dry-run, and maintained fresh-app smoke remain green through temporary internal adapters where necessary. A foundational phase may expose no premature target API, but it may not leave mainline intentionally broken while waiting for later phases.
+
+Target evidence added by the phase must also be green. Promotion-only matrices may run less frequently during a phase, but none may be knowingly red at phase acceptance.
+
 ## 2. Fixture families
 
 Maintain one vocabulary across fixtures while varying scale.
@@ -82,12 +88,17 @@ Math coverage includes additive compatibility, multiplication/division, mixed di
 
 Test each data type against:
 
-- raw shorthand token;
+- zero-config raw shorthand (`reference: 'var'`, `emit: true`);
+- an engine-configured shorthand policy;
 - configured `reference: 'val'`;
 - configured/inferred `reference: 'var'`;
+- downstream shorthand derivation remains CSS-reactive, while explicit/engine-default `reference: 'val'` produces the build-folded counterpart;
 - null and typed no-default token;
 - known `emit: false` value;
 - registration;
+- element-local scheme plus typed registration rejection;
+- element-local scheme plus universal-syntax registration preservation;
+- explicitly root-bound scheme plus registration;
 - mutable base slot;
 - one complete axis;
 - base plus partial axis;
@@ -119,6 +130,8 @@ Order matrix:
 - axes follow declared order, not import order;
 - cases after axes;
 - explicit application triggers beat preference triggers;
+- declaration order is the default axis order;
+- exhaustive `.axisOrder()` overrides declaration order and rejects omissions/duplicates;
 - override class/runtime public behavior follows declared policy;
 - consumer unlayered CSS retains expected platform precedence.
 
@@ -135,6 +148,8 @@ For every new public API, lock:
 - unrelated graph/engine isolation;
 - no `undefined` pollution in valid staged callbacks;
 - engine/axis/plugin literal preservation without `as const` ceremony;
+- semantically equivalent engine instances compose across HMR/package duplication while incompatible signatures fail locally;
+- plane-neutral and runtime `$axes`/`$case()` paths both return branch handles, with side effects present only on mutable runtime branches;
 - narrow runtime setters for mutable base/mode/case handles;
 - standards lane availability under aliases-only policy.
 
@@ -180,8 +195,11 @@ Browser tests assert:
 - inner widget runtimes do not leak to siblings;
 - shadow-root behavior matches the documented support policy;
 - `light-dark()` or selector scheme output behaves in supported browsers;
+- unregistered element-local `light-dark()` tokens respond to nested `color-scheme` overrides;
+- typed registered public properties never silently freeze an element-local scheme token at an ancestor;
 - port and mutable token writes coexist;
 - runtime snapshot rendered on the server hydrates without a flash;
+- snapshot round trips preserve base, axis-mode, case, and runtime-managed mode addresses through individual and batch setters;
 - accessibility/motion/focus contracts remain intact.
 
 Selectors are tested against actual DOM placement, not only string snapshots.
@@ -195,6 +213,8 @@ The permanent matrix preserves the lessons of the July 2026 hardening review:
 - dependency CSS HMR replaces in place;
 - export-shape changes cause exactly the documented reload behavior;
 - runtime overrides survive compatible HMR or receive an explicit rebind diagnostic;
+- an equivalent re-evaluated engine/system retains compatibility without object-reference equality;
+- a semantically changed engine or runtime schema receives a precise invalidation/migration diagnostic;
 - server shutdown releases HTTP and HMR listeners;
 - repeated start/stop does not leak watchers or ports;
 - modern CSS emitted by values/axes survives every supported optimizer without invalid rewrites or unexplained warnings;

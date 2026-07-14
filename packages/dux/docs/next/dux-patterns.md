@@ -66,6 +66,8 @@ Build and live forms of the same public operation must have equivalent semantics
 - a runtime-dependent derivation cannot pretend to be a build constant;
 - a compile-only definition used in a media query cannot depend on a runtime custom property.
 
+The zero-config token policy is `reference: 'var'` plus `emit: true`; this is a product default, not an inference from literal shape. Engines may configure another stable default. Optimizer/folding improvements must not silently change whether a shorthand token has a public custom property.
+
 The compiler should explain the propagation path in diagnostics and `explain()` output.
 
 ## 6. Root composition is visible
@@ -78,7 +80,7 @@ The final selector/context appears in the manifest.
 
 ## 7. Axis precedence is policy, not source accident
 
-The engine declares axis order after axes exist. The compiler emits:
+The engine records axis declaration order and may override it explicitly after axes exist. The compiler emits:
 
 ```text
 base
@@ -87,7 +89,7 @@ base
 → token override classes/runtime public bindings
 ```
 
-Cascade layers encode this order before any declaration is emitted. Module import order cannot change it.
+Cascade layers encode this order before any declaration is emitted. Module import order cannot change it. `.axisOrder()` is optional; when present it is an exhaustive typed override, not a requirement imposed on the common one-axis case.
 
 True axis modes are mutually exclusive. When trigger arms can overlap, the axis owns explicit trigger precedence; built-in scheme preference is lower than an explicit application choice.
 
@@ -105,6 +107,8 @@ Rules:
 - `$unset()` removes the inline slot and restores stylesheet fallback;
 - base, mode, and case setters share one serialization/validation path;
 - mutable bindings target the effective token root so slot substitution occurs in the correct subtree.
+
+Slot names are private implementation addresses. Runtime snapshots and batch setters identify a token path plus a semantic base/axis/case address, then resolve the current private name through system metadata.
 
 ## 9. Ports and mutable tokens solve different lifetimes
 
@@ -158,6 +162,8 @@ At minimum, extension authors need:
 - optional manifest and DTCG codecs.
 
 No public recipe should instruct users to subclass private IR classes.
+
+Engine/plugin compatibility is structural and semantic. Stable protocol, policy, and plugin signatures survive HMR and duplicate package instances; JavaScript object equality is never a compatibility contract. Opaque extension semantics require an explicit stable identity, while nodes fully lowered to core IR are portable.
 
 ## 13. Escape hatches degrade gracefully
 

@@ -18,17 +18,33 @@ This is the foundation of the refactor. Tokens, CSS properties, ports, runtime s
 
 ## 1. Core representation
 
-The public conceptual type is:
+The public conceptual type is opaque and records whether final system context is required:
 
 ```ts
+declare const vaneValue: unique symbol
+
 interface VaneValue<
   Type extends VaneCssDataType = VaneCssDataType,
-  Css extends string = string,
+  Resolution extends 'self' | 'system' = 'self' | 'system',
 > {
-  readonly css: Css
   readonly type: Type
+  readonly [vaneValue]: {
+    readonly resolution: Resolution
+  }
 }
 ```
+
+There is deliberately no universal `.css` property or implicit string coercion. A literal length can serialize without a system, but an expression containing an unfinished token reference cannot know its final prefix/name yet. Public serialization is therefore explicit:
+
+```ts
+de.serialize(de.length.em(2))
+// '2em' — accepts only values typed as self-contained
+
+ds.serialize(ds.t.color.brand.$var())
+// 'var(--app-color-brand)' — resolves through this finalized system
+```
+
+`de.serialize()` rejects system-dependent values at the call site. `ds.serialize()` accepts compatible self-contained and system-bound values. Style/token/runtime APIs normally serialize internally, so these functions are escape and integration tools rather than ceremony on ordinary authoring paths.
 
 The internal IR additionally records:
 
@@ -44,7 +60,7 @@ interface VaneExpressionNode {
 }
 ```
 
-The public interface stays small. Internal node kinds are not a user-authored discriminated union and may evolve without making arbitrary private objects valid values.
+The public interface stays small. Internal node kinds are not a user-authored discriminated union and may evolve without making arbitrary private objects valid values. Plugin serializers always receive `VaneSerializeContext`; they never read a context-free string field.
 
 ## 2. CSS data types
 
@@ -261,7 +277,7 @@ const editorialMeasure = defineCssValue({
 
   create(input) {
     return {
-      serialize() {
+      serialize(context) {
         return 'editorial-measure(...)'
       },
     }
@@ -275,12 +291,12 @@ Advanced operations may declare inputs, result type, serialization, dependencies
 const elevate = defineCssOperation({
   inputs: ['color', 'number'],
   output: 'color',
-  serialize(/* ... */) {},
+  serialize(context, /* ... */) {},
   fold(/* ... */) {},
 })
 ```
 
-Extension contracts provide namespace/collision diagnostics and engine identity. Manifest and DTCG codecs are optional capabilities, not requirements.
+Extension contracts provide namespace/collision diagnostics and semantic engine requirements. Opaque semantics require a stable plugin/extension identity and version; values lowered entirely to core IR are portable. Manifest and DTCG codecs are optional capabilities, not requirements.
 
 ## 12. Context compatibility
 

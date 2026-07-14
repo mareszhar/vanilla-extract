@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — documentation preparation in progress; implementation not started
+status: active migration ledger — architecture preparation complete; phase-0 baselines pending; implementation not started
 
 # vane-dux next — implementation plan
 
@@ -28,6 +28,10 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 8. **Evidence moves with code.** A phase includes its type/editor/output/browser/introspection work.
 9. **Do not rebuild the flagship demo early.** Focused fixtures validate architecture; the showcase follows stable capabilities.
 10. **No publication during the transition.** Release gates reopen only after promotion.
+11. **Preserve anti-mincho.** Every phase is an independently verifiable vertical slice; current tests, typecheck, build, demos, packaging, and maintained fresh-app smoke remain green at each phase boundary.
+12. **Foundations use their final home.** Internal phase-1 value work is built on the engine kernel that phase 2 will expose, not on another temporary constructor architecture.
+
+Every phase exit gate implicitly includes the permanent phase-boundary gate in `dux-testing.md`; it is not repeated in every checklist.
 
 ## 3. Phase overview
 
@@ -55,6 +59,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 - [x] Add a short pointer from current `dux-vision.md` to the next hub without making the current document nontruthful.
 - [x] Mark the ideation note as historical and add the final resolution map.
 - [x] Remove dated review/release/DX tracker files after every surviving requirement is represented here or in testing.
+- [x] Resolve shorthand defaults, semantic engine identity, branch-handle parity, context-bound serialization, scheme/registration semantics, daily constructor access, optional axis order, slot naming, and runtime snapshot addressing.
 
 ### Characterization
 
@@ -80,6 +85,8 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 
 ### IR
 
+- [ ] Create the internal engine kernel and its default configured instance before porting constructors.
+- [ ] Route existing package-root value helpers through compatibility adapters to that internal default engine.
 - [ ] Introduce data-type, expression, dependency, serialization, and optional fold traits.
 - [ ] Replace the minimal `VaneCssValue` string wrapper with the typed common interface.
 - [ ] Port the color expression graph into the common IR without behavior loss.
@@ -124,7 +131,9 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 ### Engine
 
 - [ ] Implement `createEngine()` default authoring environment.
-- [ ] Move value/token helpers behind engine identity.
+- [ ] Expose the phase-1 engine kernel as public `createEngine()` rather than rehoming constructors a second time.
+- [ ] Implement deterministic semantic engine signatures from protocol, normalized policy, and stable plugin/extension identities; never use object equality for compatibility.
+- [ ] Define plugin configuration fingerprints and reject anonymous opaque extension semantics.
 - [ ] Implement immutable `.use()` and `.extend()` links.
 - [ ] Make built-ins/preset candidates consume public extension contracts.
 - [ ] Decide the minimal package-root exports: `createEngine`, public types, adapters/standards entrypoints.
@@ -135,6 +144,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 - [ ] Implement `de.createSystem()` as canonical finalization.
 - [ ] Remove double prefix ownership; system finalizes names once.
 - [ ] Preserve bound CSS/recipe/anatomy/port/atoms/global/keyframe/font APIs.
+- [ ] Re-expose configured value constructors/plugins directly on `ds` for one-import daily style authoring, while keeping definition/finalization methods engine-only.
 - [ ] Add `root` and token-layer configuration without generic scope terminology.
 - [ ] Preserve build/app function serialization and framework boundaries.
 - [ ] Decide whether standalone `createSystem(de => ...)` remains deferred; do not ship both dialects by accident.
@@ -151,12 +161,16 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 - External modules have exact engine helper and later axis typing.
 - Current system styling behavior remains regression-green.
 - Prefix/name identity cannot silently diverge.
+- Equivalent HMR/package-duplicate engine instances compose; semantic changes fail locally.
+- Style modules can use `ds.css`, `ds.t`, and configured value constructors from one import.
 
 ## 7. Phase 3 — token traits, configuration, and handles
 
 ### Config
 
 - [ ] Implement raw shorthand plus `de.token({ ... })` branding.
+- [ ] Lock zero-config shorthand to `reference: 'var'`/`emit: true` and add engine-level `tokens` defaults.
+- [ ] Characterize the intentional shift from implicit static graph edges to CSS-reactive shorthand; prove explicit/engine-default `reference: 'val'` retains the folded path.
 - [ ] Implement `val`, `reference: 'val' | 'var'`, `emit`, `mutable`, `register`, `axes`, `cases`, metadata, and runtime validation fields as independent traits.
 - [ ] Add inference/diagnostics for implied/incompatible traits.
 - [ ] Implement bare `null`, typed `token.color()`/other no-default forms, and known `emit: false` values.
@@ -165,6 +179,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 ### Handles
 
 - [ ] Rename public members to `$name`, `$val`, `$var(fallback?)`, `$description`, `$axes`, etc.
+- [ ] Make axis modes and cases branch handles on both plane-neutral and runtime-bound trees; expose `$val`/metadata without public private-slot names.
 - [ ] Keep `$val` a property and `$var()` a fallback-accepting method.
 - [ ] Ensure the handle default serialization follows `reference`.
 - [ ] Preserve plane-neutral serialization across build/app boundaries.
@@ -188,7 +203,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 ### Axes
 
 - [ ] Implement `.axes(context => record)` on the staged engine.
-- [ ] Implement typed `.axisOrder(...)` with completeness/duplicate checks.
+- [ ] Use normalized declaration order by default; implement optional typed `.axisOrder(...)` with completeness/duplicate checks.
 - [ ] Implement axis/mode condition bindings, defaults, descriptions, and optional derivations.
 - [ ] Implement explicit trigger priority for overlapping conditions; built-in scheme preference loses to explicit selection.
 - [ ] Decide exposure/requirement API without unchecked future dot paths.
@@ -215,6 +230,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 - [ ] Guarantee base → ordered axes → cases → overrides.
 - [ ] Add optional native `light-dark()` optimization behind support/toolchain policy.
 - [ ] Implement `@property` registration with inferred syntax and validity checks.
+- [ ] Model element-local versus root-bound scheme selection; reject typed registration that would silently freeze element-local `light-dark()` behavior.
 - [ ] Ensure unlayered consumer CSS and system override layers behave predictably.
 
 ### Exit gate
@@ -238,6 +254,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 - [ ] Emit addressable mode/case slots and public bindings.
 - [ ] Keep slots inheritable/unregistered and public registration separate.
 - [ ] Serialize slot provenance into plane-neutral runtime metadata.
+- [ ] Keep private slot spelling opaque/non-normative and resolve it only from semantic token/branch addresses.
 - [ ] Implement `$set()` and `$unset()` on runtime-bound base/mode/case handles.
 - [ ] Validate substitution-point/root invariants in compiler and runtime.
 
@@ -245,17 +262,19 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 
 - [ ] Implement `ds.runtime(root?)` and runtime-bound token tree.
 - [ ] Keep `ds.t` plane-neutral without misleading no-target setters.
-- [ ] Implement typed grouped runtime token overrides; settle final name via fixtures.
+- [ ] Implement `applyTokenOverrides()` with an ergonomic base-tree form and explicit mutable-handle tuple entries for base/mode/case batches.
 - [ ] Implement `setMode`/clear and built-in scheme convenience.
 - [ ] Add Standard Schema-compatible optional setter validation with sync semantics.
 
 ### SSR/persistence/HMR
 
-- [ ] Define versioned runtime snapshot shape.
+- [ ] Implement snapshot v1 with deterministic system schema ID, semantic `{ token, address, val }` base/axis/case records, and runtime-managed modes.
+- [ ] Normalize `$set()`, both `applyTokenOverrides()` forms, `$unset()`, SSR projection, and hydration through the same record set.
 - [ ] Implement server-side snapshot → inline custom-property projection.
+- [ ] Implement snapshot → root style/attribute projection so runtime-managed modes also paint before hydration.
 - [ ] Implement hydration/rebind without flash or redundant writes.
 - [ ] Integrate Nuxt SSR payload/root style path.
-- [ ] Preserve compatible overrides through HMR or diagnose invalid system identity.
+- [ ] Preserve compatible overrides through HMR by semantic address or diagnose an invalid runtime schema.
 
 ### Exit gate
 
@@ -387,7 +406,7 @@ A phase may begin behind internal seams before its predecessor is fully promoted
 | 4 | Terminology | Token overrides/custom properties; literal/raw; root/condition/context; no primitive theme/CCP/generic scope. |
 | 5 | Data-type brands | Common value IR with ergonomic optional brands. |
 | 6 | Token metadata | `token({ val, reference, emit, mutable, axes, register... })`; `$` only in shared user namespaces. |
-| 7 | Configurable engine | Public staged `.use`/`.extend`; engine identity; built-ins dogfood it. |
+| 7 | Configurable engine | Public staged `.use`/`.extend`; deterministic semantic signature; built-ins dogfood it. |
 | 8 | BEM/elevation/nonstandard color | Optional plugins/preset utilities. |
 | 9 | Full color composition | Shared value IR, full CSS channel grammar, correct interpolation controls. |
 | 10 | Scales/fluid | Callable scales plus token generation; typed general interpolation/fluid helper. |
@@ -433,3 +452,21 @@ The historical review files are removed, but these requirements remain permanent
 - Adding runtime stylesheet mutation as a shortcut around slot/root design.
 - Optimizing emitted CSS before semantic/output baselines exist.
 - Treating future CSS syntax as invalid because the first-party parser lacks a helper.
+
+## 18. Implementation-readiness review resolution map
+
+This table makes the July 14, 2026 plan-polish review auditable rather than relying on conversation history.
+
+| # | Finding | Resolution |
+| --- | --- | --- |
+| 1 | Shorthand `reference`/`emit` default missing | D47; token spec §1; zero-config `var`/emit default plus configurable engine policy and explicit folded path. |
+| 2 | Engine identity unsafe under HMR/duplicate installs | D48; engine spec §3; deterministic semantic signature, stable plugin identities, separate runtime schema ID. |
+| 3 | `$axes` value/handle contradiction | D49; token spec §2.1; branch handles on both planes, runtime adds effects only. |
+| 4 | Context-free `VaneValue.css` impossible | D50; value spec §1; `de.serialize` for self-contained values and `ds.serialize` for finalized context. |
+| 5 | Typed registration can freeze `light-dark()` | D51; token spec §8.4/runtime spec §6; element-local default, root-bound opt-in, incompatible registration diagnostic, browser matrix. |
+| 6 | Daily `de` plus `ds` authoring tax | D52; engine spec §12.1; finalized systems re-expose configured value constructors/plugins. |
+| 7 | Anti-mincho migration law disappeared | D53; migration rule 11 and testing §1.1; every phase boundary stays green and independently verifiable. |
+| 8 | Phase-1 constructors lacked their final home | D54; phase 1 IR tasks; internal engine kernel first, root helpers as temporary adapters. |
+| 9 | `.axisOrder()` imposed common-case ceremony | D22; engine spec §4.2; declaration order default, exhaustive typed override optional. |
+| 10 | Illustrative private slot names conflicted | D55; token/runtime slot sections; one non-normative illustration and opaque metadata-owned addresses. |
+| 11 | Snapshot and batch mode/case addressing could diverge | D56; runtime spec §§7/11; one semantic base/axis/case record model for setters, batches, SSR, hydration, and reset. |

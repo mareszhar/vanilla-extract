@@ -65,6 +65,11 @@ export const de = createEngine({
   length: {
     unitless: 'px',
   },
+
+  tokens: {
+    reference: 'var',
+    emit: true,
+  },
 })
   .use(elevationPlugin())
   .extend(({ defineValue }) => ({
@@ -91,8 +96,9 @@ export const de = createEngine({
       },
     }),
   }))
-  .axisOrder('scheme', 'density')
 ```
+
+Axes use declaration order by default. Add `.axisOrder('density', 'scheme')` only when deliberate precedence differs from that order; the override autocompletes and must list every axis exactly once.
 
 The engine object is kept intact. Destructuring a helper for local convenience is allowed, but examples should not scatter unrelated engine functions into a pseudo-global import surface.
 
@@ -109,6 +115,8 @@ export const colors = de.defineTokens({
   },
 })
 ```
+
+The zero-config shorthand policy is `reference: 'var'` plus `emit: true`: `brand` emits an inspectable custom property and the resolved token handle uses `var()`. A project that deliberately prefers compile constants may configure `createEngine({ tokens: { reference: 'val', emit: false } })`; modules capture the engine policy under which they were defined.
 
 ### 4.2 Advanced configuration
 
@@ -140,7 +148,7 @@ Canonical fields:
 | --- | --- |
 | `val` | Base CSS value/expression. May be absent for a typed no-default token. |
 | `reference` | `'val'` or `'var'`: the token's default representation when consumed. |
-| `emit` | Whether to emit the ordinary value/property projection. Defaults from token kind. |
+| `emit` | Whether to emit the ordinary value/property projection. Defaults from engine token policy; axes/mutability require a binding. |
 | `mutable` | Whether stable runtime slots and setters are generated. Implies a var reference. |
 | `axes` | Per-axis mode values. Axes/modes autocomplete from the engine. |
 | `cases` | Explicit multi-axis intersection values. |
@@ -182,7 +190,7 @@ export const tokens = de
   }))
 ```
 
-Modules from incompatible engines fail with an engine-identity diagnostic unless the plugin/value IR explicitly declares itself portable.
+Modules with incompatible semantic engine requirements fail with a signature diagnostic unless the plugin/value IR explicitly declares itself portable. Equivalent engines do not need to be the same object.
 
 ## 5. Resolved token handles
 
@@ -194,7 +202,7 @@ t.color.brand.$val
 t.color.brand.$var()
 t.color.brand.$var(de.oklch(0.5, 0.1, 285))
 t.color.brand.$description
-t.color.brand.$axes.scheme.dark
+t.color.brand.$axes.scheme.dark.$val
 ```
 
 The token handle itself serializes according to `reference`:
@@ -211,6 +219,17 @@ css({ color: t.color.brand.$var('currentColor') })
 ```
 
 `$val` is a property. `$var()` is a method because it accepts an optional fallback.
+
+Axis modes and cases are branch handles, not raw values and not separate public custom properties:
+
+```ts
+const dark = t.color.brand.$axes.scheme.dark
+
+dark.$val
+// no dark.$name or dark.$var(): the selected public property is brand.$name
+```
+
+Using `dark` directly in a value position serializes its authored `$val`, not the parent token's default `var()` projection. The corresponding `runtime.t` branch has the same shape and adds `$set()`/`$unset()` when the token is mutable. This keeps generic traversal plane-neutral while private runtime slot names stay private.
 
 ## 6. System creation and projections
 
@@ -241,7 +260,14 @@ ds.recipe
 ds.anatomy
 ds.port
 ds.defineAtoms
+ds.length
+ds.oklch
+ds.customProperty
+ds.rawValue
+ds.serialize
 ```
+
+The system re-exposes its engine's configured value constructors and value plugins directly. Style modules therefore need only the system import; graph-definition operations remain on `de`.
 
 Module/tree projections are system-bound so names reflect the final prefix and naming policy:
 
@@ -274,22 +300,22 @@ Brands add type and composition when wanted:
 
 ```ts
 ds.css({
-  padding: de.length.em(2),
-  rotate: de.angle.deg(45),
+  padding: ds.length.em(2),
+  rotate: ds.angle.deg(45),
 })
 ```
 
 Constructors accept ergonomic primitives and typed expressions:
 
 ```ts
-de.oklch(0.5, 0.2, 285)
-de.oklch(de.percent(50), de.calc(/* ... */), de.angle.deg(285), 0.5)
+ds.oklch(0.5, 0.2, 285)
+ds.oklch(ds.percent(50), ds.calc(/* ... */), ds.angle.deg(285), 0.5)
 ```
 
 Typed future syntax is explicit:
 
 ```ts
-de.rawValue.length('anchor-size(width)')
+ds.rawValue.length('anchor-size(width)')
 ```
 
 The raw escape validates broad CSS structure and carries the asserted data type; it does not pretend vane understands the future function's semantics.
@@ -312,7 +338,7 @@ One-off use remains possible:
 
 ```ts
 ds.css({
-  padding: de.customProperty('--mystery').$var('4rem'),
+  padding: ds.customProperty('--mystery').$var('4rem'),
 })
 ```
 
@@ -412,6 +438,7 @@ runtime.t.color.brand.$unset()
 
 const darkBrand = runtime.t.color.brand.$axes.scheme.dark
 
+darkBrand.$val
 darkBrand.$set(newDarkBrand)
 ```
 
@@ -441,7 +468,7 @@ runtime.applyTokenOverrides({
 })
 ```
 
-The exact final names of the two grouped functions remain an implementation-phase API fixture, but `theme` is not their primitive name.
+`ds.tokenOverride()` is the canonical build-time class primitive. `runtime.applyTokenOverrides()` is the canonical runtime batch primitive. Its object form addresses base leaves; its tuple-entry form accepts mutable base/mode/case handles explicitly. Both runtime forms feed the same snapshot address model as `$set()`.
 
 ## 12. Property aliases
 

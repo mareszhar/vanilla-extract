@@ -79,5 +79,6 @@ Promotion is documentation cleanup, not the moment at which architectural decisi
 - No implementation phase may silently change a settled API shape. Update [decisions](./dux-decisions.md) first and record the evidence that forced the change.
 - A feature is not complete because its runtime works. Its types, diagnostics, emitted CSS, provenance, and supported integrations are the same product.
 - Internal transitional adapters are allowed; public transitional ambiguity is not.
+- Every phase boundary keeps the current suite, demos, build, packaging, and maintained fresh-app smoke green; foundational work is not permission for a broken mainline.
 - Compatibility with the unpublished current API is not a goal. Preserving its proven behaviors and evidence is.
 - CSS capability is never removed to enforce an opinion. Policies may narrow the primary lane only when a standards/raw lane remains available.

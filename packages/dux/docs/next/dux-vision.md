@@ -74,6 +74,7 @@ The engine is reusable and immutable through staged extension. An extension sees
 `engine.createSystem()` finalizes one composed token graph and returns:
 
 - resolved token handles;
+- the engine's configured value constructors and value plugins for one-import style authoring;
 - `css`, global CSS, keyframes, and font faces;
 - recipes, anatomy, ports, atoms, and patterns;
 - conditions and layers bound to this system;
@@ -85,6 +86,8 @@ The sentence to remember is:
 > **An engine defines your system; a system styles your things.**
 
 There is no mandatory intermediate public stage and no need to destructure the same engine utilities into sibling callbacks.
+
+Engine compatibility is semantic rather than object-referential: equivalent HMR evaluations and duplicate package instances remain compatible when their normalized policies and stable plugin signatures match.
 
 ## 4. The three execution planes
 

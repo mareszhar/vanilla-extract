@@ -121,6 +121,7 @@ The implementation phase should extend these suites rather than create a paralle
 - root free-function authoring surface;
 - standalone canonical `createSystem` setup;
 - `.live()` and `static | scheme | live | derived` as conflated semantic modes;
+- implicit static/folded graph-edge classification for ordinary shorthand; the target default is an emitted var reference, while explicit `reference: 'val'` preserves the build-folded path;
 - color-only scheme handling;
 - unlayered hardcoded `:root` token emission;
 - double prefix ownership;

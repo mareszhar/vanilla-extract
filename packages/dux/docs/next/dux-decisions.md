@@ -40,7 +40,7 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D19 | Axes are configured on the engine. | Engine-bound `defineTokens()` has exact axis/mode IntelliSense in external modules. |
 | D20 | An axis is an environmental dimension; a mode is one value of that axis. | Arbitrary conditions are not axes unless mutual-exclusivity/default semantics are declared. |
 | D21 | Per-axis maps remain valid; sparse `cases` model explicit multi-axis intersections. | Authors do not maintain Cartesian matrices, but can define a special value for a particular combination. |
-| D22 | Axis precedence is explicit and typed after axis declaration. | A staged `.axisOrder(...)` autocompletes axis names and can require each exactly once. |
+| D22 | Axis precedence defaults to axis declaration order; `.axisOrder(...)` is an optional typed override. | The common one-axis case has no ordering ceremony. When supplied, the override autocompletes axis names and requires every declared axis exactly once. |
 | D23 | Mode maps remain objects; overlapping trigger precedence is explicit. | Object insertion order is not the only semantic control; built-in axes encapsulate preference-versus-explicit override order. |
 | D24 | The system owns the effective root and token layer; modules/groups may refine the root. | The nearest group/module root overrides the system root. Prefix has one owner: the final system. |
 | D25 | Conditions use explicit root anchoring. | `&[data-x]`, `[data-x] &`, and `& [data-x]` express self, ancestor, and descendant relationships; absolute conditions are explicit. |
@@ -60,7 +60,7 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D34 | Mutable bindings should assign the public property on the effective token root. | Slot substitution occurs where the slots exist; conditions that move the binding outside the runtime root are diagnosed. |
 | D35 | `$unset()` removes the inline slot assignment. | The authored stylesheet value becomes effective again without remembering it in JavaScript. |
 | D36 | Runtime setters accept the same value language and optional validation as their build-time types. | Branded values and valid raw CSS serialize consistently; Standard Schema remains optional. |
-| D37 | Runtime state can be snapshotted and projected to SSR inline styles. | Persistence storage is app-owned; vane owns validation, serialization, hydration, and system identity. |
+| D37 | Runtime state can be snapshotted and projected to SSR root properties. | Persistence storage is app-owned; vane owns validation, custom-property styles, runtime-managed mode attributes, hydration, and deterministic runtime schema identity. |
 
 ## Ergonomics and integrations
 
@@ -76,6 +76,21 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D45 | Plugin DTCG codecs are optional. | Strict lossless export fails on nonportable nodes; resolved export may flatten them with an explicit warning. |
 | D46 | Pug is a demo workspace preference, not product architecture. | Demo template syntax does not appear in the public vision/specs. |
 
+## Implementation-readiness resolutions
+
+| ID | Decision | Consequence |
+| --- | --- | --- |
+| D47 | Zero-config token shorthand defaults to `reference: 'var'` and `emit: true`. | A plain graph produces inspectable, consumer-overridable custom properties and CSS-reactive graph edges. This preserves the current public custom-property contract while making dependency behavior explicit. `createEngine({ tokens: { reference, emit } })` may choose a different project-wide default; explicit token traits and capability invariants win. |
+| D48 | Engine compatibility uses a deterministic semantic signature, never object-reference identity. | Equivalent engines survive HMR re-evaluation and duplicate package instances. The signature covers the IR protocol, normalized policies, and stable plugin/extension identities; object identity is cache-local only. |
+| D49 | Axis modes and cases are branch handles on both `ds.t` and `runtime.t`. | Plane-neutral branch handles expose their authored `$val` and metadata; runtime-bound versions add `$set`/`$unset`. Private slot names are never presented as token `$name`s. |
+| D50 | Authoring values do not promise a context-free `.css` property. | Serialization is context-bound: `de.serialize()` accepts only self-contained values, while `ds.serialize()` may resolve finalized token names. Plugin serializers always receive an explicit context. |
+| D51 | Native scheme selection declares whether it is element-local or root-bound. | The built-in default preserves element-local `color-scheme` semantics. A typed registered public property that would compute `light-dark()` at a broader root is diagnosed unless the author explicitly selects root-bound semantics; vane never silently freezes subtree scheme behavior. |
+| D52 | A finalized system directly re-exposes its engine's read-only value constructors and value plugins. | Daily style modules can import only `ds`: `ds.css({ padding: ds.length.em(2) })`. Definition/finalization methods remain engine-only, and constructor/system-name collisions are rejected locally. |
+| D53 | The anti-mincho constraint remains a migration law. | Every phase is an independently verifiable vertical slice, and the existing suite, demos, build, and packaging gates remain green at each phase boundary. Foundational phases need not invent premature user-facing surface. |
+| D54 | Phase 1 builds the value IR on the internal engine kernel that will power public `createEngine()`. | Existing root helpers temporarily delegate to the internal default engine; phase 2 exposes and configures that kernel rather than migrating every constructor twice. |
+| D55 | Internal mutable-slot names are opaque implementation addresses. | Examples use one illustrative scheme but are non-normative; snapshots store semantic token/branch addresses and resolve current private names through system metadata. |
+| D56 | Runtime snapshots and batch overrides share one semantic address model. | Snapshot v1 records `{ token, address, val }` entries for base/axis/case overrides plus runtime-managed modes. `$set()` and both base-tree and handle-entry `applyTokenOverrides()` forms normalize to those records. |
+
 ## Deliberately open implementation details
 
 These questions do not block the architecture, but must be settled in their owning phase before public implementation is considered complete:
@@ -83,10 +98,8 @@ These questions do not block the architecture, but must be settled in their owni
 - Whether the advanced token wrapper is `de.token()` only or also available unqualified inside engine callbacks.
 - The exact shape of condition helpers for self/ancestor/descendant root placement.
 - Whether group-level `$root` ships in the first refactor or follows module-level roots.
-- The final public spelling of token-override class creation and batch runtime application.
 - Whether a one-shot `varRef()` convenience earns its surface beside `customProperty().$var()`.
 - Whether runtime selector strings are supported as a query-once convenience; they must never silently mean stylesheet injection.
-- The exact serialized snapshot format and versioning policy for SSR/runtime persistence.
 - The supported subset and maturity tier of `light-dark()` optimization versus selector-based scheme emission.
 - The minimum initial CSS data-type set beyond color, number, percentage, length, angle, time, resolution, custom-ident, and unknown.
 - How plugins namespace manifest/DTCG data and report nonportable IR nodes.

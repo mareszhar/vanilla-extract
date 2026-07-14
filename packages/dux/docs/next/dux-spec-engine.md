@@ -36,6 +36,7 @@ de.length
 de.calc
 de.customProperty
 de.rawValue
+de.serialize
 de.token
 de.defineTokens
 de.createSystem
@@ -54,18 +55,51 @@ const de = createEngine()
   }))
 ```
 
-Each link receives the accumulated engine before it. Links are immutable: extending an engine creates a new engine identity and does not mutate modules already created from the previous engine.
+Each link receives the accumulated engine before it. Links are immutable: extending an engine creates a new engine revision and does not mutate modules already created from the previous engine.
 
 Use `.use()` for reusable plugins with identity/configuration. Use `.extend()` for project-local capabilities. Do not proliferate separate `.utils()`, `.channels()`, `.units()`, and similar extension mechanisms unless a distinct lifecycle is proven.
 
+An anonymous `.extend(context => ...)` may return helpers/nodes lowered entirely to core IR. A project-local extension that introduces opaque serialization semantics supplies identity explicitly:
+
+```ts
+de.extend({
+  id: 'com.example.editorial-values',
+  version: 1,
+}, context => ({
+  values: {/* extension-owned values */},
+}))
+```
+
+Reusable plugins carry equivalent `id`/semantic-version/config-fingerprint metadata in their plugin definition, so consumers do not repeat it.
+
 ## 3. Engine identity and portability
 
-Every value node, token module, axis, and plugin capability records its originating engine identity.
+Every value node, token module, axis, and plugin capability records semantic requirements, not a JavaScript object pointer.
 
-- Values/modules from the same engine compose.
-- Values created by a parent engine may compose into a derived engine when their semantics remain compatible.
-- Incompatible policy/plugin identities produce a local diagnostic naming both engines/plugins.
-- A plugin may mark a node/module as portable by resolving all required semantics into the public IR.
+### 3.1 Semantic signature
+
+An engine carries a deterministic semantic signature derived from:
+
+- the vane IR/protocol version;
+- normalized engine policies that affect meaning or serialization;
+- ordered plugin identities, semantic versions, and plugin-provided configuration fingerprints;
+- stable identities for extension-owned IR/serializers;
+- its compatible parent-signature chain.
+
+The signature never hashes function source, module URLs, object addresses, or package-install paths. A plugin with non-JSON configuration must return its own deterministic semantic fingerprint. Two copies of vane and two HMR evaluations with the same protocol/policies/plugin signatures are compatible.
+
+Object reference identity may be used for process-local caches only. It is never a user-facing compatibility rule.
+
+### 3.2 Composition rules
+
+- Values/modules with compatible semantic requirements compose even when their engine objects are different.
+- Values created by a parent engine compose into a derived engine when the derived signature retains those capabilities unchanged.
+- Core-IR-only output from an anonymous local `.extend()` is portable because all semantics are already represented in the node.
+- An extension-owned opaque node requires an explicit stable extension/plugin identity and semantic version. Anonymous opaque semantics are rejected rather than made HMR-fragile.
+- The same stable plugin ID with a different incompatible version/fingerprint produces a local diagnostic naming both signatures.
+- A plugin may mark a node/module as portable by resolving every required semantic into the public IR.
+
+Runtime snapshots use a separate deterministic **system schema ID**, derived only from the finalized runtime-addressable contract (token paths/types/branches, prefix/naming policy, and snapshot protocol). Changing an unrelated authoring helper does not invalidate persisted runtime state; changing a mutable address does.
 
 No failure may appear later as an undefined helper, missing serializer, or silently different unit/color policy.
 
@@ -94,31 +128,37 @@ const de = createEngine()
       },
     }),
   }))
-  .axisOrder('scheme', 'density')
 ```
+
+The example uses declaration order (`scheme` then `density`). An uncommon system that wants the inverse precedence adds `.axisOrder('density', 'scheme')` after `.axes()`.
 
 ### 4.1 Axis contract
 
 An axis defines:
 
-- a unique name in the engine;
+- a unique non-integer string name in the engine;
 - literal mode names;
 - a default/base relationship;
 - one or more ordered condition bindings per mode;
 - optional exposure/requirement policy for token groups;
 - optional per-mode derivations;
 - optional native emission optimization;
+- native selection locality (`element` or effective `root`) when an optimization can compute at different elements;
 - manifest description.
 
 An axis is not merely a record of selectors. It promises coherent mode semantics.
 
 ### 4.2 Order
 
-`.axisOrder()` comes after `.axes()` so its arguments autocomplete. The type should require every declared axis exactly once unless the engine accepts declaration order explicitly.
+Axis precedence defaults to ECMAScript own-property order in the record returned from `.axes()`. This order is normalized when the axis stage is created and cannot depend on module import order. Integer-index-like axis names are rejected so source declaration order and semantic order cannot diverge unexpectedly.
+
+`.axisOrder()` is an optional override after `.axes()` so its arguments autocomplete. When present, its type requires every declared axis exactly once and rejects duplicates. A one-axis engine never needs it.
 
 Mode definitions stay object-shaped for mapped typing. If overlapping mode triggers need precedence, the axis uses an explicit typed order/binding-priority API. JavaScript insertion order is not the sole semantic contract.
 
 Built-in scheme behavior orders user/OS preference below explicit application selection.
+
+The built-in scheme adapter defaults to element-local native selection so descendant `color-scheme` overrides retain platform behavior. Root-bound selection is an explicit policy for systems that intentionally want one resolved scheme per effective token root; registration/output diagnostics enforce that distinction.
 
 ### 4.3 Exposure and derivation
 
@@ -297,9 +337,25 @@ The refactor preserves the proven bound APIs unless a target spec explicitly cha
 - `recipe` and `anatomy`;
 - `port`;
 - `defineAtoms`;
+- `serialize`;
 - layers, conditions, audits, provenance, and framework serialization.
 
 New additions include projections, token overrides, runtime binding, and engine/plugin context where appropriate.
+
+### 12.1 One-import daily authoring
+
+The finalized system directly re-exposes the configured engine's read-only value constructors and value plugins:
+
+```ts
+import { ds } from './design-system'
+
+ds.css({
+  padding: ds.length.em(2),
+  color: ds.oklch(0.58, 0.2, 285),
+})
+```
+
+This is the same constructor identity and policy, not a copied utility set. Definition/finalization methods such as `defineTokens`, `axes`, `use`, `extend`, and `createSystem` remain engine-only. An engine extension that would collide with `t`, `css`, `recipe`, another system method, or another constructor fails at extension time.
 
 ## 13. Evidence
 
