@@ -66,7 +66,7 @@ Binding validates where possible:
 - system/root compatibility;
 - duplicate runtime identity on the same target if unsafe;
 - mutable axis bindings whose substitution point lies outside the bound subtree;
-- initial snapshot runtime schema/version identity.
+- initial snapshot protocol readability and runtime schema identity; a schema mismatch enters reconciliation rather than rejecting the snapshot.
 
 It does not observe or query every token trigger continuously.
 
@@ -91,6 +91,8 @@ runtime.t.color.brand.$axes.scheme.dark.$unset()
 ```
 
 `ds.t.color.brand.$axes.scheme.dark` is already a plane-neutral branch handle with `$val` and provenance metadata. Runtime binding preserves that shape and adds side effects; it does not change a raw value into a handle.
+
+Only authored branch addresses exist. `$axes` enumerates modes present in the normalized token definition, and `$case(when)` accepts authored case intersections. An explicit mutable `null` mode/case is authored as a no-default reservation and therefore has a handle/slot; an omitted partial mode or unauthored case is absent at the type level and runtime metadata level.
 
 Case addressing is typed and discoverable through the same branch-handle model:
 
@@ -123,6 +125,19 @@ Conceptual output:
 ```
 
 The `--slot-*` names in this document are one consistent illustration, not a naming contract. Runtime metadata owns opaque private addresses; public snapshots use semantic token/branch coordinates rather than copying these names.
+
+A no-default reserved branch emits the binding but not an authored slot value:
+
+```css
+:root[data-scheme="dark"] {
+  --app-brand: var(
+    --app-brand--slot-scheme-dark,
+    var(--app-brand--slot-base)
+  );
+}
+```
+
+The fallback is the expression that would have won before the reserved branch. If no prior expression exists, the binding remains unresolved until a runtime write. Removing the inline slot with `$unset()` restores this authored fallback path.
 
 Runtime writes only slots:
 
@@ -217,9 +232,9 @@ The object form is the ergonomic base-address tree. Axis and case writes use the
 
 ```ts
 runtime.applyTokenOverrides([
-  [runtime.t.color.brand.$axes.scheme.dark, darkBrand],
+  [ds.t.color.brand.$axes.scheme.dark, darkBrand],
   [
-    runtime.t.shadow.card.$case({
+    ds.t.shadow.card.$case({
       scheme: 'dark',
       density: 'compact',
     }),
@@ -228,7 +243,7 @@ runtime.applyTokenOverrides([
 ])
 ```
 
-Both forms are typed against mutable handles and normalize to the same semantic override records as individual `$set()` calls. The array form is not a second snapshot format; it is the explicit-address batch authoring form.
+Both forms are typed against mutable handles and normalize to the same semantic override records as individual `$set()` calls. Tuple entries canonically accept plane-neutral `ds.t` handles from the runtime's system because the method already supplies the concrete runtime root. Same-runtime bound handles may also be accepted for local composition; handles from another system/runtime fail with a schema diagnostic. The array form is not a second snapshot format; it is the explicit-address batch authoring form.
 
 ## 8. Validation
 
@@ -309,6 +324,8 @@ interface VaneRuntimeSnapshotV1 {
 
 `system` is the deterministic runtime schema ID, not an engine object ID. Override ordering is canonicalized by token path and semantic address; case `when` keys use engine axis order. `val` is the validated serialized CSS value; its data type comes from the system contract.
 
+The schema ID is a fast compatibility signal, not an all-or-nothing acceptance gate. Adding/removing a mutable token, mode, or case may change it without making every previous address unusable.
+
 The snapshot contains:
 
 - every currently explicit mutable base, axis-mode, and case override;
@@ -316,6 +333,28 @@ The snapshot contains:
 - no unmodified graph values, generic `setCustomProperty()` writes, private slot names, DOM references, or persistence transport state.
 
 Base-tree `applyTokenOverrides`, branch-entry `applyTokenOverrides`, and `$set()` all update this same record set. `$unset()` removes exactly one semantic address. This makes batch use, persistence, SSR projection, and later reset behavior round-trip through one model.
+
+### 11.1 Snapshot reconciliation
+
+Schema mismatch reconciles entry by entry:
+
+1. Resolve each token path and base/axis/case address against the current system.
+2. Revalidate/serialize its `val` against the current token data type and runtime schema.
+3. Keep valid entries and runtime-managed modes.
+4. Skip removed, unauthored, type-incompatible, or invalid entries with stable migration diagnostics naming the exact address and reason.
+
+Valid user choices therefore survive additive system releases. Wholesale rejection is reserved for an unreadable or unsupported snapshot **protocol version**, where the document shape itself cannot be interpreted safely. A schema-ID mismatch alone never wipes the snapshot.
+
+The DOM-free API is:
+
+```ts
+const result = ds.reconcileRuntimeSnapshot(snapshot)
+
+result.snapshot
+result.diagnostics
+```
+
+`ds.runtime(root, { initial })`, `runtimeStyle()`, and `runtimeProps()` perform the same reconciliation internally. The explicit API lets an application report migrations and persist the cleaned snapshot. Matching schema IDs may take a validated fast path but do not make untrusted persisted input exempt from structural/value checks.
 
 The public call remains:
 
@@ -344,7 +383,7 @@ Contracts:
 
 - no flash caused by waiting for client setters;
 - snapshot includes the runtime schema ID and snapshot version;
-- unknown/removed tokens and modes produce migration diagnostics;
+- unknown/removed tokens and modes are skipped with migration diagnostics while compatible entries continue;
 - only explicit overrides are serialized, never the entire resolved graph;
 - persistence transport/storage is application-owned;
 - hydration does not redundantly rewrite matching inline values;
@@ -388,12 +427,15 @@ Completion requires:
 
 - generic custom-property set/unset on HTML and SVG targets;
 - base/mode/case mutable slot writes and reset;
+- exact authored/reserved branch handle availability and no-default fallback/reset;
 - substitution-point browser fixtures for self/ancestor/descendant conditions;
 - nested widget and shadow-root coverage;
 - `light-dark()` slot behavior under the supported target policy;
 - runtime value serialization and invalid-input policies;
 - ports/mutable-token coexistence;
 - snapshot → SSR style → hydration round trip with no flash;
+- additive schema reconciliation preserving valid entries plus exact skipped-entry diagnostics;
+- unsupported snapshot protocol rejection without confusing it with a schema mismatch;
 - HMR preserving/rebinding runtime overrides by semantic address or diagnosing an incompatible runtime schema;
 - no CSS rule creation in core runtime;
 - runtime bundle/metadata budgets.

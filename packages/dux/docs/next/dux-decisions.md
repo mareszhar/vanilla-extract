@@ -80,7 +80,7 @@ This is the compact decision record for the refactor. The specs own full behavio
 
 | ID | Decision | Consequence |
 | --- | --- | --- |
-| D47 | Zero-config token shorthand defaults to `reference: 'var'` and `emit: true`. | A plain graph produces inspectable, consumer-overridable custom properties and CSS-reactive graph edges. This preserves the current public custom-property contract while making dependency behavior explicit. `createEngine({ tokens: { reference, emit } })` may choose a different project-wide default; explicit token traits and capability invariants win. |
+| D47 | Zero-config token shorthand defaults to `reference: 'var'` and `emit: true`. | A plain graph produces inspectable, consumer-overridable custom properties and CSS-reactive platform expressions instead of folded descendants. This raises the default expression capability floor but, per D60, never silently exceeds the configured browser-support target. `createEngine({ tokens: { reference, emit } })` may choose a different project-wide default; explicit traits/invariants win. |
 | D48 | Engine compatibility uses a deterministic semantic signature, never object-reference identity. | Equivalent engines survive HMR re-evaluation and duplicate package instances. The signature covers the IR protocol, normalized policies, and stable plugin/extension identities; object identity is cache-local only. |
 | D49 | Axis modes and cases are branch handles on both `ds.t` and `runtime.t`. | Plane-neutral branch handles expose their authored `$val` and metadata; runtime-bound versions add `$set`/`$unset`. Private slot names are never presented as token `$name`s. |
 | D50 | Authoring values do not promise a context-free `.css` property. | Serialization is context-bound: `de.serialize()` accepts only self-contained values, while `ds.serialize()` may resolve finalized token names. Plugin serializers always receive an explicit context. |
@@ -89,7 +89,13 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D53 | The anti-mincho constraint remains a migration law. | Every phase is an independently verifiable vertical slice, and the existing suite, demos, build, and packaging gates remain green at each phase boundary. Foundational phases need not invent premature user-facing surface. |
 | D54 | Phase 1 builds the value IR on the internal engine kernel that will power public `createEngine()`. | Existing root helpers temporarily delegate to the internal default engine; phase 2 exposes and configures that kernel rather than migrating every constructor twice. |
 | D55 | Internal mutable-slot names are opaque implementation addresses. | Examples use one illustrative scheme but are non-normative; snapshots store semantic token/branch addresses and resolve current private names through system metadata. |
-| D56 | Runtime snapshots and batch overrides share one semantic address model. | Snapshot v1 records `{ token, address, val }` entries for base/axis/case overrides plus runtime-managed modes. `$set()` and both base-tree and handle-entry `applyTokenOverrides()` forms normalize to those records. |
+| D56 | Runtime snapshots and batch overrides share one semantic address model. | Snapshot v1 records `{ token, address, val }` entries for base/axis/case overrides plus runtime-managed modes. `$set()` and both base-tree and handle-entry `applyTokenOverrides()` forms normalize to those records; tuple entries accept same-system plane-neutral handles. |
+| D57 | A runtime schema-ID mismatch triggers per-entry reconciliation, not wholesale snapshot rejection. | Valid addresses and modes hydrate after current validation; removed/incompatible entries are skipped with migration diagnostics. Only an unreadable/unsupported snapshot protocol version rejects the whole document. |
+| D58 | Runtime branch handles enumerate authored addresses plus explicit no-default reservations only. | Missing partial modes/cases have no handle or slot. `null` on a mutable mode/case reserves an address without a default; its binding falls through to the previously effective expression until set. |
+| D59 | The top-level system member namespace is a closed, versioned contract. | Core publishes/reserves its member set; adding another core top-level name outside that set is a breaking change. Extensions should claim one unique namespace such as `ds.editorial.*`; collisions fail when the engine is built. |
+| D60 | Var-default derivations may raise the CSS feature floor, never silently the supported-browser floor. | Engine target policy gates expression emission. Vane emits a proven fallback/enhancement pair or diagnoses the unsupported dependency and suggests `reference: 'val'`; manifests/explanations include a resolved preview or an explicit preview-unavailable reason. |
+| D61 | Scheme selection locality is declared per trigger arm. | Native used-color-scheme arms may be element-local; root-anchored attribute/class arms may be subtree-local; preference media-query fallbacks are document-global and cannot silently claim element-local equivalence. |
+| D62 | Resolution context is a semantic trait; the public generic encoding is performance-contingent. | Phase 1 benchmarks self-only and mixed-resolution graphs. The implementation may use a cheaper branded/erased representation if it preserves compile-time rejection and context-bound serialization. |
 
 ## Deliberately open implementation details
 
@@ -101,6 +107,8 @@ These questions do not block the architecture, but must be settled in their owni
 - Whether a one-shot `varRef()` convenience earns its surface beside `customProperty().$var()`.
 - Whether runtime selector strings are supported as a query-once convenience; they must never silently mean stylesheet injection.
 - The supported subset and maturity tier of `light-dark()` optimization versus selector-based scheme emission.
+- The exact engine/integration input format for the settled CSS support-target policy.
+- The exact public spelling for per-arm scheme locality and acknowledged degraded fallback; D61's semantics are fixed.
 - The minimum initial CSS data-type set beyond color, number, percentage, length, angle, time, resolution, custom-ident, and unknown.
 - How plugins namespace manifest/DTCG data and report nonportable IR nodes.
 

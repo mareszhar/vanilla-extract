@@ -72,9 +72,12 @@ export const de = createEngine({
   },
 })
   .use(elevationPlugin())
-  .extend(({ defineValue }) => ({
-    values: {
-      editorialMeasure: defineValue(/* ... */),
+  .extend({
+    id: 'com.example.editorial-values',
+    version: 1,
+  }, ({ defineValue }) => ({
+    editorial: {
+      measure: defineValue(/* extension-owned serializer */),
     },
   }))
   .axes(({ axis, data, schemeIs, darken }) => ({
@@ -265,9 +268,15 @@ ds.oklch
 ds.customProperty
 ds.rawValue
 ds.serialize
+ds.runtime
+ds.runtimeStyle
+ds.runtimeProps
+ds.reconcileRuntimeSnapshot
 ```
 
 The system re-exposes its engine's configured value constructors and value plugins directly. Style modules therefore need only the system import; graph-definition operations remain on `de`.
+
+The core system-member set is closed and versioned. Extensions should expose one distinctive namespace—such as the example's `ds.editorial.measure`—so future core capabilities and unrelated plugins cannot appropriate a generic top-level name unnoticed.
 
 Module/tree projections are system-bound so names reflect the final prefix and naming policy:
 
@@ -376,6 +385,8 @@ shadow: de.token({
 
 An omitted mode falls back to `val` when a base exists. A complete single-axis map may omit `val`. Multiple matching axes resolve in engine axis order; a matching case resolves after every single-axis declaration.
 
+Resolved branch handles enumerate authored addresses only. A mutable `dark: null` mode or `{ when, val: null }` case explicitly reserves a typed runtime address without a build-time default; before it is set, its binding falls through to the value that otherwise would have won. Omitted modes/cases have neither a handle nor a slot.
+
 ## 10. Roots and conditions
 
 The system root defaults to `:root`:
@@ -466,9 +477,15 @@ runtime.applyTokenOverrides({
     control: '32px',
   },
 })
+
+runtime.applyTokenOverrides([
+  [ds.t.color.brand.$axes.scheme.dark, newDarkBrand],
+])
 ```
 
-`ds.tokenOverride()` is the canonical build-time class primitive. `runtime.applyTokenOverrides()` is the canonical runtime batch primitive. Its object form addresses base leaves; its tuple-entry form accepts mutable base/mode/case handles explicitly. Both runtime forms feed the same snapshot address model as `$set()`.
+`ds.tokenOverride()` is the canonical build-time class primitive. `runtime.applyTokenOverrides()` is the canonical runtime batch primitive. Its object form addresses base leaves; its tuple-entry form accepts plane-neutral mutable base/mode/case handles from the same system. Both runtime forms feed the same snapshot address model as `$set()`.
+
+Snapshot schema changes reconcile per semantic address: valid overrides survive, invalid/removed ones produce migration diagnostics, and only an unsupported snapshot protocol rejects the document wholesale.
 
 ## 12. Property aliases
 

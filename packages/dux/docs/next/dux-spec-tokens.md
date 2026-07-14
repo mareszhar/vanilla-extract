@@ -53,6 +53,8 @@ const de = createEngine({
 
 The engine policy applies both to raw shorthand and omitted fields in `de.token({ val })`. Explicit per-token fields win unless they violate a capability invariant. Choosing `reference: 'val'` is the deliberate build-folded/inline path; it is never inferred merely because today's input happens to be foldable.
 
+The var default also means downstream derivations prefer living platform expressions—relative color, `color-mix()`, `calc()`, and peers—over folded literals. That is deliberate: ordinary overrides rederive by default and “boring CSS” includes inspectable standards-track functions, not only primitives. It does **not** permit silently emitting above the configured support target; the value support policy must provide an equivalent fallback/enhancement or diagnose the edge with the explicit `reference: 'val'` alternative.
+
 ### 1.2 Configured token
 
 ```ts
@@ -140,6 +142,13 @@ compactDark.$val
 Branch handles expose authored value/condition/provenance metadata. When used directly as a value, a branch handle serializes as its authored `$val`; it never inherits the parent token's default `var` projection. They do not expose `$name`/`$var()` because the branch is not another consumer-facing token property. Internal mutable-slot names remain opaque.
 
 `runtime.t` preserves the same tree and branch-handle shape, adding `$set()`/`$unset()` only for mutable addresses. Generic traversal can therefore move between `ds.t` and `runtime.t` without changing whether `$axes` yields a value or a handle.
+
+Branch typing is exact:
+
+- `$axes` contains only modes explicitly authored on that token, including explicit no-default reservations—not every mode known to the engine;
+- `$case(when)` accepts only the literal case intersections authored/reserved on that token;
+- an omitted partial mode or unauthored case has no handle, no private slot, and cannot be passed to `$set()`;
+- every mutable token still has its uniform base address; mode/case addresses remain pay-for-what-you-author.
 
 ## 3. Modules and graph derivation
 
@@ -285,6 +294,39 @@ Case contracts:
 - cases emit after single-axis declarations;
 - a case may be mutable and receives an addressable runtime slot when the token is mutable;
 - manifest provenance records the complete `when` object.
+
+### 5.5 No-default runtime reservations
+
+An author may reserve a mutable branch without giving it a build-time value:
+
+```ts
+accent: de.token({
+  val: baseAccent,
+  mutable: true,
+
+  axes: {
+    scheme: {
+      dark: null,
+    },
+  },
+
+  cases: [
+    {
+      when: {
+        scheme: 'dark',
+        density: 'compact',
+      },
+      val: null,
+    },
+  ],
+})
+```
+
+Here `dark` and the dark/compact case are authored addresses, so they appear in branch-handle types and receive runtime slots, but no initial slot declaration is emitted. Until `$set()` supplies a value, each binding falls through to the expression that would have won without that reserved branch. `$unset()` restores that same fallback.
+
+The compiler serializes the prior effective expression into the slot fallback chain; it must not create a self-referential public-property cycle. If no prior effective value exists, the branch remains CSS-invalid until set and ordinary consumer `$var(fallback)` behavior remains available.
+
+Branch `null` is valid only on a mutable token. On a nonmutable token it has no public property identity of its own and is diagnosed; omission is the correct partial-axis form. The token's data type supplies the reserved branch type, so an additional untyped value sentinel is unnecessary.
 
 ## 6. Group-level axis bulk form
 
@@ -444,7 +486,7 @@ It must preserve the current valuable behavior:
 - return an ordinary class in the system override layer;
 - record provenance and overridden paths.
 
-The final function name remains subject to the implementation-phase naming fixture, but `theme` is retired as the mechanism name.
+The canonical name is `ds.tokenOverride()`; `theme` is retired as the mechanism name.
 
 ## 11. Projections and public naming
 
@@ -473,6 +515,17 @@ interface VaneManifestToken {
   mutable: boolean
   declarations: readonly VaneManifestDeclaration[]
   dependencies: readonly VaneManifestEdge[]
+  preview:
+    | {
+      status: 'resolved'
+      val: string
+      environment: Record<string, string>
+      caveats?: readonly string[]
+    }
+    | {
+      status: 'unavailable'
+      reason: string
+    }
   metadata: Record<string, unknown>
 }
 
@@ -499,6 +552,8 @@ interface VaneManifestDeclaration {
 - dependency edges;
 - reference/emission inference and reasons;
 - fold result/refusal;
+- resolved preview for the selected build environment, or an explicit reason one cannot be computed;
+- emitted-expression browser-support requirement and any fallback/enhancement path;
 - axes/cases and final order;
 - public name and mutable slots;
 - registration;
@@ -537,6 +592,7 @@ Completion requires:
 - migration tests proving current graphs preserve intended output where semantics are unchanged;
 - exact token config/type fixtures including null and typed no-default forms;
 - all axis/base/partial/multi-axis/case combinations;
+- exact authored/reserved branch handles and mutable `null` reservation fallback/reset;
 - root-anchored selector and at-rule output;
 - layer order independent of imports;
 - mutable slot output and public registration interaction;

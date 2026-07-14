@@ -49,9 +49,11 @@ Configuration changes defaults and policy without removing explicit CSS forms.
 ```ts
 const de = createEngine()
   .use(plugin())
-  .extend(context => ({
-    values: {/* ... */},
-    utilities: {/* ... */},
+  .extend({
+    id: 'com.example.editorial-values',
+    version: 1,
+  }, context => ({
+    editorial: {/* extension-owned values */},
   }))
 ```
 
@@ -99,7 +101,7 @@ Object reference identity may be used for process-local caches only. It is never
 - The same stable plugin ID with a different incompatible version/fingerprint produces a local diagnostic naming both signatures.
 - A plugin may mark a node/module as portable by resolving every required semantic into the public IR.
 
-Runtime snapshots use a separate deterministic **system schema ID**, derived only from the finalized runtime-addressable contract (token paths/types/branches, prefix/naming policy, and snapshot protocol). Changing an unrelated authoring helper does not invalidate persisted runtime state; changing a mutable address does.
+Runtime snapshots use a separate deterministic **system schema ID**, derived only from the finalized runtime-addressable contract (token paths/types/branches, prefix/naming policy, and snapshot protocol). Changing an unrelated authoring helper does not invalidate persisted runtime state; changing a mutable address changes the ID. That mismatch triggers the runtime spec's per-entry reconciliation—it is not a wholesale rejection instruction.
 
 No failure may appear later as an undefined helper, missing serializer, or silently different unit/color policy.
 
@@ -171,6 +173,21 @@ Preferred solutions, in order:
 3. explicit reusable selectors with diagnostics;
 
 The implementation must not claim type safety for unchecked future dot paths.
+
+### 4.4 Trigger-arm locality
+
+Selection locality is recorded per trigger arm, because different CSS mechanisms cannot make the same promise:
+
+| Arm mechanism | Honest locality |
+| --- | --- |
+| Native `light-dark()` / used `color-scheme` | Consuming element. Nested `color-scheme` changes are observed. |
+| Root-anchored attribute/class selector | Matching effective root and its subtree. Nested roots can select independently when they carry their own trigger. |
+| Preference media query selector fallback | Document/environment global for that query. It cannot observe descendant `color-scheme` overrides. |
+| Explicit absolute selector | Exactly the authored selector; no inferred locality promise. |
+
+The built-in element-local scheme policy may combine a native preference arm with explicit root/subtree selector arms, but it cannot silently label a media-query fallback element-local. If supported targets lack the required native mechanism, the author must either choose root-bound semantics, explicitly accept a documented degraded fallback, or receive a capability diagnostic.
+
+Trigger precedence and locality are separate: an explicit application arm may beat the preference arm while each remains honest about where it selects. Manifest/`explain()` output records mechanism, locality, priority, fallback, and any acknowledged degradation for every arm.
 
 ## 5. Token modules
 
@@ -357,6 +374,30 @@ ds.css({
 
 This is the same constructor identity and policy, not a copied utility set. Definition/finalization methods such as `defineTokens`, `axes`, `use`, `extend`, and `createSystem` remain engine-only. An engine extension that would collide with `t`, `css`, `recipe`, another system method, or another constructor fails at extension time.
 
+### 12.2 Versioned system namespace
+
+Flattened constructor access must not create a reserved-name treadmill. System surface version 1 reserves this closed core set:
+
+```text
+t, css, globalCss, keyframes, fontFace,
+recipe, anatomy, port, defineAtoms,
+tokensOf, namesOf, varsOf, tokenOverride,
+runtime, runtimeStyle, runtimeProps, reconcileRuntimeSnapshot,
+serialize, manifest, explain, audit, conditions, layers
+```
+
+Built-in value-constructor names (`length`, `angle`, `oklch`, `calc`, and peers) are reserved through the same engine namespace registry. The complete set is exported as a machine-readable readonly constant/type and recorded in the engine manifest/signature, rather than duplicated as an undocumented internal list.
+
+Policy:
+
+- adding a core top-level member outside the reserved set is a breaking system-surface revision;
+- new related capabilities should prefer an existing reserved namespace/member where that remains coherent;
+- plugins/project extensions should claim one distinctive top-level namespace (`ds.editorial.measure`, `ds.acme.fluid`) instead of a likely future generic verb;
+- bare custom names remain possible when collision-free, but receive the same versioned-contract protection once published;
+- core/plugin/plugin and system/constructor collisions fail while building the engine, with both owners named.
+
+This keeps one-import authoring delightful without allowing a later `ds.explain`-style addition to silently steal an extension's name.
+
 ## 13. Evidence
 
 Completion requires:
@@ -368,6 +409,7 @@ Completion requires:
 - emitted selector tests for every root placement;
 - layer-order tests independent of module import order;
 - property-alias completion and standards-lane escape fixtures;
+- versioned system-member/constructor collision fixtures and namespaced plugin examples;
 - name/var projection in build, config, app-runtime, and SSR contexts;
 - packed Vite/Nuxt examples using the canonical two-stage setup;
 - declaration-size and completion-latency budgets on representative systems.

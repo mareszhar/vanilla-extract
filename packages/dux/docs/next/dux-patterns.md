@@ -110,6 +110,8 @@ Rules:
 
 Slot names are private implementation addresses. Runtime snapshots and batch setters identify a token path plus a semantic base/axis/case address, then resolve the current private name through system metadata.
 
+Mode/case addresses are pay-for-what-you-author. Omitted branches do not become runtime setters accidentally; mutable `null` explicitly reserves a no-default address whose fallback restores the previously effective expression. Snapshot schema changes reconcile valid semantic addresses rather than discarding all persisted state.
+
 ## 9. Ports and mutable tokens solve different lifetimes
 
 A mutable token changes a design-system decision for one bound system root. A port supplies a component/style's per-instance runtime input.
@@ -148,6 +150,8 @@ The standards/raw lane remains:
 
 Strictness may change completion, diagnostics, or required annotations. It may not make a browser capability impossible.
 
+Support targets are also policy, not wishful transpilation. A var-dependent expression outside target receives a proven CSS fallback/enhancement or an actionable diagnostic; vane never silently freezes it or introduces hidden JS recomputation.
+
 ## 12. Extensions dogfood public contracts
 
 Built-in values, operations, aliases, axes, scales, patterns, and utilities must be expressible through stable public extension points.
@@ -164,6 +168,8 @@ At minimum, extension authors need:
 No public recipe should instruct users to subclass private IR classes.
 
 Engine/plugin compatibility is structural and semantic. Stable protocol, policy, and plugin signatures survive HMR and duplicate package instances; JavaScript object equality is never a compatibility contract. Opaque extension semantics require an explicit stable identity, while nodes fully lowered to core IR are portable.
+
+The flattened system namespace is versioned. Extensions prefer a distinctive top-level namespace, and a future core member cannot silently replace one.
 
 ## 13. Escape hatches degrade gracefully
 

@@ -46,6 +46,8 @@ ds.serialize(ds.t.color.brand.$var())
 
 `de.serialize()` rejects system-dependent values at the call site. `ds.serialize()` accepts compatible self-contained and system-bound values. Style/token/runtime APIs normally serialize internally, so these functions are escape and integration tools rather than ceremony on ordinary authoring paths.
 
+`Resolution` above expresses a semantic requirement, not a mandate to thread a costly public union generic through every operation forever. Phase 1 must prove that self/system propagation stays inside editor/type budgets. A branded, covariant, overload-based, or partially erased internal encoding is allowed if it preserves call-site rejection, readable hovers, declaration portability, and context-bound serialization.
+
 The internal IR additionally records:
 
 ```ts
@@ -285,6 +287,8 @@ const editorialMeasure = defineCssValue({
 })
 ```
 
+A value with extension-owned serialization such as this is installed through an identified plugin or `.extend({ id, version }, ...)` link. Anonymous local extensions are limited to values fully lowered into core IR.
+
 Advanced operations may declare inputs, result type, serialization, dependencies, and optional folding:
 
 ```ts
@@ -312,7 +316,22 @@ The same value language is accepted by:
 
 Context still matters. A runtime/axed `var()` cannot be substituted into a media-query definition where CSS custom properties are not allowed. A compile-known `val` may work there. Diagnostics explain the context and available projection.
 
-## 13. Evidence
+## 13. Support targets and expression previews
+
+Var-referenced graph edges commonly preserve platform expressions. The engine therefore owns an explicit CSS support-target policy:
+
+- the zero-config engine uses vane's published, CI-locked browser/toolchain matrix for that release; it does not float silently with market data;
+- projects may supply a different supported-target policy through the engine/integration adapter;
+- every first-party/plugin expression reports the CSS features its serialization requires;
+- if a required feature is outside target, vane emits a proven semantically equivalent fallback plus enhancement when possible;
+- if no honest dynamic fallback exists, compilation diagnoses the dependency and suggests an explicit build-folded `reference: 'val'`, a target-policy change, or an acknowledged raw/experimental path;
+- vane never adds hidden JavaScript recomputation merely to mask unsupported CSS.
+
+Expression-emitted tokens remain inspectable. Manifest/`explain()` output includes a resolved preview for a declared environment when the graph can evaluate one, plus the actual emitted expression and support requirements. External/unknown/runtime-only inputs carry `preview: unavailable` with a reason rather than a fabricated value. A preview is diagnostic context, not a replacement for browser computed-value fixtures.
+
+The exact target-input adapter (Browserslist, bundler target data, or an explicit vane matrix) is settled through Phase 1 integration fixtures; the behavioral contract above is invariant.
+
+## 14. Evidence
 
 Completion requires:
 
@@ -324,4 +343,5 @@ Completion requires:
 - plugin dogfood fixtures proving built-ins need no private privilege;
 - property/at-rule context diagnostics;
 - performance benchmarks for representative large expression/token graphs;
+- support-target fallback/diagnostic fixtures and resolved-preview manifest snapshots;
 - optimizer/toolchain survival for emitted modern syntax.

@@ -75,6 +75,8 @@ Every same-named CSS helper receives a capability table and fixtures for:
 - invalid/incompatible types;
 - serialization form;
 - build fold versus preserved CSS expression;
+- feature requirement versus configured support target;
+- proven fallback/enhancement or actionable `reference: 'val'` diagnostic when outside target;
 - browser computed value when stable to assert;
 - optimizer/toolchain survival.
 
@@ -105,10 +107,13 @@ Test each data type against:
 - multiple independent axes in each order;
 - explicit sparse case;
 - mutable base/mode/case set and unset;
+- authored/reserved branches appear in handle types while omitted partial modes and unauthored cases do not;
+- mutable `null` mode/case reservation has no authored slot value, accepts `$set()`, and `$unset()` restores the prior effective expression;
 - module composition/derivation;
 - token override class;
 - resolved environment snapshot;
-- manifest and DTCG projections.
+- manifest and DTCG projections;
+- resolved expression preview or explicit preview-unavailable reason in manifest/`explain()`.
 
 Root/condition output matrix:
 
@@ -130,6 +135,10 @@ Order matrix:
 - axes follow declared order, not import order;
 - cases after axes;
 - explicit application triggers beat preference triggers;
+- native preference arms preserve consuming-element locality and nested `color-scheme` changes;
+- root-anchored attribute/class arms preserve independent nested-root selection;
+- media-query selector fallbacks are asserted/documented as document-global and never mislabeled element-local;
+- unsupported element-local fallback either diagnoses or requires an explicit degraded/root-bound policy;
 - declaration order is the default axis order;
 - exhaustive `.axisOrder()` overrides declaration order and rejects omissions/duplicates;
 - override class/runtime public behavior follows declared policy;
@@ -150,8 +159,11 @@ For every new public API, lock:
 - engine/axis/plugin literal preservation without `as const` ceremony;
 - semantically equivalent engine instances compose across HMR/package duplication while incompatible signatures fail locally;
 - plane-neutral and runtime `$axes`/`$case()` paths both return branch handles, with side effects present only on mutable runtime branches;
+- `applyTokenOverrides()` tuple entries accept same-system plane-neutral handles and reject different-system/unauthored addresses locally;
 - narrow runtime setters for mutable base/mode/case handles;
 - standards lane availability under aliases-only policy.
+
+System namespace fixtures lock the exported reserved-member set, namespaced plugin convention, constructor/plugin/system collision diagnostics, and the rule that an unreserved core top-level addition is a system-surface version change.
 
 Type tests that merely assert assignability are insufficient for APIs whose product claim includes completion, rename, or error locality.
 
@@ -163,6 +175,7 @@ Required measurements:
 
 - `tsc --noEmit` cold and incremental;
 - declaration emit time and `.d.ts` size;
+- TypeScript `--extendedDiagnostics` instantiation count and memory for value graphs;
 - completion latency at root tokens, deep groups, axes, cases, `css()` properties, and aliases;
 - diagnostic latency after a one-character typo;
 - rename latency across composed modules and consumers;
@@ -173,12 +186,21 @@ Required measurements:
 - runtime entrypoint and runtime metadata size;
 - snapshot serialize/hydrate time.
 
+Phase 1 has a dedicated resolution-propagation matrix:
+
+- self-contained expressions only;
+- one system-bound leaf in shallow, medium, and deeply nested calculations/operations;
+- mixed self/system expressions across the small/medium/large fixtures;
+- hover/declaration readability and union width at each scale;
+- direct comparison of the candidate `Resolution` generic against a branded/erased encoding with identical call-site behavior.
+
 Initial regression policy:
 
 - no accepted phase may degrade a large-fixture editor/type metric by more than 20% without an explicit decision explaining the user-visible gain;
 - completion/diagnostic interactions must remain subjectively immediate, then receive a numeric budget from baseline measurements in phase 0;
 - mutable-slot overhead is reported separately for zero, typical, and all-token mutability;
 - type-level bulk axis syntax ships only if it stays within the same budget as canonical per-token syntax.
+- the public `Resolution` generic ships only if mixed-resolution instantiation/completion/declaration costs remain within budget; otherwise the cheaper semantically equivalent encoding is selected before other APIs depend on it.
 
 Store machine-readable results under a generated benchmark artifact path and commit a human summary only when a new baseline is accepted.
 
@@ -197,9 +219,12 @@ Browser tests assert:
 - `light-dark()` or selector scheme output behaves in supported browsers;
 - unregistered element-local `light-dark()` tokens respond to nested `color-scheme` overrides;
 - typed registered public properties never silently freeze an element-local scheme token at an ancestor;
+- per-arm scheme manifest locality matches observed native, root-selector, media-fallback, and absolute-selector behavior;
 - port and mutable token writes coexist;
 - runtime snapshot rendered on the server hydrates without a flash;
 - snapshot round trips preserve base, axis-mode, case, and runtime-managed mode addresses through individual and batch setters;
+- an additive runtime schema change reconciles and hydrates still-valid entries instead of rejecting the snapshot wholesale;
+- removed/type-changed/unauthored addresses are skipped with exact migration diagnostics, while unsupported protocol versions reject safely;
 - accessibility/motion/focus contracts remain intact.
 
 Selectors are tested against actual DOM placement, not only string snapshots.
