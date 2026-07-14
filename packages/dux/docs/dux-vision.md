@@ -1,8 +1,10 @@
-updated: 2026-07-10
-status: living hub — the philosophy, the architecture, and the index over every dux doc
+updated: 2026-07-14
+status: current implementation hub — target refactor lives under docs/next
 
 # vane-dux — vision
 
+> **Transition notice:** this document remains the truthful architectural description of the current implementation. The converged TypeScript-harness-for-CSS target, semantic-foundation specs, permanent testing gates, and active migration ledger live in [the next documentation hub](./next/README.md). Do not implement new foundation work from this file where the target docs supersede it.
+>
 > vane-dux is a DX/UX-first design-system engine for TypeScript. You author design intent — tokens, styles, variants, anatomy — as ordinary typed TypeScript; the compiler projects it into boring, inspectable CSS; anything that must stay alive at runtime crosses through a typed port. One question drives every decision: *what would feel most delightful to use?*
 
 This is the hub: the philosophy, the principles, the architecture, the scope, and the model that keeps the fork alive. Everything operational lives in the docs it indexes ([§11](#11-the-docs)).
@@ -175,7 +177,7 @@ The work, one spec per domain. This is the status view; each domain's contracts 
 | **Preset** | the hospitable start: default tokens/conditions, `atoms`, a11y and motion helpers, layout patterns — all deletable | [dux-spec-preset.md](./dux-spec-preset.md) | ◐ hardening |
 | **Introspection** | the system explains itself: debug names, the manifest, audits, agent context | [dux-spec-introspection.md](./dux-spec-introspection.md) | ◐ hardening |
 
-`☑` means the contract is implemented and its current test plane is credible. `◐ hardening` means the broad surface exists but still has a named release blocker in the [July 2026 review](./dux-review-2026-07.md); it is not a claim of production readiness.
+`☑` means the current contract is implemented and its current test plane is credible. `◐ hardening` means the broad surface exists but is not a claim of publication readiness. The semantic-foundation refactor and its gates are tracked in the [next implementation plan](./next/dux-implementation-plan.md).
 
 ---
 
@@ -270,7 +272,6 @@ One hub (this), one language doc, one patterns doc, one spec per domain, one mai
 | [dux-vision.md](./dux-vision.md) | **the hub** — philosophy, principles, architecture, scope, roadmap, sustainability |
 | [dux-language.md](./dux-language.md) | the words: vocabulary, naming rules, doc style, the naming map |
 | [dux-patterns.md](./dux-patterns.md) | the cross-cutting law: the planes, liveness, ports, conditions, layers, escape-hatch grace, agent legibility |
-| [dux-dx-benchmark.md](./dux-dx-benchmark.md) | maintained comparison against current compiled-TypeScript styling peers |
 | [dux-spec-tokens.md](./dux-spec-tokens.md) | the token graph, schemes, checks, theming |
 | [dux-spec-css.md](./dux-spec-css.md) | the authoring surface: system, `css`, conditions, layers, keyframes, global, raw |
 | [dux-spec-ports.md](./dux-spec-ports.md) | the typed runtime boundary |
@@ -279,7 +280,8 @@ One hub (this), one language doc, one patterns doc, one spec per domain, one mai
 | [dux-spec-preset.md](./dux-spec-preset.md) | the opinionated layer: preset tokens/conditions, atoms, helpers, patterns |
 | [dux-spec-introspection.md](./dux-spec-introspection.md) | provenance, the manifest, audits, agent context |
 | [dux-workspace.md](./dux-workspace.md) | maintainer manual: layout, tooling, testing, fork-rebase, publishing |
-| [dux-review-2026-07.md](./dux-review-2026-07.md) | historical implementation review: baseline findings and the hardening order they triggered |
-| [dux-release-initiative.md](./dux-release-initiative.md) | the active publication ledger and delight-gauntlet evidence |
+| [next/README.md](./next/README.md) | target architecture hub for the semantic-foundation refactor |
+| [next/dux-testing.md](./next/dux-testing.md) | permanent evidence, performance, integration, packaging, and comparison gates |
+| [next/dux-implementation-plan.md](./next/dux-implementation-plan.md) | the only active refactor ledger and canonical-doc promotion plan |
 
 Specs are **contract-driven**: each entry headlines the desired behavior and why it matters, then proposes an implementation. If reality teaches a better implementation, the proposal moves; the contract above it stays.

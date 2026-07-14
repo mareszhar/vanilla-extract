@@ -1,4 +1,26 @@
+updated: 2026-07-14
+status: historical ideation archive — resolved target lives in docs/next
+
 # vane-dux — ideation notes
+
+> **Resolution notice:** the architecture discussion following this draft converged on a target design and migration plan. The normative result lives in [`../docs/next/`](../docs/next/README.md), with the complete proposal-by-proposal map in the [implementation plan](../docs/next/dux-implementation-plan.md#15-ideation-resolution-map) and compact accepted choices in [decisions](../docs/next/dux-decisions.md). The body below is retained as reasoning history; its markers and “settled” labels describe the draft at that time and are not current authority.
+
+The most important revisions after this draft were:
+
+- vane-dux is framed as a **TypeScript harness for CSS**;
+- the semantic foundation separates CSS data type, expression, token representation/emission, and variation/mutability;
+- the canonical setup is `createEngine()` → `engine.createSystem()`, with axes and `defineTokens()` both on the engine and no intermediate public system-definition stage;
+- advanced token metadata is `token({ val, reference, emit, mutable, axes, cases, register, ... })`, while `$` is reserved for vane members sharing user tree/handle namespaces;
+- axes keep complete/partial maps and gain explicit sparse multi-axis cases plus typed axis order;
+- generic “scope” becomes root/condition/context vocabulary, with `&` explicitly anchoring conditions; `scope` is reserved for CSS `@scope`;
+- `theme`/`applyTheme` and CCP abbreviations are replaced at the mechanism layer by token overrides and custom-property operations;
+- runtime extracted-stylesheet patching is rejected in favor of mutable custom-property slots bound through `ds.runtime(root)`, while provenance remains first-class;
+- `null` remains ergonomic no-default sugar, typed no-default tokens are explicit, and `@property` is controlled through `register`;
+- `rawVar` becomes an external `customProperty(name).$var(fallback?)` handle concept;
+- property aliases, elevation, BEM, and nonstandard conventions are optional typed plugins;
+- DTCG supports resolved standard snapshots and semantically lossless vane-authored round trips for portable/plugin-coded nodes.
+
+No implementation task should be created directly from the historical body without checking its final disposition in the next plan.
 
 Running record of API/pattern ideas for vane-dux.
 
