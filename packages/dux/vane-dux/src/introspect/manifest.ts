@@ -75,10 +75,10 @@ export interface VaneManifestRecipe extends VaneManifestSource {
 export interface VaneManifestPort extends VaneManifestSource {
   /** The emitted custom property: `--vane-fraction__h4x`. */
   var: string
-  type: 'number' | 'string' | 'color'
+  /** Canonical CSS data type used by the common value serializer. */
+  type: import('../values/types').VaneCssDataType
   default: string | number
-  /** The unit a number port serializes with, from `port(0, { as: 'deg' })`. */
-  unit?: string
+  validation?: import('../ports/types').VanePortValidationMeta
   description?: string
   deprecated?: string
 }
@@ -299,9 +299,9 @@ function portEntry(record: VanePortRecord): VaneManifestPort {
 
   return {
     var: meta.name,
-    type: meta.kind as VaneManifestPort['type'],
+    type: meta.type,
     default: meta.defaultValue,
-    ...(meta.unit === undefined ? {} : { unit: meta.unit }),
+    ...(meta.validation === undefined ? {} : { validation: meta.validation }),
     ...(meta.description === undefined ? {} : { description: meta.description }),
     ...(meta.deprecated === undefined ? {} : { deprecated: meta.deprecated }),
     ...manifestSource(record),

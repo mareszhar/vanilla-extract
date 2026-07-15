@@ -11,7 +11,7 @@ import type { VaneAtomsFactory } from '../atoms/types'
 import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
 import type { VaneEngineKernel } from '../internal/engineKernel'
 import type { VaneAuditConfig } from '../internal/inspect'
-import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
+import type { VanePortFactory, VanePortInput } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
 import type { VaneTokenPhaseLayers } from '../tokens/graph'
 import type {
@@ -46,12 +46,14 @@ import { checkSelector } from '../internal/cssParser'
 import { isHandle } from '../internal/handle'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
+import { VANE_PROPERTY_ALIASES } from '../plugins/propertyAliases'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
 import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, runtimeContractOf, runtimeSchemasOf, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
 import { theme as standaloneTheme, tokenOverride as standaloneTokenOverride } from '../tokens/theme'
 import { defaultEngine } from '../values/defaultEngine'
+import { isVaneValue } from '../values/types'
 import { describeAxisRegistry } from './axes'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
 import { createRuntimeServices } from './live'
@@ -143,10 +145,11 @@ export interface VaneBoundSystem<
   C extends string,
   L extends string,
   Axes extends VaneAxisDefinitions = Record<never, never>,
+  Css = VaneCssFunction<C, L>,
 > extends VaneRuntimeServices<T, Axes> {
   /** The bound token graph — one import line serves every style file. */
   readonly t: T
-  readonly css: VaneCssFunction<C, L>
+  readonly css: Css
   readonly keyframes: VaneKeyframesFunction
   readonly fontFace: VaneFontFaceFunction
   readonly globalCss: VaneGlobalCssFunction<C, L>
@@ -159,7 +162,7 @@ export interface VaneBoundSystem<
   /** The recipe pattern applied to parts ([dux-spec-recipes.md §3]). */
   readonly anatomy: VaneAnatomyFactory<C, L>
   /** The typed runtime boundary: declare a port with a default, typed by it. */
-  readonly port: <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) => VanePort<VanePortWiden<TValue>>
+  readonly port: VanePortFactory
   /** The strict utility lane, defined over your token map ([dux-spec-preset.md §3]). */
   readonly defineAtoms: VaneAtomsFactory<C, L>
   /** Resolve an unfinished module, subtree, or composed selection against this system. */
@@ -187,7 +190,8 @@ export type VaneSystem<
   L extends string,
   Constructors extends object = Record<never, never>,
   Axes extends VaneAxisDefinitions = Record<never, never>,
-> = VaneBoundSystem<T, C, L, Axes> & Readonly<Constructors>
+  Css = VaneCssFunction<C, L>,
+> = VaneBoundSystem<T, C, L, Axes, Css> & Readonly<Constructors>
 
 export interface VaneSystemEngineBinding<
   Constructors extends object,
@@ -210,13 +214,24 @@ export function createSystem<
 >(
   options: VaneSystemOptions<T, C, L, P, B>,
 ): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]> {
-  return createSystemInternal(undefined, options)
+  return createSystemInternal<
+    Record<never, never>,
+    T,
+    C,
+    L,
+    P,
+    B,
+    VaneDefaultTokenPolicy,
+    false,
+    Record<never, never>
+  >(undefined, options)
 }
 
 export function createSystemForEngine<
   const Constructors extends object,
   const TokenPolicy extends VaneTokenPolicy,
   const Axes extends VaneAxisDefinitions,
+  Css,
   const T extends object,
   const C extends Record<string, VaneConditionInput> = Record<never, never>,
   const L extends readonly string[] = VaneDefaultLayers,
@@ -225,8 +240,8 @@ export function createSystemForEngine<
 >(
   binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes>,
   options: VaneEngineSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes> {
-  return createSystemInternal<Constructors, T, C, L, P, B, TokenPolicy, true, Axes>(
+): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, Css> {
+  return createSystemInternal<Constructors, T, C, L, P, B, TokenPolicy, true, Axes, Css>(
     binding,
     options as VaneSystemOptions<T, C, L, P, B>,
   )
@@ -242,10 +257,11 @@ function createSystemInternal<
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
   Canonical extends boolean = false,
   Axes extends VaneAxisDefinitions = Record<never, never>,
+  Css = VaneCssFunction<VaneSystemConditionName<C, B>, L[number]>,
 >(
   binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes> | undefined,
   options: VaneSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes> {
+): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, Css> {
   const file = requireStyleModule('createSystem')
   const prefix = options.prefix ?? 'vane'
   const root = options.root ?? ':root'
@@ -374,12 +390,30 @@ function createSystemInternal<
     file,
   )
 
+  const aliasConfig = binding?.kernel.constructors && VANE_PROPERTY_ALIASES in binding.kernel.constructors
+    ? (binding.kernel.constructors as any)[VANE_PROPERTY_ALIASES]
+    : undefined
+  if (aliasConfig) {
+    for (const alias of Object.keys(aliasConfig.aliases)) {
+      if (conditions.has(alias)) {
+        throw new VaneError({
+          code: 'VANE_SYSTEM_CONDITION_COLLISION',
+          message: `property alias '${alias}' collides with a condition of this system`,
+          path: alias,
+          file,
+          fix: 'rename either the alias or the condition so a rule key has one meaning',
+        })
+      }
+    }
+  }
+
   const system = {
     conditions,
     layers,
     defaultLayer: layers.find(layer => !SYSTEM_LAYERS.includes(layer)) ?? layers[0],
     globalDefaultLayer: layers.includes('reset') ? 'reset' : layers[0],
     layerRoot: prefix,
+    ...(aliasConfig === undefined ? {} : { propertyAliases: aliasConfig }),
   }
   const runtimeContract = runtimeContractOf(tokens)!
 
@@ -402,12 +436,41 @@ function createSystemInternal<
     },
   })
 
-  type Bound = VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes>
+  type Bound = VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, Css>
 
   const describedConditions = Object.freeze(describeConditions(conditions)) as Readonly<Record<VaneSystemConditionName<C, B>, string>>
   const kernel = binding?.kernel ?? defaultEngine
   const resolvedGraph = graphOf(tokens)!
   const runtimeServices = createRuntimeServices<Bound['t'], Axes>(runtimeContract, runtimeSchemasOf(tokens))
+  const serializeSystemValue = (value: unknown): string | number => {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value))
+        throw new RangeError(`[vane] a CSS number must be finite; received ${value}`)
+      return Object.is(value, -0) ? 0 : value
+    }
+    if (typeof value === 'string') {
+      if (value.trim().length === 0)
+        throw new TypeError('[vane] a CSS value cannot be empty')
+      return value
+    }
+    if (isHandle(value))
+      return String(value)
+    if ((typeof value === 'object' || typeof value === 'function') && value !== null && 'var' in value)
+      return (value as { readonly var: string }).var
+    if (isVaneValue(value)) {
+      return kernel.serializeValue(value, (reference) => {
+        if (reference.name)
+          return reference.name
+        if (reference.path) {
+          const node = resolvedGraph.nodes.get(reference.path)
+          if (node)
+            return node.name
+        }
+        throw new TypeError(`[vane] system '${prefix}' cannot resolve ${reference.path ?? 'an unnamed value reference'}`)
+      })
+    }
+    throw new TypeError('[vane] a system value must be CSS text, a finite number, a token, a port, or a vane value')
+  }
   const projectTokens = (selection: object): object => {
     if (!isTokenBuilder(selection))
       return selection
@@ -468,8 +531,8 @@ function createSystemInternal<
     )),
     recipe: buildPlane('recipe', bindRecipe(system) as Bound['recipe']),
     anatomy: buildPlane('anatomy', bindAnatomy(system) as Bound['anatomy']),
-    port: buildPlane('port', <TValue extends VanePortInput>(defaultValue: TValue, options?: VanePortOptions) =>
-      createPort(defaultValue, options, { prefix }) as unknown as VanePort<VanePortWiden<TValue>>),
+    port: buildPlane('port', ((input: VanePortInput, options?: object) =>
+      createPort(input, options as any, { prefix, serialize: serializeSystemValue })) as Bound['port']),
     defineAtoms: buildPlane('defineAtoms', bindAtoms(system) as Bound['defineAtoms']),
     tokensOf: buildPlane('tokensOf', projectTokens as Bound['tokensOf']),
     namesOf: buildPlane('namesOf', ((selection: object) => project(selection, 'name')) as Bound['namesOf']),
@@ -478,16 +541,7 @@ function createSystemInternal<
     reconcileRuntimeSnapshot: appPlane(runtimeServices.reconcileRuntimeSnapshot, 'restoreRuntimeReconciler', runtimeContract),
     runtimeStyle: appPlane(runtimeServices.runtimeStyle, 'restoreRuntimeStyle', runtimeContract),
     runtimeProps: appPlane(runtimeServices.runtimeProps, 'restoreRuntimeProps', runtimeContract),
-    serialize: (value: VaneValue) => kernel.serializeValue(value, (reference) => {
-      if (reference.name)
-        return reference.name
-      if (reference.path) {
-        const node = resolvedGraph.nodes.get(reference.path)
-        if (node)
-          return node.name
-      }
-      throw new TypeError(`[vane] system '${prefix}' cannot resolve ${reference.path ?? 'an unnamed value reference'}`)
-    }),
+    serialize: (value: VaneValue) => String(serializeSystemValue(value)),
     conditions: describedConditions,
     layers: Object.freeze([...layers]) as readonly L[number][],
   }

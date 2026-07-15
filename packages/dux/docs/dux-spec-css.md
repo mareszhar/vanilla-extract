@@ -1,5 +1,5 @@
-updated: 2026-07-10
-status: spec — contracts settled, implemented (phase 2)
+updated: 2026-07-14
+status: spec — current implementation contract (Phase 6 alias plugin added)
 
 # vane-dux — spec: css authoring
 
@@ -20,6 +20,7 @@ Contracts here lean on the cross-cutting law: evaluation ([dux-patterns.md §1](
 | 7 | `globalCss` | ☑ |
 | 8 | `css.raw` | ☑ |
 | 9 | Value validation | ☑ (stable code, exact property path, and compiler-proven file/line/column) |
+| 10 | Optional property-alias policy and standards/raw reach | ☑ |
 
 ---
 
@@ -272,3 +273,32 @@ export const prose = css.raw`
 - **Setup failures are diagnosed too.** Importing a `*.style.ts` module without the `/vite` plugin registered produces one friendly error naming the missing plugin and the config line to add (`VANE_VITE_PLUGIN_MISSING`) — never a raw Node evaluation stack. The bounce point of a misconfigured first install gets the same message quality as a typo'd property.
 
 **Implementation.** Validation runs at evaluation time in the core, so every bundler gets the same diagnostics. The work is split between two authorities: **lightningcss owns grammar** — a known property whose value fails its typed grammar (and carries no `var()` or unknown function, whose grammar only the browser can decide) is refused, as are unparseable selectors and queries; **the W3C property list owns existence** (`known-css-properties`), so a platform property lightningcss has not learned yet is never blocked (principle 6) — only a name in neither authority errors. Checks memoize per declaration. The `/vite` compiler injects syntax-tree-derived call/property locations into compiler-owned app modules; diagnostics use only exact or uniquely attributable positions and never guess.
+
+---
+
+## 10. Optional property aliases
+
+Core owns no aliases. A typed engine plugin may shorten real CSS property names without creating an alternate utility vocabulary:
+
+```ts
+const de = createEngine().use(propertyAliases({
+  py: 'paddingBlock',
+  bg: 'background',
+}, {
+  expose: 'both', // or 'aliases-only'
+}))
+```
+
+Alias policy finalizes the typed authoring vocabulary, so install it after axes and other engine plugins, immediately before creating systems. This deliberate ordering keeps exact `css()` completion local to systems that opted in instead of recursively cloning the full CSS property graph through every earlier engine stage.
+
+Aliases flow into `css()` completion with the target property's value type at every rule depth, including named conditions, selectors, and at-rules, then normalize before the ordinary compiler/parser. Collisions with CSS properties, system conditions, or a same-arm standard declaration are diagnostics in the arm where they occur.
+
+`both` exposes aliases beside standard names. `aliases-only` removes only each aliased target spelling from the primary `css()` type/runtime lane; every unrelated standard property remains available. Full platform reach is permanent:
+
+```ts
+ds.css({ py: '1rem' })
+ds.css.standard({ paddingBlock: '1rem' })
+ds.css.raw`padding-block: 1rem;`
+```
+
+The capability travels through the public engine plugin protocol as a symbol-backed policy contribution, not a synthetic daily constructor or private compiler privilege. Its stable configuration fingerprint participates in semantic engine identity.

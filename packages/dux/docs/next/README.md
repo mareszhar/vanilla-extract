@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target documentation hub — phases 0–4 accepted; phase 5 is next
+status: target documentation hub — phases 0–6 accepted; phase 7 is next
 
 # vane-dux next — documentation hub
 
@@ -39,7 +39,8 @@ When a target document conflicts with a current document, the target document go
 - Phase 3 is accepted: independent token traits, branded configuration, CSS-reactive shorthand, the finalized `$` handle language, exact authored branch addresses, cross-plane restoration, and deterministic token/name/var projections pass their evidence planes.
 - Phase 4 is accepted: immutable staged axes, root-anchored trigger locality, exact modes/cases, group roots, registration, deterministic token sublayers, mutable-address reservations, guarded native scheme output, and emission provenance pass their evidence planes.
 - Phase 5 is accepted: explicit custom-property writes, runtime-bound mutable base/mode/case handles, validation, semantic snapshots, SSR root projection, zero-rewrite hydration, and HMR reconciliation pass their evidence planes.
-- Phase 6 is next: migrate ports/recipes/preset/framework helpers onto the common value and validation contracts, then add the settled ergonomic plugins and patterns.
+- Phase 6 is accepted: ports share the common serializer and validation boundary; recipe/Vue projections, typed property aliases, callable scales, interpolation/fluid values, optional elevation/BEM plugins, and the pattern/utility split pass their evidence planes.
+- Phase 7 is next: make the new semantic foundation fully explainable, auditable, portable, and DTCG-aware.
 
 The detailed checklist and acceptance evidence live in the [implementation plan](./dux-implementation-plan.md). The [current baseline](./dux-current-baseline.md) remains the immutable pre-refactor comparison point rather than a rolling description of the new implementation.
 

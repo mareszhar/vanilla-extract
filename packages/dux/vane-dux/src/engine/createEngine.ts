@@ -1,6 +1,8 @@
 /** Canonical authoring environment: an engine defines one or more systems. */
 
+import type { VaneCssFunction, VanePropertyAliasCssFunction, VanePropertyAliasMap, VaneStrictPropertyAliasCssFunction } from '../css/types'
 import type { VaneEngineKernel } from '../internal/engineKernel'
+import type { VanePropertyAliasContribution, VanePropertyAliasPlugin } from '../plugins/propertyAliases'
 import type {
   VaneAxisAuthoringHelpers,
   VaneAxisDefinitions,
@@ -86,7 +88,7 @@ export interface VaneEngineOptions<
 }
 
 export interface VaneEnginePlugin<
-  Added extends Readonly<Record<string, unknown>>,
+  Added extends object,
   RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 > extends VaneExtensionIdentity {
   readonly setup: (engine: VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>) => Added
@@ -97,8 +99,7 @@ type VaneExtensionOutput<Constructors extends object, Added> = Added & {
   readonly [Key in Extract<keyof Added, VaneEngineReserved<Constructors>>]: never
 }
 
-export interface VaneEngineMethods<
-  Constructors extends object,
+interface VaneEngineCommonMethods<
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
   Axes extends VaneAxisDefinitions = Record<never, never>,
 > {
@@ -123,6 +124,14 @@ export interface VaneEngineMethods<
     seed?: T,
     options?: VaneTokenModuleOptions,
   ) => VaneTokenModule<T, TokenPolicy>
+  readonly compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy, VaneAxisDefinitions>, 'signature'>) => boolean
+}
+
+export interface VaneEngineMethods<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> extends VaneEngineCommonMethods<TokenPolicy, Axes> {
   readonly createSystem: <
     const T extends object,
     const C extends Record<string, VaneConditionInput> = Record<never, never>,
@@ -131,7 +140,7 @@ export interface VaneEngineMethods<
     B extends boolean = true,
   >(
     options: VaneEngineSystemOptions<T, C, L, P, B>,
-  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes>
+  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, VaneCssFunction<VaneSystemConditionName<C, B>, L[number]>>
   readonly axes: <const Added extends VaneAxisDefinitions>(
     factory: (
       context: Omit<VaneEngine<Constructors, TokenPolicy, Axes>, keyof VaneAxisAuthoringHelpers>
@@ -145,24 +154,65 @@ export interface VaneEngineMethods<
     first: First,
     ...rest: Rest & VaneAxisOrderRestGuard<Axes, First, Rest>
   ) => VaneEngine<Constructors, TokenPolicy, Axes>
-  readonly compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy, VaneAxisDefinitions>, 'signature'>) => boolean
-  readonly use: <
-    const Added extends Readonly<Record<string, unknown>>,
-    RequiredConstructors extends object,
-  >(
-    plugin: Constructors extends RequiredConstructors
-      ? VaneEnginePlugin<Added, RequiredConstructors>
-      : never,
-  ) => VaneEngine<Constructors & Added, TokenPolicy, Axes>
+  readonly use: {
+    <const AddedAliases extends VanePropertyAliasMap>(
+      plugin: VanePropertyAliasPlugin<AddedAliases, 'both'>,
+    ): VaneAliasedEngine<Constructors & VanePropertyAliasContribution<AddedAliases, 'both'>, TokenPolicy, Axes, AddedAliases>
+    <const AddedAliases extends VanePropertyAliasMap>(
+      plugin: VanePropertyAliasPlugin<AddedAliases, 'aliases-only'>,
+    ): VaneStrictAliasedEngine<Constructors & VanePropertyAliasContribution<AddedAliases, 'aliases-only'>, TokenPolicy, Axes, AddedAliases>
+    <
+      const Added extends object,
+      RequiredConstructors extends object,
+    >(
+      plugin: Constructors extends RequiredConstructors
+        ? VaneEnginePlugin<Added, RequiredConstructors>
+        : never,
+    ): VaneEngine<Constructors & Added, TokenPolicy, Axes>
+  }
   readonly extend: {
-    <const Added extends Readonly<Record<string, unknown>>>(
+    <const Added extends object>(
       extension: (engine: VaneEngine<Constructors, TokenPolicy, Axes>) => VaneExtensionOutput<Constructors, Added>,
     ): VaneEngine<Constructors & Added, TokenPolicy, Axes>
-    <const Added extends Readonly<Record<string, unknown>>>(
+    <const Added extends object>(
       identity: VaneExtensionIdentity,
       extension: (engine: VaneEngine<Constructors, TokenPolicy, Axes>) => VaneExtensionOutput<Constructors, Added>,
     ): VaneEngine<Constructors & Added, TokenPolicy, Axes>
   }
+}
+
+export interface VaneAliasedEngineMethods<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy,
+  Axes extends VaneAxisDefinitions,
+  Aliases extends VanePropertyAliasMap,
+> extends VaneEngineCommonMethods<TokenPolicy, Axes> {
+  readonly createSystem: <
+    const T extends object,
+    const C extends Record<string, VaneConditionInput> = Record<never, never>,
+    const L extends readonly string[] = VaneDefaultLayers,
+    P extends string = 'vane',
+    B extends boolean = true,
+  >(
+    options: VaneEngineSystemOptions<T, C, L, P, B>,
+  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, VanePropertyAliasCssFunction<VaneSystemConditionName<C, B>, L[number], Aliases>>
+}
+
+export interface VaneStrictAliasedEngineMethods<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy,
+  Axes extends VaneAxisDefinitions,
+  Aliases extends VanePropertyAliasMap,
+> extends VaneEngineCommonMethods<TokenPolicy, Axes> {
+  readonly createSystem: <
+    const T extends object,
+    const C extends Record<string, VaneConditionInput> = Record<never, never>,
+    const L extends readonly string[] = VaneDefaultLayers,
+    P extends string = 'vane',
+    B extends boolean = true,
+  >(
+    options: VaneEngineSystemOptions<T, C, L, P, B>,
+  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, VaneStrictPropertyAliasCssFunction<VaneSystemConditionName<C, B>, L[number], Aliases>>
 }
 
 type VaneAxisContributionGuard<Current extends VaneAxisDefinitions, Added extends VaneAxisDefinitions> = {
@@ -174,6 +224,20 @@ export type VaneEngine<
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
   Axes extends VaneAxisDefinitions = Record<never, never>,
 > = Readonly<Constructors> & VaneEngineMethods<Constructors, TokenPolicy, Axes>
+
+export type VaneAliasedEngine<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy,
+  Axes extends VaneAxisDefinitions,
+  Aliases extends VanePropertyAliasMap,
+> = Readonly<Constructors> & VaneAliasedEngineMethods<Constructors, TokenPolicy, Axes, Aliases>
+
+export type VaneStrictAliasedEngine<
+  Constructors extends object,
+  TokenPolicy extends VaneTokenPolicy,
+  Axes extends VaneAxisDefinitions,
+  Aliases extends VanePropertyAliasMap,
+> = Readonly<Constructors> & VaneStrictAliasedEngineMethods<Constructors, TokenPolicy, Axes, Aliases>
 
 /** Named zero-config/configured engine surface, kept compact in consumer declarations. */
 export interface VaneCoreEngine<
@@ -223,7 +287,7 @@ const ENGINE_METHOD_NAMES = new Set<string>([
 ])
 
 export function defineEnginePlugin<
-  const Added extends Readonly<Record<string, unknown>>,
+  const Added extends object,
   RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 >(plugin: VaneEnginePlugin<Added, RequiredConstructors>): VaneEnginePlugin<Added, RequiredConstructors> {
   validateIdentity(plugin)
@@ -370,7 +434,17 @@ function materializeEngine<
       const L extends readonly string[] = VaneDefaultLayers,
       P extends string = 'vane',
       B extends boolean = true,
-    >(options: VaneEngineSystemOptions<T, C, L, P, B>) => createSystemForEngine(
+    >(options: VaneEngineSystemOptions<T, C, L, P, B>) => createSystemForEngine<
+      Constructors,
+      TokenPolicy,
+      Axes,
+      VaneCssFunction<VaneSystemConditionName<C, B>, L[number]>,
+      T,
+      C,
+      L,
+      P,
+      B
+    >(
       { kernel, requirement, tokenPolicy, axes },
       options,
     ),
@@ -406,7 +480,7 @@ function materializeEngine<
     compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy, VaneAxisDefinitions>, 'signature'>) =>
       kernel.signature === other.signature,
     use: <
-      const Added extends Readonly<Record<string, unknown>>,
+      const Added extends object,
       RequiredConstructors extends object,
     >(plugin: Constructors extends RequiredConstructors
       ? VaneEnginePlugin<Added, RequiredConstructors>
@@ -449,7 +523,7 @@ function validateContribution(
   added: unknown,
   existing: object,
   owner: string,
-): asserts added is Readonly<Record<string, unknown>> {
+): asserts added is object {
   if (!isPlainObject(added))
     throw new TypeError(`[vane] ${owner} must return a plain object namespace`)
 
@@ -481,6 +555,9 @@ function deepFreeze(value: unknown): void {
   if ((typeof value !== 'object' && typeof value !== 'function') || value === null || Object.isFrozen(value))
     return
   Object.freeze(value)
-  for (const child of Object.values(value as Record<string, unknown>))
+  for (const child of [
+    ...Object.values(value as Record<string, unknown>),
+    ...Object.getOwnPropertySymbols(value).map(symbol => (value as any)[symbol]),
+  ])
     deepFreeze(child)
 }

@@ -156,7 +156,7 @@ export function presetTokens<
   // modules. It exercises the same foundation userland receives; there is no
   // private preset merge path or privileged graph operation.
   const foundations = defineTokens({
-    space: scale.linear({ unit, steps: spaceSteps }),
+    space: scale.linear({ unit, steps: spaceSteps }).tokens(),
     text: textStyles,
     font: fontFamilies,
     radius: radiusFamilies[(options.radius ?? 'calm') as R],

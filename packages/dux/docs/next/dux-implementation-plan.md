@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — phases 0–5 complete; phase 6 ready
+status: active migration ledger — phases 0–6 complete; phase 7 ready
 
 # vane-dux next — implementation plan
 
@@ -43,7 +43,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | 3 | Token configuration, traits, handles, modules, and projections | ☑ |
 | 4 | Axes, cases, roots, conditions, registrations, and emission order | ☑ |
 | 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☑ |
-| 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☐ |
+| 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☑ |
 | 7 | Manifest, explain, audits, DTCG, and plugin portability | ☐ |
 | 8 | Full integration matrix, packaging, documentation, and new flagship demo | ☐ |
 | 9 | Canonical-doc promotion, cleanup, release rehearsal, and alpha decision | ☐ |
@@ -374,28 +374,28 @@ Phase 6 is unblocked.
 
 ### Ports
 
-- [ ] Move ports to the common value/data-type serializer.
-- [ ] Retire `as` in favor of branded values.
-- [ ] Add Standard Schema options with explicit `false | 'dev' | 'always'` validation and non-write invalid policies.
-- [ ] Reject async schemas for synchronous setters unless a separate API is justified.
-- [ ] Preserve port defaults, style fragments, recipes publication, Vue reactivity, and SSR.
-- [ ] Document port versus mutable-token ownership.
+- [x] Move ports to the common value/data-type serializer.
+- [x] Retire `as` in favor of branded values.
+- [x] Add Standard Schema options with explicit `false | 'dev' | 'always'` validation and non-write invalid policies.
+- [x] Reject async schemas for synchronous setters unless a separate API is justified.
+- [x] Preserve port defaults, style fragments, recipes publication, Vue reactivity, and SSR.
+- [x] Document port versus mutable-token ownership.
 
 ### Recipes/Vue
 
-- [ ] Preserve recipes, toggles, compound/defaults, anatomy, headless conditions, call-site strictness, and published ports.
-- [ ] Add `fromTokenGroup()` only after a real recipe fixture proves repeated value.
-- [ ] Preserve/refine object-key `propsOf()` namespacing.
-- [ ] Adapt `usePorts` and runtime helpers to common serializers/validation.
+- [x] Preserve recipes, toggles, compound/defaults, anatomy, headless conditions, call-site strictness, and published ports.
+- [x] Add `fromTokenGroup()` only after a real recipe fixture proves repeated value.
+- [x] Preserve/refine object-key `propsOf()` namespacing.
+- [x] Adapt `usePorts` and runtime helpers to common serializers/validation.
 
 ### Engine plugins and conveniences
 
-- [ ] Implement property alias plugin with `both`/`aliases-only` completion policies and standards/raw escape.
-- [ ] Rebuild elevation and optional BEM/nonstandard conventions as public plugins/preset utilities.
-- [ ] Generalize scales to callable step access plus token generation; define negative/fractional behavior.
-- [ ] Implement `fluid()` on a general typed interpolation primitive with monotonic validation.
-- [ ] Separate layout patterns from style-fragment utilities; expand only through proven repeated use.
-- [ ] Preserve base/custom-property relationship patterns without inventing another primitive.
+- [x] Implement property alias plugin with `both`/`aliases-only` completion policies and standards/raw escape.
+- [x] Rebuild elevation and optional BEM/nonstandard conventions as public plugins/preset utilities.
+- [x] Generalize scales to callable step access plus token generation; define negative/fractional behavior.
+- [x] Implement `fluid()` on a general typed interpolation primitive with monotonic validation.
+- [x] Separate layout patterns from style-fragment utilities; expand only through proven repeated use.
+- [x] Preserve base/custom-property relationship patterns without inventing another primitive.
 
 ### Exit gate
 
@@ -403,6 +403,18 @@ Phase 6 is unblocked.
 - Plugins receive exact IntelliSense and no private privileges.
 - Alias strictness never removes CSS capability.
 - Convenience additions have real use fixtures, not speculative surface alone.
+
+Accepted 2026-07-14. Ports now serialize through the finalized system, carry exact CSS data types, bind synchronous Standard Schema validators explicitly across planes, and never return an invalid write. Recipes and Vue retain their prior contracts while adding token-group generation and object-key namespaces. Optional aliases, elevation, and BEM use the public plugin protocol; scales are callable, interpolation is general, and declaration conveniences remain plain fragments rather than a second styling runtime.
+
+Acceptance evidence:
+
+- Runtime/type/editor/output fixtures cover branded port defaults and setters, restored validator binding, false/dev/always validation, throw/fallback/omit non-write policies, async rejection, recipe-published ports, `fromTokenGroup()`, exact object-key `propsOf()` namespaces, both/aliases-only completion, standards escape, alias collision diagnostics, callable negative/fractional scales, monotonic fluid interpolation, public elevation/BEM plugins, and fragment utilities.
+- Property aliases finalize the typed engine configuration after axes/other plugins (D82). This preserves exact alias/standard completion while keeping the ordinary engine's TypeScript graph at its pre-plugin cost; runtime normalization still uses the common compiler and no plugin receives private access.
+- The full SDK passes 70 files / 513 tests with zero type errors. SDK and both demos typecheck; the generated benchmark corpus matches its source-controlled generator.
+- At 5,000 tokens, TypeScript total time is 2.17s, instantiations 2,217,780, reported memory 583,562 kB, declarations 447,372 B, CSS completion 2.83ms, runtime completion 0.11ms, and graph rename 5.51ms—effectively level with Phase 5. Application output remains 206,918 B CSS / 20,863 B gzip, 12,877 B JavaScript / 2,775 B gzip, and a 2,418,729 B manifest.
+- The build-only root is 276,493 B and the framework-free runtime is 42,689 B; both remain within the accepted Phase 5 capability budgets while adding the Phase 6 surfaces.
+
+Phase 7 is unblocked.
 
 ## 11. Phase 7 — introspection and interchange
 

@@ -46,7 +46,8 @@ const fillStyle = usePorts(() => [
 **Contract details.**
 
 - Reactive, typed, SSR-safe: a `computed()` merging port fragments — deliberately trivial, which is the mark of a boundary drawn in the right place.
-- Accepts a thunk returning fragments (reactive) or plain fragments (static); the thunk's array **is** the merge — no `ports()` wrapper inside ([dux-spec-ports.md §2](./dux-spec-ports.md#2-setters-and-the-ports-merge)). The return binds to `:style` and serializes on the server ([dux-spec-ports.md §5](./dux-spec-ports.md#5-ssr)).
+- Accepts a thunk returning fragments (reactive) or plain fragments (static); the thunk's array **is** the merge — no `ports()` wrapper inside ([dux-spec-ports.md §2](./dux-spec-ports.md#2-setters-and-fragments)). The return binds to `:style` and serializes on the server ([dux-spec-ports.md §6](./dux-spec-ports.md#6-vue-ssr-and-hmr)).
+- Standard Schema validation completes inside `port.set()` before the computed receives a fragment. Restored validated ports bind app/SSR validators once with `port.bind({ validators, dev })`; `usePorts` does not hide a global validator registry or invent a second serialization path.
 - Everything `v-bind()` offers — cascade-powered, no style recalc storms — with none of its limits: works across files, outside SFCs, rename-safe.
 
 ---
@@ -81,6 +82,7 @@ const d = useAnatomy(dialog, props)
 
 - Accepts the reactive props object directly (props are reactive), a getter (`useAnatomy(dialog, () => ({ size: props.size }))`), or nothing — the defaults resolve; returns a reactive, typed record of part classes — `d.content` in the template, no `.value`, no repeated calls.
 - The call-site law applies unchanged: a wider props object flows through; unknown keys are ignored ([dux-spec-recipes.md §4](./dux-spec-recipes.md#4-the-call-site-props-in-classes-out)).
+- `propsOf({ button, card })` preserves multi-component projection through object-key namespaces (`button-intent`, `card-size`). The prefix comes from the key; already-projected option maps may be nested the same way.
 - Single-class recipes stay wrapper-free: `:class="button(props)"` inline is already reactive, and no `useRecipe` exists (principle 10 — a wrapper must carry something, and there it would carry nothing).
 - **`propsOf` is the component-props bridge.** It projects a recipe's or anatomy's variant space into a Vue runtime props declaration — `defineProps({ ...propsOf(button), disabled: Boolean })` — so component props can never drift from the variants, and toggles get native boolean casting (`<AppButton pill>` just works). The runtime form exists because Vue's SFC compiler resolves types *syntactically*: it cannot infer a `recipe()` call's instantiation, so a typed `defineProps<VaneProps<…>>` macro is structurally out of its reach — while the variant space sits right on the handle at runtime. In plain `.ts` code, `VaneProps<typeof button>` remains the typed utility ([dux-spec-recipes.md §4](./dux-spec-recipes.md#4-the-call-site-props-in-classes-out)).
 
@@ -93,7 +95,7 @@ const d = useAnatomy(dialog, props)
 | SFC feature | Compensates for | In vane-dux |
 | --- | --- | --- |
 | `scoped` + `[data-v-x]` | the global namespace | dissolved — every class is hashed; scoping is automatic and cheaper (no attribute selectors) |
-| `:deep(.child)` | piercing the scope wall to theme children | **ports** for values ([dux-spec-ports.md §4](./dux-spec-ports.md#4-child-and-consumer-theming)); typed class interpolation for structure ([dux-spec-css.md §4](./dux-spec-css.md#4-selectors-and-cross-file-references)) |
+| `:deep(.child)` | piercing the scope wall to theme children | **ports** for values ([dux-spec-ports.md §4](./dux-spec-ports.md#4-published-component-styling-contracts)); typed class interpolation for structure ([dux-spec-css.md §4](./dux-spec-css.md#4-selectors-and-cross-file-references)) |
 | `:slotted()` | parent markup in child scope | non-issue — you style what you hold a class reference to; slotted markup already carries the parent's classes |
 | `:global()` | escaping the scope wall | `globalCss()` / the `overrides` layer |
 | `v-bind(expr)` in CSS | reactive values in static styles | **ports** + `usePorts` |

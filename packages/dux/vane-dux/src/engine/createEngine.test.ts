@@ -133,28 +133,28 @@ describe('the canonical design engine', () => {
   })
 
   it('validates extension-owned values against the final engine, not object provenance', () => {
-    const identity = { id: 'com.example.fluid-measure', version: 1 } as const
+    const identity = { id: 'com.example.editorial-measure', version: 1 } as const
     const withMeasure = () => createEngine().extend(identity, de => ({
-      fluid: {
+      editorial: {
         measure: de.defineCssValue({
           type: 'length',
           extension: identity,
-          create: (value: number) => ({ serialize: () => `fluid-measure(${value})` }),
+          create: (value: number) => ({ serialize: () => `editorial-measure(${value})` }),
         }),
       },
     }))
     const author = withMeasure()
     const equivalent = withMeasure()
-    const foreignValue = author.fluid.measure(4)
+    const foreignValue = author.editorial.measure(4)
 
     expect(() => emit(() => createEngine().createSystem({
       tokens: { measure: { editorial: foreignValue } },
-    }))).toThrow(/requires extension com\.example\.fluid-measure@1/)
+    }))).toThrow(/requires extension com\.example\.editorial-measure@1/)
 
     const { css } = emit(() => equivalent.createSystem({
       tokens: { measure: { editorial: foreignValue } },
     }))
-    expect(css).toContain('--vane-measure-editorial: fluid-measure(4)')
+    expect(css).toContain('--vane-measure-editorial: editorial-measure(4)')
   })
 })
 

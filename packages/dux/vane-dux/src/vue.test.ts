@@ -91,6 +91,15 @@ describe('propsOf', () => {
 
     expect(propsOf(dialog)).toEqual({ size: { type: String } })
   })
+
+  it('uses object keys as stable prefixes for multi-component projection', () => {
+    const dialog = prismDialog()
+
+    expect(propsOf({ dialog, compact: propsOf(dialog) })).toEqual({
+      'dialog-size': { type: String },
+      'compact-size': { type: String },
+    })
+  })
 })
 
 describe('useAnatomy', () => {

@@ -74,6 +74,18 @@ button.variants // → the typed variant map, for prop forwarding and docs
 
 **Implementation.** Per-arm `css()`-equivalent emission plus a lookup table (the runtime is a class-string join over the precomputed table, restored across the build/app boundary by `restoreRecipe`). Emission order — base, variants, toggles, compound — makes compound entries win by ordinary CSS order within the layer. Debug names follow the declaration via the `/vite` transform (`button_intent_brand__h4x`). Prior art read, not depended on: `@vanilla-extract/recipes`, CVA, Stitches.
 
+### 1.1 Token-group variants
+
+`fromTokenGroup()` earns one narrow mechanical use: a same-key variant table derived from a resolved token group.
+
+```ts
+const variants = {
+  tone: fromTokenGroup(ds.t.tone, color => ({ background: color })),
+}
+```
+
+The output keys are exactly the group's keys and rename with them. The helper accepts resolved token groups only and requires a mapping callback; arbitrary arrays/objects use ordinary TypeScript. It does not grow into a parallel collection API.
+
 ---
 
 ## 2. Published ports: the `ports:` key
@@ -111,7 +123,7 @@ export const toolbar = css({
 
 **Contract details.**
 
-- `ports:` is publication, not declaration: values are ordinary port handles ([dux-spec-ports.md §1](./dux-spec-ports.md#1-port--declaration-and-interpolation)) created in module scope, so arms reference them directly and the grammar never forks into callback forms.
+- `ports:` is publication, not declaration: values are ordinary port handles ([dux-spec-ports.md §1](./dux-spec-ports.md#1-declaration-and-interpolation)) created in module scope, so arms reference them directly and the grammar never forks into callback forms.
 - Published ports surface as `button.ports.*` — one import gives a consumer the classes *and* the style API — and are recorded in the manifest as the component's runtime surface ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)).
 - Anatomy publishes identically (`dialog.ports.*`).
 - An unpublished port still works everywhere; publication is how a component *advertises* its themeable surface (principle 10 — publishing is opt-in, not a tax).
@@ -205,6 +217,7 @@ const props = defineProps({ ...propsOf(button), disabled: Boolean })
 - **Values are always checked.** A declared variant key with an undeclared value (`intent: 'brnd'`) is a type error wherever the object is typed; arriving through an untyped edge it warns once in dev — naming the valid set — and resolves as the default, so a wrong prop never half-styles a component silently.
 - `VaneProps<typeof button>` hovers as the plain optional object (`{ intent?: 'brand' | 'ghost' | 'danger'; size?: 'sm' | 'md'; pill?: boolean }`) — readable public types, no internals wall. It indexes the handle's `props` carrier (`readonly props: TProps`, runtime value the empty selection) rather than a conditional type, so the definition every tool reads is one Vue's SFC compiler could follow too.
 - **In SFCs, `propsOf` declares the props.** Vue's SFC compiler resolves types syntactically and cannot infer a `recipe()` call's instantiation, so the typed macro can't reach the variant space — but the runtime handle carries it, and `defineProps({ ...propsOf(button), disabled: Boolean })` projects it into a Vue props declaration with literal-union types and native boolean casting for toggles ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)).
+- **Object keys are namespace identity.** `propsOf({ button, card })` flattens exact `button-intent`/`card-size` keys; `{ compact: propsOf(button) }` prefixes from `compact`, never from a guessed variable/export name. The object shape prevents prefix/reference drift and composes already-projected option maps.
 - **Anatomy in Vue: `useAnatomy`.** An anatomy call returns a record, and the tempting `const d = dialog(props)` in `<script setup>` silently loses reactivity. The `/vue` overlay ships the blessed one-liner — a typed `computed` that keeps part classes reactive and template-clean ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)):
 
   ```vue

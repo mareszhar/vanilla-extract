@@ -15,7 +15,7 @@ export function definePrism() {
       brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. Marketing owns this.'),
       canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
     },
-    space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
+    space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }).tokens(),
     radius: { sm: '4px', md: '8px', pill: '999px' },
     duration: { fast: '120ms', normal: '200ms' },
     text: {

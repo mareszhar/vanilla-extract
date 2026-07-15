@@ -4,7 +4,7 @@
  * locked as a public contract ([dux-workspace.md §5]).
  */
 
-import { createSystem } from '@mszr/vane-dux'
+import { angle, createSystem } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 
@@ -61,13 +61,13 @@ describe('port() in emitted CSS', () => {
     expect(css).toMatch(/inline-size: var\(--vane-[^,]+, 100%\)/)
   })
 
-  it('a port with `as` includes the unit in the default fallback', () => {
+  it('a branded angle includes the unit in the default fallback', () => {
     const { css } = emit(() => {
       const { css, port } = miniSystem()
-      const angle = port(0, { as: 'deg' })
+      const rotate = port(angle.deg(0))
 
       return css({
-        rotate: `${angle}`,
+        rotate: `${rotate}`,
       }, 'rotate')
     })
 
@@ -104,13 +104,13 @@ describe('static set() in css() rules — parent→child theming', () => {
     expect(css).toMatch(/--vane-[^:]+: custom;/)
   })
 
-  it('a static set() with a number and unit compiles with the unit', () => {
+  it('a static set() with a branded angle compiles with the unit', () => {
     const { css } = emit(() => {
       const { css, port } = miniSystem()
-      const angle = port(0, { as: 'deg' })
+      const rotate = port(angle.deg(0))
 
       return css({
-        ...angle.set(45),
+        ...rotate.set(angle.deg(45)),
       }, 'rotate')
     })
 

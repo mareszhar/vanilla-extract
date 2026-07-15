@@ -6,7 +6,7 @@
  */
 
 import type { VaneConditionArm } from '../system/conditions'
-import type { VaneCssFunction } from './types'
+import type { VanePropertyAliasCssFunction, VanePropertyAliasMap, VanePropertyAliasMode } from './types'
 import { diagnosticSource } from '../diagnostics'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
@@ -24,12 +24,21 @@ export interface VaneSystemContext {
   globalDefaultLayer: string
   /** The system's root layer (its prefix) — every emitted rule nests under it. */
   layerRoot: string
+  /** Optional alias policy contributed by a public engine plugin. */
+  propertyAliases?: {
+    aliases: VanePropertyAliasMap
+    expose: VanePropertyAliasMode
+  }
 }
 
-export function bindCss(system: VaneSystemContext): VaneCssFunction<string, string> {
-  const css = (rule: object, debugId?: string): string => {
+export function bindCss(system: VaneSystemContext): VanePropertyAliasCssFunction<string, string, VanePropertyAliasMap> {
+  const emit = (rule: object, debugId?: string, standard = false): string => {
     const file = requireStyleModule('css')
-    const compiled = compileRule(rule, { ...system, file })
+    const compiled = compileRule(rule, {
+      ...system,
+      ...(standard ? { propertyAliases: undefined } : {}),
+      file,
+    })
 
     // An overrides-layer style is a deliberate exception by convention
     // ([dux-patterns.md §6/§8]) — inventoried, findable, removable.
@@ -51,8 +60,11 @@ export function bindCss(system: VaneSystemContext): VaneCssFunction<string, stri
     return className
   }
 
+  const css = (rule: object, debugId?: string): string => emit(rule, debugId)
+
   css.raw = bindRaw(system)
-  return css as VaneCssFunction<string, string>
+  css.standard = (rule: object, debugId?: string) => emit(rule, debugId, true)
+  return css as VanePropertyAliasCssFunction<string, string, VanePropertyAliasMap>
 }
 
 function referencedVars(values: Array<string | number | Array<string | number>>): string[] {

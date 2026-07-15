@@ -6,7 +6,7 @@
 
 import type { VaneAtoms, VaneAtomsRuntime } from './atoms/types'
 import type { VaneRuntimeHandle } from './internal/handle'
-import type { VanePort, VanePortMeta } from './ports/types'
+import type { VanePort, VanePortBindingOptions, VanePortMeta } from './ports/types'
 import type { VaneAnatomy, VaneAnatomyRuntime, VaneRecipe, VaneRecipeRuntime } from './recipes/types'
 import type { VaneLiveOverrides } from './tokens/types'
 import { createAtomsHandle } from './atoms/handle'
@@ -17,7 +17,7 @@ import { createAnatomyHandle, createRecipeHandle } from './recipes/handle'
 
 export type { VaneAtomsRuntime } from './atoms/types'
 export type { VaneLiveOverrides }
-export type { VanePort, VanePortMeta, VanePortStyle, VanePortValue } from './ports/types'
+export type { VanePort, VanePortBindingOptions, VanePortMeta, VanePortStyle, VanePortValue } from './ports/types'
 export type { VaneAnatomyRuntime, VaneRecipeRuntime } from './recipes/types'
 export {
   restoreRuntimeFactory,
@@ -133,6 +133,11 @@ export function restoreToken(meta: Parameters<typeof createHandle>[0]): VaneRunt
  */
 export function restorePort(meta: VanePortMeta): VanePort {
   return createPortHandle(meta)
+}
+
+/** Bind app/SSR validator implementations to a restored port without globals. */
+export function bindPort<Port extends VanePort>(port: Port, options: VanePortBindingOptions): Port {
+  return port.bind(options) as Port
 }
 
 /**

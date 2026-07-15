@@ -1,80 +1,84 @@
-/**
- * `port()` — the typed runtime boundary ([dux-spec-ports.md], [dux-patterns.md §4]).
- *
- * A port is a declared, typed, defaulted CSS custom property that a style
- * exposes as its public runtime interface. Declaring one is a single
- * expression: `port(0)` → a number port typed by its default. The handle
- * interpolates as `var(--name, <default>)` — the default makes every style
- * complete without its runtime half.
- *
- * Underneath: `createVar` for the scoped, hashed identifier; the system prefix
- * rides the name; `addFunctionSerializer` carries the handle across the
- * build/app boundary so `restorePort` rebuilds it at runtime.
- */
+/** Build-time port declaration bound to one finalized system serializer. */
 
-import type { VaneResolver } from '../tokens/resolve'
-import type { VanePort, VanePortInput, VanePortKind, VanePortMeta, VanePortOptions, VanePortValue } from './types'
+import type {
+  VanePort,
+  VanePortDataTypeOf,
+  VanePortDefinition,
+  VanePortInput,
+  VanePortKind,
+  VanePortMeta,
+  VanePortOptions,
+  VanePortValidation,
+  VanePortValidationMeta,
+  VanePortValue,
+  VanePortWiden,
+} from './types'
 import { createVar } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { diagnosticSource, VaneError } from '../diagnostics'
-import { isHandle } from '../internal/handle'
 import { record } from '../internal/inspect'
 import { requireStyleModule } from '../internal/styleModule'
-import { isColorValue, isContrastValue } from '../tokens/color'
-import { tokenKindOf } from '../tokens/graph'
-import { containsContrast, modeTraits, serializeExpr } from '../tokens/resolve'
-import { isCssValue } from '../values/types'
 import { createPortHandle, isPort } from './handle'
 
-/** Re-exported so `css/values.ts` can detect ports without a second import. */
 export { isPort } from './handle'
 
-/** Anything a port factory needs from its system — bound once by `createSystem`. */
 export interface VanePortContext {
-  prefix: string
+  readonly prefix: string
+  readonly serialize: (value: unknown) => VanePortValue
 }
 
-// ─── The build-time factory ──────────────────────────────────────────────────
-
-/**
- * The bound `port()` — closed over the system prefix.
- * Called from `createSystem`; the `file` comes from the style module guard.
- */
-export function createPort<TValue extends VanePortInput>(
-  defaultValue: TValue,
-  options: VanePortOptions | undefined,
+export function createPort<
+  Value extends VanePortInput,
+  Output = Value,
+>(
+  input: Value | VanePortDefinition<Value, Output>,
+  options: VanePortOptions<Value, Output> | undefined,
   ctx: VanePortContext,
-): VanePort<TValue> {
+): VanePort<VanePortWiden<Value>, VanePortDataTypeOf<Value>> {
   const file = requireStyleModule('port')
-  const unit = options?.as
-
-  // `createVar` generates a scoped, hashed identifier from the file scope.
-  // We extract the bare name and prepend the system prefix.
-  const rawRef = createVar(options?.label)
+  const definition = isDefinition(input) ? input : undefined
+  const defaultValue = (definition?.val ?? input) as Value
+  const config = definition ?? options
+  const rawRef = createVar(config?.label)
   const bareIdent = rawRef.slice(4, -1).replace(/^--/, '')
   const name = `--${ctx.prefix}-${bareIdent}`
+  let serializedDefault: VanePortValue
+  try {
+    serializedDefault = ctx.serialize(defaultValue)
+  }
+  catch (error) {
+    throw new VaneError({
+      code: 'VANE_PORT_INVALID_DEFAULT',
+      message: 'a port default is not a serializable CSS value',
+      detail: [error instanceof Error ? error.message : String(error)],
+      file,
+      fix: 'give it CSS text, a finite number, a typed vane value, a token, or another port',
+    })
+  }
+  const type = dataTypeOf(defaultValue)
+  const validation = normalizeValidation(config?.validate as VanePortValidation<any, any> | undefined, ctx)
 
-  // One declaration record: the handle mutates it (`.describe()`), the
-  // serializer reads it when exports cross the boundary — late metadata still
-  // arrives because serialization happens after the module body runs.
   const meta: VanePortMeta = {
     name,
-    defaultValue: toMetaDefault(defaultValue, file),
-    kind: inferKind(defaultValue),
-    ...(unit === undefined ? {} : { unit }),
+    defaultValue: serializedDefault,
+    type,
+    kind: legacyKind(type),
+    ...(validation === undefined ? {} : { validation }),
   }
 
-  const handle = createPortHandle(meta) as unknown as VanePort<TValue>
+  const handle = createPortHandle(meta, {
+    serialize: ctx.serialize,
+    schema: config?.validate?.schema as any,
+  }) as unknown as VanePort<VanePortWiden<Value>, VanePortDataTypeOf<Value>>
 
   record({
     kind: 'port',
     file,
     ...diagnosticSource(),
-    ...(options?.label === undefined ? {} : { label: options.label }),
+    ...(config?.label === undefined ? {} : { label: config.label }),
     meta,
   })
 
-  // Carry the handle across the build/app boundary so `restorePort` rebuilds it.
   addFunctionSerializer(handle as unknown as (...args: unknown[]) => unknown, {
     importPath: '@mszr/vane-dux/runtime',
     importName: 'restorePort',
@@ -84,83 +88,67 @@ export function createPort<TValue extends VanePortInput>(
   return handle
 }
 
-// ─── Kind inference and default serialization ────────────────────────────────
-
-function inferKind(defaultValue: VanePortInput): VanePortKind {
-  if (isPort(defaultValue))
-    return defaultValue.kind
-
-  if (isHandle(defaultValue))
-    return tokenKindOf(defaultValue) === 'value' ? 'string' : 'color'
-
-  if (isColorValue(defaultValue))
-    return 'color'
-
-  if (isCssValue(defaultValue))
-    return 'string'
-
-  return typeof defaultValue === 'number' ? 'number' : 'string'
+function isDefinition<
+  Value extends VanePortInput,
+  Output,
+>(
+  input: Value | VanePortDefinition<Value, Output>,
+): input is VanePortDefinition<Value, Output> {
+  return typeof input === 'object' && input !== null && Object.hasOwn(input, 'val')
 }
 
-/**
- * The default for the meta — the serialized form that survives the
- * build/runtime boundary. Handles and ports become their `var()` reference;
- * color expressions fold through the system's resolver; primitives pass
- * through. Anything else is a diagnostic, not a silent `String()`.
- */
-function toMetaDefault(value: VanePortInput, file: string): VanePortValue {
-  if (isPort(value) || isHandle(value))
-    return value.var
+function normalizeValidation(
+  validate: VanePortValidation | undefined,
+  ctx: VanePortContext,
+): VanePortValidationMeta | undefined {
+  if (!validate)
+    return undefined
+  if (validate.id.trim().length === 0)
+    throw new TypeError('[vane] port.validate.id must be non-empty')
+  const runtime = validate.runtime ?? 'dev'
+  const onInvalid = validate.onInvalid ?? 'throw'
+  if (runtime !== false && runtime !== 'dev' && runtime !== 'always')
+    throw new TypeError('[vane] port.validate.runtime must be false, \'dev\', or \'always\'')
+  if (onInvalid !== 'throw' && onInvalid !== 'fallback' && onInvalid !== 'omit')
+    throw new TypeError('[vane] port.validate.onInvalid must be \'throw\', \'fallback\', or \'omit\'')
+  if (onInvalid === 'fallback' && !Object.hasOwn(validate, 'fallback'))
+    throw new TypeError('[vane] port.validate with onInvalid: \'fallback\' needs a fallback value')
 
-  if (isContrastValue(value) || (isColorValue(value) && containsContrast(value.expr))) {
-    throw new VaneError({
-      code: 'VANE_PORT_INVALID_DEFAULT',
-      message: 'a port default uses legibleOn, which is graph knowledge — the check needs both endpoints at build time',
-      file,
-      fix: 'define it as a token — onX: ({ color }) => legibleOn(color.x) — and default the port to that token',
-    })
-  }
-
-  if (isColorValue(value))
-    return serializeExpr(value.expr, portResolver(file))
-
-  if (isCssValue(value))
-    return value.css
-
-  if (typeof value === 'string' || typeof value === 'number')
-    return value
-
-  throw new VaneError({
-    code: 'VANE_PORT_INVALID_DEFAULT',
-    message: 'a port default is not a CSS value',
-    file,
-    fix: 'give it a string, number, token, port, or color expression',
+  const fallback = validate.fallback === undefined ? undefined : ctx.serialize(validate.fallback)
+  return Object.freeze({
+    id: validate.id,
+    runtime,
+    onInvalid,
+    ...(fallback === undefined ? {} : { fallback }),
   })
 }
 
-/**
- * The port-default resolver: graph edges stay `var()` references with their
- * real traits; `serializeExpr` folds only ref-free subtrees and contrast is
- * rejected above, so `foldRef` is unreachable — kept as a diagnostic, not a
- * silent zero.
- */
-function portResolver(file: string): VaneResolver {
-  return {
-    refTraits: handle => modeTraits(handle.mode),
-    foldRef: (handle) => {
-      throw new VaneError({
-        code: 'VANE_PORT_INVALID_DEFAULT',
-        message: `a port default cannot fold ${handle.path} at build time`,
-        file,
-      })
-    },
-    invalidColor: (detail) => {
-      throw new VaneError({
-        code: 'VANE_PORT_INVALID_DEFAULT',
-        message: `a port default cannot resolve: ${detail}`,
-        file,
-        fix: 'give the color helper a color value or a color token',
-      })
-    },
+function dataTypeOf(value: VanePortInput): any {
+  if (isPort(value))
+    return value.type
+  if ((typeof value === 'object' || typeof value === 'function') && value !== null) {
+    if ('$type' in value)
+      return value.$type
+    if ('type' in value)
+      return value.type
   }
+  if (typeof value === 'number')
+    return 'number'
+  if (typeof value !== 'string')
+    return 'declaration'
+  if (/^-?(?:\d+(?:\.\d*)?|\.\d+)%$/.test(value))
+    return 'percentage'
+  if (/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:px|rem|em|vh|vw|vmin|vmax|ch|lh)$/.test(value))
+    return 'length'
+  if (/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:deg|grad|rad|turn)$/.test(value))
+    return 'angle'
+  if (/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:ms|s)$/.test(value))
+    return 'time'
+  return 'declaration'
+}
+
+function legacyKind(type: string): VanePortKind {
+  if (type === 'number' || type === 'integer')
+    return 'number'
+  return type === 'color' ? 'color' : 'string'
 }

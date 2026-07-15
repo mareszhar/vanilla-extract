@@ -2,7 +2,7 @@ import { defineTokens, scale } from '@mszr/vane-dux'
 
 /** Independently buildable metric/type module; no palette opinion is hidden in it. */
 export const foundationTokens = defineTokens({
-  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
+  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }).tokens(),
   radius: { sm: '6px', md: '10px', pill: '999px' },
   duration: { fast: '120ms', normal: '200ms' },
   font: { sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },

@@ -52,6 +52,12 @@ describe('propsOf', () => {
     // @ts-expect-error — a plain class string is not a recipe or anatomy
     void propsOf('a-class')
   })
+
+  it('namespaces multi-component props from object keys', () => {
+    const _options = propsOf({ dialog, modal: propsOf(dialog) })
+    expectTypeOf<ExtractPropTypes<typeof _options>['dialog-size']>().toEqualTypeOf<'sm' | 'lg' | undefined>()
+    expectTypeOf<ExtractPropTypes<typeof _options>['modal-size']>().toEqualTypeOf<'sm' | 'lg' | undefined>()
+  })
 })
 
 describe('useAnatomy', () => {

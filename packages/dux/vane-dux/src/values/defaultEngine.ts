@@ -28,6 +28,7 @@ import {
 import { customProperty } from './customProperty'
 import { defineCssOperation, defineCssValue } from './extensions'
 import { grid as gridImplementation } from './grid'
+import { fluid as fluidImplementation, interpolate as interpolateImplementation } from './interpolate'
 import { calc as calcImplementation, clamp as clampImplementation, max as maxImplementation, min as minImplementation } from './math'
 import { rawValue } from './raw'
 import { angle, createLengthConstructor, cssNumber, flex, frequency, integer, percent, resolution, time } from './units'
@@ -53,10 +54,12 @@ const STATIC_CORE_CONSTRUCTORS = Object.freeze({
   displayP3: displayP3Implementation,
   flex,
   frequency,
+  fluid: fluidImplementation,
   grid: gridImplementation,
   hsl: hslImplementation,
   hwb: hwbImplementation,
   integer,
+  interpolate: interpolateImplementation,
   lab: labImplementation,
   lch: lchImplementation,
   legibleOn: legibleOnImplementation,
@@ -144,10 +147,12 @@ export const {
   displayP3,
   flex: defaultFlex,
   frequency: defaultFrequency,
+  fluid,
   grid,
   hsl,
   hwb,
   integer: defaultInteger,
+  interpolate,
   lab,
   lch,
   legibleOn,

@@ -4,8 +4,8 @@
  * at the type level.
  */
 
-import type { VaneColorToken, VanePort, VanePortKind, VanePortMeta, VaneVarReference } from '@mszr/vane-dux'
-import { createSystem, oklch } from '@mszr/vane-dux'
+import type { VaneColorToken, VanePort, VanePortKind, VanePortMeta, VanePortSetValue, VaneVarReference } from '@mszr/vane-dux'
+import { angle, createSystem, oklch } from '@mszr/vane-dux'
 import { describe, expectTypeOf, it } from 'vitest'
 
 // Never evaluated — the typecheck plane only reads types.
@@ -35,7 +35,7 @@ describe('port type inference', () => {
     const { port } = system()
     const width = port('4px')
 
-    expectTypeOf(width).toExtend<VanePort<string>>()
+    expectTypeOf(width).toExtend<VanePort<string, 'length'>>()
     expectTypeOf(width.defaultValue).toEqualTypeOf<string>()
   })
 
@@ -66,7 +66,7 @@ describe('set() typing', () => {
     const { port, t } = system()
     const fraction = port(0)
 
-    expectTypeOf(fraction.set).parameter(0).toEqualTypeOf<number | VaneVarReference>()
+    expectTypeOf(fraction.set).parameter(0).toEqualTypeOf<VanePortSetValue<'number'>>()
     fraction.set(0.62)
     fraction.set(t.space.sm)
   })
@@ -75,7 +75,7 @@ describe('set() typing', () => {
     const { port, t } = system()
     const width = port('4px')
 
-    expectTypeOf(width.set).parameter(0).toEqualTypeOf<string | VaneVarReference>()
+    expectTypeOf(width.set).parameter(0).toEqualTypeOf<VanePortSetValue<'length'>>()
     width.set('8px')
     width.set(t.space.md)
   })
@@ -157,12 +157,17 @@ describe('token and expression defaults', () => {
 })
 
 describe('options', () => {
-  it('the `as` option accepts a unit string', () => {
+  it('units come from branded values and `as` is retired', () => {
     const { port } = system()
-    const angle = port(0, { as: 'deg' })
+    const rotation = port(angle.deg(0))
 
-    expectTypeOf(angle).toExtend<VanePort<number>>()
-    angle.set(45)
+    expectTypeOf(rotation.type).toEqualTypeOf<'angle'>()
+    rotation.set(angle.deg(45))
+    rotation.set('0.5turn')
+    // @ts-expect-error — a raw number has no angle unit
+    rotation.set(45)
+    // @ts-expect-error — the retired `as` option cannot bolt meaning onto a number
+    void port(0, { as: 'deg' })
   })
 
   it('the `label` option accepts a debug string', () => {
@@ -170,5 +175,26 @@ describe('options', () => {
     const fraction = port(0, { label: 'fraction' })
 
     expectTypeOf(fraction).toExtend<VanePort<number>>()
+  })
+
+  it('the config form infers through Standard Schema and keeps binding explicit', () => {
+    const { port } = system()
+    const factor = port({
+      val: 0,
+      validate: {
+        id: 'factor',
+        runtime: 'always',
+        schema: {
+          '~standard': {
+            version: 1,
+            vendor: 'test',
+            validate: (value: number) => ({ value }),
+          },
+        },
+      },
+    })
+
+    factor.set(0.5)
+    expectTypeOf(factor.bind({ validators: {} })).toEqualTypeOf<typeof factor>()
   })
 })

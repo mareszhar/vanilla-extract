@@ -1,38 +1,100 @@
-/**
- * Scale generators are ordinary functions producing token subtrees — nothing
- * about them is special-cased ([dux-spec-tokens.md §1]).
- */
+/** Callable numeric scales; named token tables are a projection, not the scale itself. */
 
-export interface VaneLinearScale<Steps extends Record<string, number>> {
-  unit: number
-  steps: Steps
+import type { VaneCssValue } from '../values/types'
+import type { VaneLengthUnit } from '../values/units'
+import { length } from '../values/units'
+
+export interface VaneLinearScaleOptions<Steps extends Readonly<Record<string, number>>> {
+  /** Number of CSS pixels per scale step. */
+  readonly unit: number
+  readonly steps: Steps
 }
 
-export interface VaneModularScale<Steps extends Record<string, number>> {
-  /** The base size, in `unit`s. Defaults to 1. */
-  base?: number
-  ratio: number
-  steps: Steps
-  /** Defaults to `rem`. */
-  unit?: string
+export interface VaneModularScaleOptions<Steps extends Readonly<Record<string, number>>> {
+  /** Base magnitude in `unit`; defaults to 1. */
+  readonly base?: number
+  readonly ratio: number
+  readonly steps: Steps
+  /** Defaults to rem. */
+  readonly unit?: VaneLengthUnit
 }
 
-export const scale = {
-  /** `unit × step`, in px: `linear({ unit: 4, steps: { xs: 1, sm: 2 } })` → `{ xs: '4px', sm: '8px' }`. */
-  linear<Steps extends Record<string, number>>({ unit, steps }: VaneLinearScale<Steps>): { [K in keyof Steps]: `${number}px` } {
-    return mapSteps(steps, step => `${round(unit * step)}px` as `${number}px`)
+export interface VaneScale<
+  Steps extends Readonly<Record<string, number>>,
+  Value,
+> {
+  /** Resolve a named configured step or any finite negative/fractional step. */
+  <Step extends keyof Steps & string>(step: Step): Value
+  (step: number): Value
+  readonly steps: Readonly<Steps>
+  /** Materialize the configured named steps as an immutable token subtree. */
+  readonly tokens: () => { readonly [Key in keyof Steps]: Value }
+}
+
+type LengthValue = VaneCssValue<string, 'length'>
+
+export const scale = Object.freeze({
+  linear<const Steps extends Readonly<Record<string, number>>>(
+    options: VaneLinearScaleOptions<Steps>,
+  ): VaneScale<Steps, LengthValue> {
+    finite(options.unit, 'linear unit')
+    return createScale(options.steps, step => length.px(round(options.unit * step)))
   },
 
-  /** `base × ratio^step`: `modular({ ratio: 1.25, steps: { md: 0, lg: 1 } })` → `{ md: '1rem', lg: '1.25rem' }`. */
-  modular<Steps extends Record<string, number>>({ base = 1, ratio, steps, unit = 'rem' }: VaneModularScale<Steps>): { [K in keyof Steps]: string } {
-    return mapSteps(steps, step => `${round(base * ratio ** step)}${unit}`)
+  modular<const Steps extends Readonly<Record<string, number>>>(
+    options: VaneModularScaleOptions<Steps>,
+  ): VaneScale<Steps, LengthValue> {
+    const base = options.base ?? 1
+    const unit = options.unit ?? 'rem'
+    finite(base, 'modular base')
+    finite(options.ratio, 'modular ratio')
+    if (options.ratio <= 0)
+      throw new RangeError(`[vane] modular scale ratio must be greater than zero; received ${options.ratio}`)
+    return createScale(options.steps, step => length[unit](round(base * options.ratio ** step)))
   },
+})
+
+function createScale<Steps extends Readonly<Record<string, number>>, Value>(
+  authoredSteps: Steps,
+  resolve: (step: number) => Value,
+): VaneScale<Steps, Value> {
+  const steps = Object.freeze({ ...authoredSteps }) as Readonly<Steps>
+  for (const [name, step] of Object.entries(steps))
+    finite(step, `step '${name}'`)
+
+  const cache = new Map<number, Value>()
+  const at = (step: number): Value => {
+    finite(step, 'step')
+    const prior = cache.get(step)
+    if (prior !== undefined)
+      return prior
+    const value = resolve(step)
+    cache.set(step, value)
+    return value
+  }
+  const callable = ((step: string | number): Value => {
+    if (typeof step === 'string') {
+      if (!Object.hasOwn(steps, step))
+        throw new RangeError(`[vane] this scale has no named step '${step}'`)
+      return at(steps[step]!)
+    }
+    return at(step)
+  }) as VaneScale<Steps, Value>
+
+  let tokenTable: { readonly [Key in keyof Steps]: Value } | undefined
+  return Object.freeze(Object.assign(callable, {
+    steps,
+    tokens: () => tokenTable ??= Object.freeze(Object.fromEntries(
+      Object.entries(steps).map(([name, step]) => [name, at(step)]),
+    )) as { readonly [Key in keyof Steps]: Value },
+  }))
 }
 
-function mapSteps<Steps extends Record<string, number>, V>(steps: Steps, map: (step: number) => V): { [K in keyof Steps]: V } {
-  return Object.fromEntries(Object.entries(steps).map(([key, step]) => [key, map(step)])) as { [K in keyof Steps]: V }
+function finite(value: number, role: string): void {
+  if (!Number.isFinite(value))
+    throw new RangeError(`[vane] scale ${role} must be finite; received ${value}`)
 }
 
 function round(value: number): number {
-  return Math.round(value * 1e4) / 1e4
+  return Math.round(value * 1e6) / 1e6
 }

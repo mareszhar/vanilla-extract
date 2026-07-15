@@ -17,6 +17,8 @@ The preset's law: **opinions live where they're deletable.** Everything here con
 | 4 | A11y helpers | 7 | ☑ (including the audit for outline removal without a focus-visible replacement) |
 | 5 | Motion opinions | 7 | ☑ |
 | 6 | Layout patterns | 7 | ☑ |
+| 7 | Optional elevation/BEM engine plugins | 6-next | ☑ |
+| 8 | Style-fragment utilities | 6-next | ☑ |
 
 ---
 
@@ -146,3 +148,49 @@ export const input = css({
 **Why.** The recurring compositional layouts have names; giving them typed, token-fed implementations removes a whole class of flexbox re-derivation.
 
 **Contract details.** `stack`, `inline`, `cluster`, `center`, `sidebar`, `switcher`, `frame`, `reel` — each a parameterized style over the space scale (`stack({ gap: 'md', align: 'start' })`), returning ordinary, memoized classes. Bound once beside the system — `export const { stack, sidebar } = definePatterns({ css, t })` — and called in style modules, where the compiler is listening. Gaps are typed by `t.space`'s keys. Documented with their CSS so they teach, not obscure.
+
+Patterns are layout composition and return classes. `circle`, `square`, `truncate`, and `visuallyHidden` are declaration fragments and stay separate; calling every reusable fragment a pattern would blur what the output owns.
+
+---
+
+## 7. Optional convention plugins
+
+Elevation and base-scale em are opinions, not privileged engine primitives. They are the first preset consumers of the same `defineEnginePlugin()`/`.use()` contract available to applications:
+
+```ts
+const de = createEngine()
+  .use(elevationPlugin())
+  .use(bemPlugin({ base: 4, targetPx: 16 }))
+
+de.elevation(de.oklch(0.6, 0.2, 280), 0.2)
+de.bem(4) // 1rem
+```
+
+- `elevationPlugin()` adds a scheme-aware `elevation(base, position)` color constructor. Custom curves carry a stable semantic ID so engine compatibility/HMR never depends on function identity.
+- `bemPlugin()` adds the deliberately nonstandard base-scale-em constructor: design-scale-relative like px, expressed in rem so browser root font-size accessibility remains effective.
+- both constructors reappear on the finalized system through ordinary plugin re-exposure and receive exact IntelliSense;
+- neither imports a private IR class or receives a hidden registration privilege.
+
+---
+
+## 8. Scales, interpolation, and fragment utilities
+
+Core scales are callable numeric functions. Named token generation is explicit:
+
+```ts
+const space = de.scale.linear({ unit: 4, steps: { sm: 2, md: 4 } })
+
+space('sm')      // 8px
+space(-0.5)      // -2px; negative/fractional finite steps are deliberate
+space.tokens()   // { sm: 8px, md: 16px } for defineTokens()
+```
+
+Modular scales accept the same named/numeric access, require a positive ratio, and support negative/fractional exponents. `interpolate(from, to, progress)` is the general typed numeric CSS interpolation primitive; `progress` accepts either a finite JavaScript number or a typed CSS `<number>` expression. `fluid({ min, max, minVw, maxVw })` is its monotonic viewport specialization emitted as ordinary `clamp()`/`calc()` CSS. Inverted value or viewport bounds diagnose instead of producing a surprising curve.
+
+The preset's proven style fragments are deliberately small:
+
+- `square(size)` and `circle(size)`;
+- `truncate()` for one line or `truncate(lines)` for a positive multi-line clamp;
+- `visuallyHidden()` and accessibility helpers from §4.
+
+They return plain overridable declaration objects. No new mixin runtime or custom-property primitive exists.

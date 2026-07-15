@@ -545,8 +545,8 @@ describe('applyDebugNames', () => {
   })
 
   it('merges into existing options', () => {
-    expect(applyDebugNames('export const angle = port(0, { as: \'deg\' })'))
-      .toBe('export const angle = port(0, { label: \'angle\', as: \'deg\' })')
+    expect(applyDebugNames('export const factor = port(0, { validate: factorValidation })'))
+      .toBe('export const factor = port(0, { label: \'factor\', validate: factorValidation })')
   })
 
   it('respects an explicit label', () => {

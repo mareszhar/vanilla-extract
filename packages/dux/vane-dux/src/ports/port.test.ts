@@ -4,10 +4,10 @@
  * of [dux-spec-ports.md], asserted directly.
  */
 
-import { createSystem, oklch, ports, VaneError } from '@mszr/vane-dux'
+import { createSystem, angle as cssAngle, oklch, ports, VaneError } from '@mszr/vane-dux'
 import { restorePort } from '@mszr/vane-dux/runtime'
 import { definePrismSystem, emit } from '@test'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 describe('port() declaration', () => {
   it('creates a handle with a hashed name under the system prefix', () => {
@@ -64,14 +64,14 @@ describe('port() declaration', () => {
     expect(fraction.name).toMatch(/^--prism-/)
   })
 
-  it('the `as` option annotates a number port\'s unit', () => {
+  it('a branded value owns its unit', () => {
     const { returned: angle } = emit(() => {
       const { port } = definePrismSystem()
-      return port(0, { as: 'deg' })
+      return port(cssAngle.deg(0))
     })
 
     expect(`${angle}`).toBe(`var(${angle.name}, 0deg)`)
-    expect(angle.set(45)).toEqual({ [angle.name]: '45deg' })
+    expect(angle.set(cssAngle.deg(45))).toEqual({ [angle.name]: '45deg' })
   })
 
   it('a value-token default is a string port — the kind never claims color', () => {
@@ -155,13 +155,13 @@ describe('set()', () => {
     expect(fraction.set(0.62)).toEqual({ [fraction.name]: 0.62 })
   })
 
-  it('a number port with `as` serializes the unit', () => {
+  it('a branded angle port serializes another angle', () => {
     const { returned: angle } = emit(() => {
       const { port } = definePrismSystem()
-      return port(0, { as: 'deg' })
+      return port(cssAngle.deg(0))
     })
 
-    expect(angle.set(90)).toEqual({ [angle.name]: '90deg' })
+    expect(angle.set(cssAngle.deg(90))).toEqual({ [angle.name]: '90deg' })
   })
 
   it('a color port set accepts a CSS string', () => {
@@ -195,25 +195,74 @@ describe('set()', () => {
     expect(Object.keys(fragment)[0]).toMatch(/^--vane-/)
   })
 
-  it('dev builds warn once, with the port\'s name, on a kind mismatch', () => {
+  it('a sync Standard Schema rejects invalid values before returning a fragment', () => {
     const { returned: fraction } = emit(() => {
       const { port } = definePrismSystem()
-      return port(0)
+      return port({
+        val: 0,
+        validate: {
+          id: 'fraction',
+          runtime: 'always',
+          schema: {
+            '~standard': {
+              version: 1,
+              vendor: 'test',
+              validate: (value: number) => value >= 0 && value <= 1
+                ? { value }
+                : { issues: [{ message: 'outside 0..1' }] },
+            },
+          },
+        },
+      })
     })
 
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(() => fraction.set(2)).toThrow(/outside 0\.\.1/)
+    expect(fraction.set(0.5)).toEqual({ [fraction.name]: 0.5 })
+  })
 
-    try {
-      fraction.set('nope' as never)
-      fraction.set('nope' as never)
+  it('supports false/dev/always and non-write fallback/omit policies', () => {
+    const schema = {
+      '~standard': {
+        version: 1 as const,
+        vendor: 'test',
+        validate: (value: number) => value >= 0 ? { value } : { issues: [{ message: 'negative' }] },
+      },
+    }
+    const { returned } = emit(() => {
+      const { port } = definePrismSystem()
+      return {
+        unchecked: port({ val: 0, validate: { id: 'off', schema, runtime: false } }),
+        omitted: port({ val: 0, validate: { id: 'omit', schema, runtime: 'always', onInvalid: 'omit' } }),
+        fallback: port({ val: 0, validate: { id: 'fallback', schema, runtime: 'always', onInvalid: 'fallback', fallback: 1 } }),
+      }
+    })
 
-      expect(warn).toHaveBeenCalledTimes(1)
-      expect(warn.mock.calls[0][0]).toContain(fraction.name)
-      expect(warn.mock.calls[0][0]).toContain('number port')
-    }
-    finally {
-      warn.mockRestore()
-    }
+    expect(returned.unchecked.set(-1)).toEqual({ [returned.unchecked.name]: -1 })
+    expect(returned.omitted.set(-1)).toEqual({})
+    expect(returned.fallback.set(-1)).toEqual({ [returned.fallback.name]: 1 })
+    expect(returned.omitted.bind({ dev: false }).set(-1)).toEqual({}) // `always` ignores dev.
+  })
+
+  it('rejects async validators before any synchronous style fragment can escape', () => {
+    const { returned: value } = emit(() => {
+      const { port } = definePrismSystem()
+      return port({
+        val: 0,
+        validate: {
+          id: 'async',
+          runtime: 'always',
+          schema: {
+            '~standard': {
+              version: 1,
+              vendor: 'test',
+              validate: async (input: number) => ({ value: input }),
+            },
+          },
+        },
+      })
+    })
+
+    expect(() => value.set(1)).toThrow(/async; set\(\) is synchronous/)
   })
 })
 
@@ -244,6 +293,7 @@ describe('restorePort', () => {
       name: '--vane-fraction__h4x',
       defaultValue: 0,
       kind: 'number',
+      type: 'number',
     })
 
     expect(`${handle}`).toBe('var(--vane-fraction__h4x, 0)')
@@ -255,27 +305,27 @@ describe('restorePort', () => {
   it('a restored port equals its build-time original — defaultValue included', () => {
     const { returned: angle } = emit(() => {
       const { port } = definePrismSystem()
-      return port(0, { as: 'deg' })
+      return port(cssAngle.deg(0))
     })
 
     const restored = restorePort({ ...angle.meta })
 
     expect(restored.defaultValue).toBe(angle.defaultValue)
-    expect(restored.defaultValue).toBe(0)
+    expect(restored.defaultValue).toBe('0deg')
     expect(`${restored}`).toBe(`${angle}`)
-    expect(restored.set(45)).toEqual(angle.set(45))
+    expect(restored.set('45deg')).toEqual(angle.set(cssAngle.deg(45)))
   })
 
-  it('a restored port with `as` serializes the unit in set()', () => {
+  it('a restored branded port keeps serialized CSS values', () => {
     const handle = restorePort({
       name: '--vane-angle__h4x',
       defaultValue: '0deg',
-      kind: 'number',
-      unit: 'deg',
+      kind: 'string',
+      type: 'angle',
     })
 
     expect(`${handle}`).toBe('var(--vane-angle__h4x, 0deg)')
-    expect(handle.set(45)).toEqual({ '--vane-angle__h4x': '45deg' })
+    expect(handle.set('45deg')).toEqual({ '--vane-angle__h4x': '45deg' })
   })
 
   it('a restored color port set accepts a string', () => {
@@ -283,10 +333,38 @@ describe('restorePort', () => {
       name: '--vane-tint__h4x',
       defaultValue: 'var(--vane-color-brand)',
       kind: 'color',
+      type: 'color',
     })
 
     expect(`${handle}`).toBe('var(--vane-tint__h4x, var(--vane-color-brand))')
     expect(handle.set('oklch(0.4 0.1 100)')).toEqual({ '--vane-tint__h4x': 'oklch(0.4 0.1 100)' })
+  })
+
+  it('binds app-plane validators by stable id without global state', () => {
+    const restored = restorePort({
+      name: '--vane-fraction__h4x',
+      defaultValue: 0,
+      kind: 'number',
+      type: 'number',
+      validation: { id: 'fraction', runtime: 'always', onInvalid: 'throw' },
+    })
+    expect(() => restored.set(2)).toThrow(/needs the synchronous Standard Schema validator/)
+
+    const bound = restored.bind({
+      validators: {
+        fraction: {
+          '~standard': {
+            version: 1,
+            vendor: 'test',
+            validate: (value: unknown) => typeof value === 'number' && value <= 1
+              ? { value }
+              : { issues: [{ message: 'too large' }] },
+          },
+        },
+      },
+    })
+    expect(bound.set(0.5)).toEqual({ '--vane-fraction__h4x': 0.5 })
+    expect(() => bound.set(2)).toThrow(/too large/)
   })
 })
 

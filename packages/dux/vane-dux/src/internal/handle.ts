@@ -12,6 +12,24 @@ export const VANE_HANDLE = Symbol.for('vane.tokenHandle')
 export const VANE_BRANCH_HANDLE = Symbol.for('vane.tokenBranchHandle')
 export const VANE_RUNTIME_ADDRESS = Symbol.for('vane.runtimeAddress')
 
+// Restored handles may be hoisted above module constants by an SSR bundler.
+// Function declarations remain callable there; Symbol.for preserves identity.
+function vaneHandleSymbol(): symbol {
+  return Symbol.for('vane.tokenHandle')
+}
+
+function vaneBranchHandleSymbol(): symbol {
+  return Symbol.for('vane.tokenBranchHandle')
+}
+
+function vaneRuntimeAddressSymbol(): symbol {
+  return Symbol.for('vane.runtimeAddress')
+}
+
+function caseBranchesSymbol(): symbol {
+  return Symbol.for('vane.caseBranches')
+}
+
 export type VaneSemanticTokenAddress
   = { readonly kind: 'base' }
     | { readonly kind: 'axis', readonly axis: string, readonly mode: string }
@@ -125,9 +143,9 @@ export function createHandle(meta: VaneHandleMeta): VaneRuntimeHandle {
   const handle = (() => render()) as VaneRuntimeHandle
 
   Object.defineProperty(handle, 'name', { value: meta.name, configurable: true })
-  Object.defineProperty(handle, VANE_HANDLE, { value: true })
+  Object.defineProperty(handle, vaneHandleSymbol(), { value: true })
   if (meta.runtime)
-    Object.defineProperty(handle, VANE_RUNTIME_ADDRESS, { configurable: true, value: meta.runtime })
+    Object.defineProperty(handle, vaneRuntimeAddressSymbol(), { configurable: true, value: meta.runtime })
   defineGetter(handle, 'var', () => variable)
   defineGetter(handle, 'path', () => state.path)
   defineMutable(handle, 'mode', () => state.mode, value => state.mode = value)
@@ -200,9 +218,9 @@ export function createBranchHandle(value?: string | number, meta: {
   const state = { value, ...meta }
   const render = () => state.value === undefined ? '' : String(state.value)
   const handle = (() => render()) as VaneRuntimeBranchHandle
-  Object.defineProperty(handle, VANE_BRANCH_HANDLE, { value: true })
+  Object.defineProperty(handle, vaneBranchHandleSymbol(), { value: true })
   if (meta.runtime)
-    Object.defineProperty(handle, VANE_RUNTIME_ADDRESS, { configurable: true, value: meta.runtime })
+    Object.defineProperty(handle, vaneRuntimeAddressSymbol(), { configurable: true, value: meta.runtime })
   defineMutable(handle, '$val', () => state.value, next => state.value = next)
   defineMutable(handle, '$description', () => state.description, next => state.description = next)
   defineMutable(handle, '$metadata', () => state.metadata, next => state.metadata = next)
@@ -221,8 +239,6 @@ export function attachAxisBranch(
   axes[axis]![mode] = branch
 }
 
-const CASE_BRANCHES = Symbol('vane.caseBranches')
-
 export function attachCaseBranch(
   handle: VaneRuntimeHandle,
   when: Readonly<Record<string, string>>,
@@ -230,21 +246,23 @@ export function attachCaseBranch(
 ): void {
   // `$case` closes over this map; storing it on a non-enumerable symbol keeps
   // private runtime addresses out of the public token tree.
-  const owner = handle as VaneRuntimeHandle & { [CASE_BRANCHES]?: Map<string, VaneRuntimeBranchHandle> }
-  let cases = owner[CASE_BRANCHES]
+  const symbol = caseBranchesSymbol()
+  const owner = handle as VaneRuntimeHandle & Record<symbol, Map<string, VaneRuntimeBranchHandle> | undefined>
+  let cases = owner[symbol]
   if (!cases) {
     cases = new Map()
-    Object.defineProperty(owner, CASE_BRANCHES, { value: cases })
+    Object.defineProperty(owner, symbol, { value: cases })
   }
   cases.set(addressKey(when), branch)
 }
 
 /** Called immediately after creation so `$case` and attachment share storage. */
 export function wireCaseBranches(handle: VaneRuntimeHandle): void {
-  const owner = handle as VaneRuntimeHandle & { [CASE_BRANCHES]?: Map<string, VaneRuntimeBranchHandle> }
-  const cases = owner[CASE_BRANCHES] ?? new Map<string, VaneRuntimeBranchHandle>()
-  if (!owner[CASE_BRANCHES])
-    Object.defineProperty(owner, CASE_BRANCHES, { value: cases })
+  const symbol = caseBranchesSymbol()
+  const owner = handle as VaneRuntimeHandle & Record<symbol, Map<string, VaneRuntimeBranchHandle> | undefined>
+  const cases = owner[symbol] ?? new Map<string, VaneRuntimeBranchHandle>()
+  if (!owner[symbol])
+    Object.defineProperty(owner, symbol, { value: cases })
   Object.defineProperty(handle, '$case', {
     configurable: true,
     get: () => (when: Readonly<Record<string, string>>) => {
@@ -258,25 +276,25 @@ export function wireCaseBranches(handle: VaneRuntimeHandle): void {
 
 export function isHandle(value: unknown): value is VaneRuntimeHandle {
   return typeof value === 'function'
-    && (value as Partial<Record<typeof VANE_HANDLE, unknown>>)[VANE_HANDLE] === true
+    && (value as unknown as Record<symbol, unknown>)[vaneHandleSymbol()] === true
 }
 
 export function isBranchHandle(value: unknown): value is VaneRuntimeBranchHandle {
   return typeof value === 'function'
-    && (value as Partial<Record<typeof VANE_BRANCH_HANDLE, unknown>>)[VANE_BRANCH_HANDLE] === true
+    && (value as unknown as Record<symbol, unknown>)[vaneBranchHandleSymbol()] === true
 }
 
 export function runtimeAddressOf(value: unknown): VaneHandleRuntimeAddress | undefined {
   if (!isHandle(value) && !isBranchHandle(value))
     return undefined
-  return value[VANE_RUNTIME_ADDRESS]
+  return (value as unknown as Record<symbol, VaneHandleRuntimeAddress | undefined>)[vaneRuntimeAddressSymbol()]
 }
 
 export function setRuntimeAddress(
   value: VaneRuntimeHandle | VaneRuntimeBranchHandle,
   runtime: VaneHandleRuntimeAddress,
 ): void {
-  Object.defineProperty(value, VANE_RUNTIME_ADDRESS, { configurable: true, value: runtime })
+  Object.defineProperty(value, vaneRuntimeAddressSymbol(), { configurable: true, value: runtime })
 }
 
 function serializeFallback(value: unknown): string {

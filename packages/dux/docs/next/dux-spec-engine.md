@@ -320,7 +320,9 @@ The plugin controls completion/type exposure:
 - `both`: aliases and standard properties;
 - `aliases-only`: preferred `css()` lane exposes aliases, while `css.standard` and `css.raw` preserve platform reach.
 
-Diagnostics cover alias/property/condition collisions, conflicting normalization, and shorthand/longhand hazards.
+Install the alias plugin after axes and other engine plugins. Selecting a preferred property vocabulary finalizes the typed engine configuration before `createSystem()`; this prevents TypeScript from recursively instantiating the complete CSS grammar at every preceding chain step while leaving runtime plugin semantics and system constructors unchanged.
+
+Diagnostics cover alias/property/condition collisions and conflicting same-arm normalization. Shorthand/longhand interactions retain authored object order exactly like their standard CSS spellings; Phase 7 may audit suspicious combinations, but Phase 6 does not invent a partial relationship table or reject legitimate cascade intent.
 
 Core defines no aliases.
 

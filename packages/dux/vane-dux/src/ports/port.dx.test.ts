@@ -61,12 +61,12 @@ describe('the authoring shape', () => {
     expect(errors).toBeClean()
   })
 
-  it('port methods autocomplete — set, describe, deprecated, toString', () => {
+  it('port methods autocomplete — setter, validator binding, metadata, and intent', () => {
     const result = project.query`${defineSystem}
       export const fraction = port(0)
       void fraction.${cursor}
     `
-    expect(result.completions).toContainCompletions(['set', 'describe', 'deprecated', 'toString', 'var', 'name', 'kind'])
+    expect(result.completions).toContainCompletions(['set', 'bind', 'describe', 'deprecated', 'toString', 'var', 'name', 'type', 'kind'])
   })
 })
 
@@ -76,7 +76,7 @@ describe('errors at the cursor', () => {
       export const fraction = port(0)
       void fraction.set('hello')
     `
-    expect(errors).toHaveError(/not assignable to parameter of type 'number \| VaneVarReference'/)
+    expect(errors).toHaveError(/not assignable to parameter of type 'VanePortSetValue<"number">'/)
     expect(errors).toHaveErrorCount(1)
     expectNoLeak(errors)
   })
@@ -86,7 +86,7 @@ describe('errors at the cursor', () => {
       export const width = port('4px')
       void width.set(8)
     `
-    expect(errors).toHaveError(/not assignable to parameter of type 'string \| VaneVarReference'/)
+    expect(errors).toHaveError(/not assignable to parameter of type 'VanePortSetValue<"length">'/)
     expect(errors).toHaveErrorCount(1)
     expectNoLeak(errors)
   })

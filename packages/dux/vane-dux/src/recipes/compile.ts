@@ -165,8 +165,8 @@ export function checkSelection(
 }
 
 /** Publication is port handles only — anything else gets one clear diagnostic. */
-export function checkPorts(build: VaneRecipeBuild, ports: unknown): Record<string, VanePort> {
-  const checked: Record<string, VanePort> = {}
+export function checkPorts(build: VaneRecipeBuild, ports: unknown): Record<string, VanePort<any, any>> {
+  const checked: Record<string, VanePort<any, any>> = {}
 
   if (ports === undefined || ports === null)
     return checked
@@ -250,7 +250,7 @@ export function recordVariantShape(
   variants: Record<string, Record<string, unknown>>,
   toggles: Record<string, unknown>,
   defaults: Record<string, string | boolean>,
-  ports: Record<string, VanePort>,
+  ports: Record<string, VanePort<any, any>>,
 ): Pick<VaneRecipeRecord, 'variants' | 'toggles' | 'defaults' | 'ports'> {
   return {
     variants: Object.fromEntries(Object.entries(variants).map(([axis, values]) => [axis, Object.keys(values)])),

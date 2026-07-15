@@ -65,28 +65,44 @@ export {
   VANE_SYSTEM_SURFACE_VERSION,
 } from './engine/reservations'
 export type { VaneBuiltinConstructorName, VaneSystemMember } from './engine/reservations'
+export type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from './internal/inspect'
+export { propertyAliases } from './plugins/propertyAliases'
 
 // ─── Introspection: the audit config the system carries (phase 8) ────────────
 
-export type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from './internal/inspect'
+export type {
+  VanePropertyAliasConfig,
+  VanePropertyAliasExposure,
+  VanePropertyAliasOptions,
+} from './plugins/propertyAliases'
 
 // ─── Ports: the typed runtime boundary (phase 3) ─────────────────────────────
 
 export { ports } from './ports/ports'
 export type {
   VanePort,
+  VanePortBindingOptions,
+  VanePortDataTypeOf,
   VanePortDefault,
+  VanePortDefinition,
+  VanePortFactory,
   VanePortInput,
   VanePortKind,
   VanePortMeta,
   VanePortOptions,
   VanePortSetValue,
   VanePortStyle,
+  VanePortTokenReference,
+  VanePortValidation,
+  VanePortValidationMeta,
   VanePortValue,
   VanePortWiden,
 } from './ports/types'
 
 // ─── Recipes: variants, toggles, anatomy, published ports (phase 4) ──────────
+
+export { fromTokenGroup } from './recipes/fromTokenGroup'
+export type { VaneTokenGroup } from './recipes/fromTokenGroup'
 
 export type {
   VaneAnatomy,
@@ -181,7 +197,7 @@ export type {
 } from './tokens/color'
 export { defineTokens } from './tokens/graph'
 export { scale } from './tokens/scale'
-export type { VaneLinearScale, VaneModularScale } from './tokens/scale'
+export type { VaneLinearScaleOptions, VaneModularScaleOptions, VaneScale } from './tokens/scale'
 export { theme } from './tokens/theme'
 export type {
   VaneAuthoredColor,
@@ -260,11 +276,13 @@ export {
   desaturate,
   displayP3,
   defaultFlex as flex,
+  fluid,
   defaultFrequency as frequency,
   grid,
   hsl,
   hwb,
   defaultInteger as integer,
+  interpolate,
   lab,
   lch,
   legibleOn,
@@ -292,6 +310,7 @@ export type {
   VaneCssValueRecipe,
   VaneExtensionInput,
 } from './values/extensions'
+export type { VaneFluidOptions, VaneInterpolationDimension } from './values/interpolate'
 export type {
   VaneCalc,
   VaneDimensionOf,

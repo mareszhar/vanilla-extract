@@ -146,7 +146,7 @@ export const palette = de.defineTokens({
     surfacePlane: de.scheme({ light: de.oklch(0.96, 0, 0), dark: de.oklch(0.16, 0, 0) }),
     inkPlane: de.scheme({ light: de.oklch(0.14, 0, 0), dark: de.oklch(0.94, 0, 0) }),
   },
-  space: de.scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }),
+  space: de.scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6 } }).tokens(),
   radius: { sm: '4px', md: '8px', pill: '999px' },
 })
   .derive(({ color }) => ({
@@ -174,7 +174,7 @@ export const palette = de.defineTokens({
 
 // foundations.tokens.ts
 export const foundations = de.defineTokens({
-  space: de.scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }),
+  space: de.scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }).tokens(),
 })
 
 // system.style.ts

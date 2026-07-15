@@ -8,6 +8,7 @@
 
 import type { VaneDiagnostic } from '../diagnostics'
 import type { VaneConditionArm } from '../system/conditions'
+import type { VaneCssPropertyName, VanePropertyAliasMap, VanePropertyAliasMode } from './types'
 import type { VaneValueContext } from './values'
 import { didYouMean, VaneError } from '../diagnostics'
 import { checkDeclaration, checkPropertyName, checkQuery, checkSelector, isCssProperty } from '../internal/cssParser'
@@ -29,6 +30,10 @@ export interface VaneRuleContext extends VaneValueContext {
    * classification.
    */
   scopedConditions?: (key: string) => VaneScopedConditionResult | undefined
+  propertyAliases?: {
+    aliases: VanePropertyAliasMap
+    expose: VanePropertyAliasMode
+  }
 }
 
 export type VaneScopedConditionResult
@@ -147,6 +152,32 @@ class RuleWalker {
         continue
       }
 
+      const alias = this.ctx.propertyAliases?.aliases[key]
+      if (alias !== undefined) {
+        if (Object.hasOwn(rule, alias)) {
+          this.report({
+            code: 'VANE_CSS_INVALID_KEY',
+            message: `${this.at(path, key)} and ${this.at(path, alias)} declare the same CSS property`,
+            path: this.at(path, key),
+            fix: 'choose either the alias or the standard property name in this rule arm',
+          })
+          continue
+        }
+        this.property(alias, value, arm, path, key)
+        continue
+      }
+
+      if (this.ctx.propertyAliases?.expose === 'aliases-only'
+        && Object.values(this.ctx.propertyAliases.aliases).includes(key as VaneCssPropertyName)) {
+        this.report({
+          code: 'VANE_CSS_INVALID_KEY',
+          message: `${this.at(path, key)} is hidden by the aliases-only policy`,
+          path: this.at(path, key),
+          fix: 'use the configured alias, or write this declaration through css.standard()',
+        })
+        continue
+      }
+
       this.property(key, value, arm, path)
     }
   }
@@ -256,7 +287,8 @@ class RuleWalker {
       this.walk(value, merged, [...path, key], false)
   }
 
-  private property(key: string, value: unknown, arm: VaneArm, path: string[]): void {
+  private property(key: string, value: unknown, arm: VaneArm, path: string[], authoredKey = key): void {
+    const authoredPath = [...path, authoredKey]
     if (isPlainObject(value)) {
       // A nested object under a non-property reads as a mistyped condition,
       // not as a property-first map — name the key itself.
@@ -264,8 +296,8 @@ class RuleWalker {
         const suggestion = didYouMean(key, [...this.ctx.conditions.keys()])
         this.report({
           code: 'VANE_CSS_UNKNOWN_PROPERTY',
-          message: `${this.at(path, key)} is neither a CSS property nor a condition of this system${suggestion ? ` — did you mean '${suggestion}'?` : ''}`,
-          path: this.at(path, key),
+          message: `${this.at(path, authoredKey)} is neither a CSS property nor a condition of this system${suggestion ? ` — did you mean '${suggestion}'?` : ''}`,
+          path: this.at(path, authoredKey),
           fix: suggestion ? `use '${suggestion}', or declare the condition in createSystem` : 'declare the condition in createSystem({ conditions })',
         })
         return
@@ -277,7 +309,7 @@ class RuleWalker {
           continue
 
         if (conditionName === BASE) {
-          this.declare(arm, key, conditionValue, [...path, key])
+          this.declare(arm, key, conditionValue, authoredPath)
           continue
         }
 
@@ -287,24 +319,24 @@ class RuleWalker {
           const suggestion = didYouMean(conditionName, [...this.ctx.conditions.keys(), BASE])
           this.report({
             code: 'VANE_CSS_UNKNOWN_CONDITION',
-            message: `${this.at([...path, key], conditionName)} is not a condition of this system${suggestion ? ` — did you mean '${suggestion}'?` : ''}`,
-            path: this.at([...path, key], conditionName),
+            message: `${this.at(authoredPath, conditionName)} is not a condition of this system${suggestion ? ` — did you mean '${suggestion}'?` : ''}`,
+            path: this.at(authoredPath, conditionName),
             fix: suggestion ? `use '${suggestion}', or declare the condition in createSystem` : 'declare the condition in createSystem({ conditions })',
           })
           continue
         }
 
         for (const conditionArm of condition) {
-          const merged = this.mergeArm(arm, conditionArm, [...path, key, conditionName])
+          const merged = this.mergeArm(arm, conditionArm, [...authoredPath, conditionName])
 
           if (merged)
-            this.declare(merged, key, conditionValue, [...path, key, conditionName])
+            this.declare(merged, key, conditionValue, [...authoredPath, conditionName])
         }
       }
       return
     }
 
-    this.declare(arm, key, value, [...path, key])
+    this.declare(arm, key, value, authoredPath)
   }
 
   private declare(arm: VaneArm, property: string, value: unknown, path: string[]): void {

@@ -76,9 +76,15 @@ describe('token handles', () => {
   })
 
   it('scale generators are ordinary functions producing token subtrees', () => {
-    expect(scale.linear({ unit: 4, steps: { sm: 2 } })).toEqual({ sm: '8px' })
-    expect(scale.modular({ ratio: 1.25, steps: { md: 0, lg: 1, xl: 2 } }))
-      .toEqual({ md: '1rem', lg: '1.25rem', xl: '1.5625rem' })
+    const linear = scale.linear({ unit: 4, steps: { sm: 2 } })
+    const modular = scale.modular({ ratio: 1.25, steps: { md: 0, lg: 1, xl: 2 } })
+
+    expect(linear('sm').css).toBe('8px')
+    expect(linear(-0.5).css).toBe('-2px')
+    expect(linear.tokens().sm.css).toBe('8px')
+    expect(modular.tokens().md.css).toBe('1rem')
+    expect(modular('lg').css).toBe('1.25rem')
+    expect(modular(2.5).css).toBe('1.746928rem')
   })
 })
 

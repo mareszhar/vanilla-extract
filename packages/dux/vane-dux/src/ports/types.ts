@@ -1,119 +1,131 @@
-/**
- * The public port types — the typed runtime boundary
- * ([dux-spec-ports.md], [dux-patterns.md §4]). A port is a declared, typed,
- * defaulted CSS custom property that a style exposes as its public runtime
- * interface. One primitive unifies reactive styling, parent→child theming,
- * consumer theming, and dynamic utility values.
- *
- * Two rules govern the types here:
- *
- * - **Typed by the default** ([dux-spec-ports.md §1]): `port(0)` → number,
- *   `port(t.color.brand)` → color. The default is also what types `set()`.
- * - **The types are honest about the boundary**: `set()` returns a style-object
- *   fragment any framework can bind — never a rule, never a stylesheet.
- */
+/** Public types for ports: component-owned, defaulted custom properties. */
 
-import type { VaneVarReference } from '../css/types'
-import type { VaneColor } from '../tokens/types'
-import type { VaneCssValue, VaneTokenInput } from '../values/types'
+import type {
+  VaneInvalidRuntimeValuePolicy,
+  VaneRuntimeValidationMode,
+  VaneStandardSchemaV1,
+} from '../tokens/types'
+import type {
+  VaneCssDataType,
+  VaneDataTypeOf,
+  VaneValue,
+} from '../values/types'
 
-/** The primitive values a port can hold and `set()` can return. */
 export type VanePortValue = string | number
-
-/** A style-object fragment — the currency that crosses the build/runtime wall. */
 export type VanePortStyle = Record<`--${string}`, VanePortValue>
 
-/** Anything acceptable as a port default: a primitive, a token/port reference, or a color expression. */
-export type VanePortInput = VanePortValue | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue
+export interface VanePortTokenReference<Type extends VaneCssDataType = VaneCssDataType> {
+  readonly $type: Type
+  readonly $var: (fallback?: never) => `var(--${string})` | `var(--${string}, ${string})`
+  toString: () => string
+}
 
-/**
- * Widen literal primitives to their base type — `0` → `number`, `'4px'` →
- * `string` — so `set()` accepts any value of the kind, not just the default
- * literal. Object types (token handles, ports, color expressions) pass
- * through untouched.
- */
-export type VanePortWiden<T> = T extends number ? number : T extends string ? string : T
+export interface VanePortLegacyReference {
+  readonly var: `var(--${string})` | `var(--${string}, ${string})`
+}
 
-/**
- * The serialization kind — drives how `set()` serializes values and how the
- * default folds into the `var()` reference ([dux-spec-ports.md §3]).
- *
- * - `number` → unitless (`0.62`), or unit-annotated via `options.as`
- * - `string` → passthrough — also the kind of a plain-value token default
- * - `color` → color syntax or token var (`var(--vane-color-brand)`)
- */
+export type VanePortInput
+  = | string
+    | number
+    | VaneValue
+    | VanePortTokenReference
+    | VanePortLegacyReference
+
+export type VanePortDataTypeOf<Value>
+  = Value extends VaneValue<infer Type> ? Type
+    : Value extends VanePortTokenReference<infer Type> ? Type
+      : Value extends { readonly type: infer Type extends VaneCssDataType, readonly var: `var(--${string}, ${string})` } ? Type
+        : Value extends number ? 'number'
+          : Value extends string
+            ? VaneDataTypeOf<Value> extends 'unknown' ? 'declaration' : VaneDataTypeOf<Value>
+            : 'unknown'
+
+/** Kept as coarse compatibility metadata; `type` is the canonical data type. */
 export type VanePortKind = 'number' | 'string' | 'color'
 
-/**
- * Resolve the ambiguity of a port at the declaration, not the call
- * ([dux-spec-ports.md §3]). `port(0, { as: 'deg' })` serializes numbers with
- * the declared unit; `label` is the rare manual override — the `/vite` plugin
- * infers it from the export name.
- */
-export interface VanePortOptions {
-  /** Annotate a number port's unit: `port(0, { as: 'deg' })` → `0.62deg`. */
-  as?: string
-  /** Manual debug label — rare; the export name is the default via the `/vite` transform. */
-  label?: string
+export type VanePortDefault<Value extends VanePortInput>
+  = Value extends number ? number : string
+
+export type VanePortSetValue<Type extends VaneCssDataType>
+  = (Type extends 'number' | 'integer' ? number : string)
+    | VaneValue<Type>
+    | VanePortTokenReference<Type>
+    | VanePortLegacyReference
+
+export interface VanePortValidation<Input = unknown, Output = Input> {
+  /** Stable app-plane lookup key. */
+  readonly id: string
+  readonly schema?: VaneStandardSchemaV1<Input, Output>
+  /** `dev` by default; `false` is type-only, `always` includes production. */
+  readonly runtime?: VaneRuntimeValidationMode
+  /** Invalid input never becomes a declaration. */
+  readonly onInvalid?: VaneInvalidRuntimeValuePolicy
+  /** Required for `onInvalid: 'fallback'`. */
+  readonly fallback?: Output
 }
 
-/**
- * What `set()` accepts — the port's own primitive kind, or any token/port
- * reference ([dux-spec-ports.md §4]): a parent theming a child's port with a
- * token is the flagship static-set form, whatever the port's kind. Color and
- * token ports also take plain strings (a CSS literal is their currency).
- */
-export type VanePortSetValue<TValue extends VanePortInput>
-  = (TValue extends VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue ? string : TValue) | VaneVarReference | VaneTokenInput
-
-/**
- * What the handle stores as its default: references and color expressions
- * serialize at declaration (`var(--vane-color-brand)`, `oklch(…)`), so the
- * same string is there on both sides of the boundary; primitives stay as
- * written.
- */
-export type VanePortDefault<TValue extends VanePortInput>
-  = TValue extends VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue ? string : TValue
-
-/**
- * A port — a declared, typed, defaulted CSS custom property
- * ([dux-patterns.md §4]). The handle is a function (so the substrate's
- * function serializer carries it across the build/app boundary); the
- * callability is hidden from the published types.
- *
- * Interpolation via `toString()` yields `var(--name, <default>)` — the default
- * makes every style complete without its runtime half.
- */
-export interface VanePort<TValue extends VanePortInput = VanePortInput> {
-  /** The emitted custom-property name: `--vane-fraction__h4x`. */
-  readonly name: `--${string}`
-  /** The serialized default — identical at build time and after `restorePort`. */
-  readonly defaultValue: VanePortDefault<TValue>
-  /** The serialization kind. */
-  readonly kind: VanePortKind
-  /** The reference form for interpolation: `var(--name, <default>)`. */
-  readonly var: `var(--${string}, ${string})`
-  /** The declaration record — one object, shared with the serialized boundary crossing. */
-  readonly meta: VanePortMeta
-  /**
-   * Set the port's value — returns a style-object fragment, never a rule.
-   * The union is spelled inline so a wrong value's error names it plainly
-   * (`string | VaneVarReference`), not through the alias.
-   */
-  set: (value: (TValue extends VaneVarReference | VaneColor<any> | VaneCssValue ? string : TValue) | VaneVarReference) => VanePortStyle
-  /** Intent at the definition site — surfaced by the manifest and audits. */
-  describe: (text: string) => VanePort<TValue>
-  /** Name the replacement — flows into the manifest and audits. */
-  deprecated: (reason: string) => VanePort<TValue>
-  toString: () => `var(--${string}, ${string})`
+export interface VanePortOptions<Input = unknown, Output = Input> {
+  readonly label?: string
+  readonly validate?: VanePortValidation<Input, Output>
 }
 
-/** The metadata that crosses the build/runtime boundary when a port is restored. */
+export interface VanePortDefinition<
+  Value extends VanePortInput = VanePortInput,
+  Output = Value,
+> extends VanePortOptions<Value, Output> {
+  readonly val: Value
+}
+
+export interface VanePortBindingOptions {
+  readonly validators?: Readonly<Record<string, VaneStandardSchemaV1>>
+  readonly dev?: boolean
+}
+
+export interface VanePortValidationMeta {
+  readonly id: string
+  readonly runtime: VaneRuntimeValidationMode
+  readonly onInvalid: VaneInvalidRuntimeValuePolicy
+  readonly fallback?: VanePortValue
+}
+
 export interface VanePortMeta {
-  name: string
-  defaultValue: VanePortValue
-  kind: VanePortKind
-  unit?: string
+  readonly name: string
+  readonly defaultValue: VanePortValue
+  readonly type: VaneCssDataType
+  /** Compatibility metadata for current manifest consumers. */
+  readonly kind: VanePortKind
+  readonly validation?: VanePortValidationMeta
   description?: string
   deprecated?: string
 }
+
+export interface VanePort<
+  Value extends VanePortInput = VanePortInput,
+  Type extends VaneCssDataType = VanePortDataTypeOf<Value>,
+> {
+  readonly name: `--${string}`
+  readonly defaultValue: VanePortDefault<Value>
+  readonly type: Type
+  readonly kind: VanePortKind
+  readonly var: `var(--${string}, ${string})`
+  readonly meta: VanePortMeta
+  set: (value: VanePortSetValue<Type>) => VanePortStyle
+  /** Bind app/SSR validator implementations without global mutable state. */
+  bind: (options: VanePortBindingOptions) => VanePort<Value, Type>
+  describe: (text: string) => VanePort<Value, Type>
+  deprecated: (reason: string) => VanePort<Value, Type>
+  toString: () => `var(--${string}, ${string})`
+}
+
+export interface VanePortFactory {
+  <const Value extends VanePortInput>(
+    defaultValue: Value,
+    options?: VanePortOptions<Value>,
+  ): VanePort<VanePortWiden<Value>, VanePortDataTypeOf<Value>>
+  <const Value extends VanePortInput, Output = Value>(
+    definition: VanePortDefinition<Value, Output>,
+  ): VanePort<VanePortWiden<Value>, VanePortDataTypeOf<Value>>
+}
+
+/** Literal widening for the default carrier; the data type remains exact. */
+export type VanePortWiden<T> = T extends number ? number : T extends string ? string : T

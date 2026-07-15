@@ -38,7 +38,7 @@ export interface VaneEngineKernel<Constructors extends object> {
     resolveReference?: import('../values/protocol').VaneSerializeContext['resolveReference'],
   ) => string
   compatibleWith: (other: Pick<VaneEngineKernel<Record<string, unknown>>, 'signature'>) => boolean
-  extend: <Added extends Readonly<Record<string, unknown>>>(
+  extend: <Added extends object>(
     identity: VaneExtensionIdentity,
     added: Added,
   ) => VaneEngineKernel<Constructors & Added>
@@ -83,7 +83,7 @@ export function createEngineKernel<const Constructors extends object>(
     compatibleWith(other: Pick<VaneEngineKernel<Record<string, unknown>>, 'signature'>): boolean {
       return signature === other.signature
     },
-    extend<Added extends Readonly<Record<string, unknown>>>(identity: VaneExtensionIdentity, added: Added) {
+    extend<Added extends object>(identity: VaneExtensionIdentity, added: Added) {
       const normalized = normalizeExtension(identity)
       const collision = Object.keys(added).find(key => key in frozenConstructors)
       if (collision) {

@@ -1,133 +1,159 @@
-updated: 2026-07-08
-status: spec — contracts settled, implemented (phase 3; `set()` reference-widening and HMR polish landed with phase 4)
+updated: 2026-07-14
+status: spec — current implementation contract (Phase 6 common-value/validation migration accepted)
 
 # vane-dux — spec: ports
 
-The typed runtime boundary — vane-dux's flagship new primitive. Phase 3 of the roadmap. The unification argument and boundary law live in [dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port); this spec owns the surface.
+A port is a component/style-owned, typed, defaulted CSS custom property. It is the framework-neutral boundary for per-instance runtime values. Mutable tokens own design-system decisions for one system root; ports own inputs published by one style or component.
+
+The current runtime-boundary law lives in [dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port); the next architecture's explicit ownership split lives in [next/dux-patterns.md §9](./next/dux-patterns.md#9-runtime-ownership-is-explicit). This document owns port declaration, serialization, validation, publication, and SSR behavior.
 
 ## Implementation status
 
-| # | Contract | Status |
-| --- | --- | --- |
-| 1 | `port()` — declaration and interpolation | ☑ |
-| 2 | Setters and the `ports()` merge | ☑ |
-| 3 | Value kinds and serialization | ☑ |
-| 4 | Child and consumer theming | ☑ |
-| 5 | SSR | ☑ |
+| Contract | Status |
+| --- | --- |
+| Common value/data-type serialization | ☑ |
+| Declaration, interpolation, metadata, and publication | ☑ |
+| Static/runtime setters and fragment merging | ☑ |
+| Synchronous Standard Schema validation | ☑ |
+| Build/app restoration, explicit validator binding, Vue reactivity, SSR | ☑ |
 
----
+## 1. Declaration and interpolation
 
-## 1. `port()` — declaration and interpolation
-
-**Why.** Every existing build/runtime crossing is untyped (Vue's `v-bind()` in CSS), ceremonial (`createVar` + `assignInlineVars` plumbing per component), or implicit (utility-internal inline vars). A port is the crossing made first-class: declared with a default, typed by it, exported, findable, renameable, deprecable. Declaring one is a single expression — the flagship primitive must never ask you to repeat yourself.
-
-**Usage.**
-
-```TS
+```ts
 // Progress.style.ts
-import { css, port } from '~/design/system.style'
+import { ds } from '~/design/system.style'
 
-export const fraction = port(0)             // number port, default 0
-export const tint = port(t.color.brand)     // color port, defaulted to a token
+export const fraction = ds.port(0)
+export const tint = ds.port(ds.t.color.brand)
+export const rotation = ds.port(ds.angle.deg(0))
 
-export const track = css({
-  background: t.color.surface,
-  borderRadius: t.radius.pill,
-  blockSize: t.space.sm,
-})
-
-export const fill = css({
-  inlineSize: `calc(${fraction} * 100%)`, // interpolates as var(--prism-fraction-h4x, 0)
+export const fill = ds.css({
+  inlineSize: `calc(${fraction} * 100%)`,
   background: tint,
-  blockSize: '100%',
-  motionOk: { transition: 'inline-size 200ms ease' },
+  rotate: rotation,
 })
 ```
 
-**Contract details.**
+The ordinary signature is `port(default, options?)`. The advanced form keeps related policy together:
 
-- **The signature is `port(default, options?)`.** The type is inferred from the default (`port(0)` → number, `port(t.color.brand)` → color, `port('4px')` → string); the options unit (`port(0, { as: 'deg' })`) resolves the ambiguous number cases (§3).
-- **The export is the name.** No string argument exists: the emitted variable's debug label is inferred from the export/filename by the same transform the substrate uses for class debug names, so rename-symbol renames everything, everywhere, including dev output and the manifest. Without the transform the port still works (hash-only label); `options.label` is the rare manual override.
-- A port interpolates in any rule position as `var(--…, <default>)`; the default makes every style complete without its runtime half.
-- Ports are scoped identifiers (hashed like classes) — two components' `fraction` ports never collide; the *export* is the identity.
-- `.describe()` / `.deprecated()` ride the same metadata machinery as tokens ([dux-spec-tokens.md §8](./dux-spec-tokens.md#8-metadata)) and flow into the manifest.
-- A component publishes its ports on its recipe or anatomy via the `ports:` key — one import gives consumers classes and style API together ([dux-spec-recipes.md §2](./dux-spec-recipes.md#2-published-ports-the-ports-key)).
-
-**Proposed approach.** `createVar` underneath with the system prefix and a serialized default; the handle carries the var reference (for interpolation via `toString`), the inferred type, and the setter. The `/vite` plugin applies the debug-id transform to `*.style.ts` so export names reach the emitted labels.
-
----
-
-## 2. Setters and the `ports()` merge
-
-**Why.** Setting a port must be typed at the value, cheap at runtime, and framework-neutral: the output currency is a style-object fragment any framework can bind.
-
-**Usage.**
-
-```TS
-fraction.set(0.62)                       // → { '--prism-fraction-h4x': '0.62' }
-ports(fraction.set(p), tint.set(color)) // merged fragment
+```ts
+export const fraction = ds.port({
+  val: 0,
+  label: 'fraction', // normally inferred from the export
+  validate: {
+    id: 'progress-fraction-v1',
+    schema: FractionSchema,
+    runtime: 'dev',
+    onInvalid: 'throw',
+  },
+})
 ```
 
-**Contract details.**
+Contract:
 
-- `set()` type-checks the value against the port's declared type — plus token/port references, whatever the kind: a parent theming a child's number port with a token is the flagship static-set form (§4).
-- Setting writes a value — never a rule, never a stylesheet ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)).
-- `set()` and `ports()` live on the core handles with ~zero runtime; the `/runtime` subpath adds only DOM conveniences (`setPorts(el, …)` for imperative code outside a framework).
-- **`ports()` is for imperative merging only.** The framework bindings already merge: `usePorts(() => [a.set(x), b.set(y)])` is complete as written — wrapping the array in `ports()` is redundant and the docs never show it.
+- the default determines the CSS data type and serialized fallback;
+- raw strings remain ergonomic (`port('2em')` is valid), while branded values carry exact meaning and units;
+- the retired `as` option does not bolt units onto numbers—write `ds.port(ds.angle.deg(0))`, then set another angle value or CSS angle string;
+- interpolation yields `var(--…, <serialized default>)`, so the authored CSS is complete without a runtime write;
+- the system's common serializer handles strings, finite numbers, values, expressions, token references, and other ports;
+- `.type` exposes the canonical CSS data type; `.kind` remains coarse compatibility metadata for the current manifest;
+- the export/filename transform supplies the debug label; `label` is a rare manual override;
+- `.describe()` and `.deprecated()` mutate the shared declaration metadata that crosses the build/app boundary.
 
----
+## 2. Setters and fragments
 
-## 3. Value kinds and serialization
+```ts
+fraction.set(0.62)
+rotation.set(ds.angle.deg(45))
+tint.set(ds.t.color.accent)
 
-**Why.** A number can mean a ratio, a pixel length, or a degree; the port must serialize predictably or the type is a lie at the wire.
+ports(
+  fraction.set(progress),
+  enabled && tint.set('rebeccapurple'),
+)
+```
 
-**Contract details.**
+`set()` returns one plain style-object fragment. It never writes an element, creates a selector, injects a rule, or mutates a stylesheet. This makes the same result useful in authored rules, Vue `:style`, SSR, and any other framework.
 
-- The default maps to a serialization kind: a number → unitless, a color — token, expression, or another color port — → color syntax or token var, everything else — strings and value tokens — → passthrough. A value-token default never claims the color kind.
-- Units ride the declaration, not the call: `port(0, { as: 'deg' })` serializes every `set()` number as degrees, the default included.
-- Dev builds validate each `set()` value's serialization once and warn with the port's name on mismatch — the cursor lie ban extends to runtime writes.
+Values are narrow by CSS data type but preserve the direct CSS lane:
 
----
+- a number port accepts numbers, same-type vane values, and token/port references;
+- typed non-number ports accept same-type vane values, CSS strings, and references;
+- a static `set()` spread inside `css()` emits a custom-property declaration at build time;
+- `ports()` merges fragments and skips falsy entries; `usePorts(() => [...])` already performs this merge, so wrapping its array is redundant.
 
-## 4. Child and consumer theming
+## 3. Synchronous Standard Schema validation
 
-**Why.** Vue's `:deep()` couples a parent to a child's internal DOM through a string no tool can see. The port inversion: the child *declares* what's themable; the parent sets values through the cascade — component props, arrived at the same place for styling.
+Validation is optional and uses the Standard Schema v1 interface, so vane depends on no validator library.
 
-**Usage.**
+```ts
+const factor = ds.port({
+  val: 0,
+  validate: {
+    id: 'factor-v1',
+    schema: FactorSchema,
+    runtime: 'always', // false | 'dev' | 'always'
+    onInvalid: 'omit', // 'throw' | 'fallback' | 'omit'
+  },
+})
+```
 
-```TS
-// Button.style.ts — the child publishes its style API on its recipe
-const gap = port(t.space.xs)
-const radius = port(t.radius.sm)
+Defaults are `runtime: 'dev'` and `onInvalid: 'throw'`.
 
-export const button = recipe({
+Invalid input never becomes a declaration:
+
+- `throw` throws before a fragment is returned;
+- `omit` returns an empty fragment;
+- `fallback` serializes the explicitly authored fallback instead;
+- `false` retains schema-powered typing/metadata without runtime validation;
+- an async schema result is rejected before output because `set()` is deliberately synchronous.
+
+Schema implementations do not get serialized into style-module exports. The stable validation ID crosses the build/app boundary. A restored port binds the app/SSR implementation explicitly, without global state:
+
+```ts
+import { fraction } from './Progress.style'
+
+const runtimeFraction = fraction.bind({
+  validators: { 'progress-fraction-v1': FractionSchema },
+  dev: import.meta.dev,
+})
+
+runtimeFraction.set(0.6)
+```
+
+`bindPort(port, options)` from `@mszr/vane-dux/runtime` is the equivalent functional spelling. A validation mode that should run but has no bound schema fails explicitly; it never silently accepts an unvalidated write.
+
+## 4. Published component styling contracts
+
+```ts
+const gap = ds.port(ds.t.space.sm)
+const radius = ds.port(ds.t.radius.md)
+
+export const button = ds.recipe({
   ports: { gap, radius },
   base: { display: 'inline-flex', gap, borderRadius: radius },
 })
 
-// Toolbar.style.ts — the parent themes buttons without knowing their DOM
-import { button } from '../Button/Button.style'
-
-export const toolbar = css({
+export const toolbar = ds.css({
   display: 'flex',
-  ...button.ports.gap.set(t.space.xs), // static set: compiles into the rule
+  ...button.ports.gap.set(ds.t.space.lg),
 })
 ```
 
-**Contract details.**
+`ports:` publishes handles; it does not declare them. Recipe/anatomy app-plane restoration preserves their defaults, types, metadata, validation contracts, and setters. A consumer themes descendants through the cascade without depending on internal DOM structure.
 
-- `set()` accepts token references as well as runtime values; a static `set` inside a `css()` rule compiles away entirely — parent→child theming can be fully zero-runtime.
-- The same mechanism is the shipped-library theming story: consumers set a published port on any subtree, no build pipeline required (it's just a custom property).
-- True structural child selectors remain available as typed class interpolations (`` [`${button} + ${button}`] `` — [dux-spec-css.md §4](./dux-spec-css.md#4-selectors-and-cross-file-references)); ports are for *values*, interpolation for *structure*.
+## 5. Ports versus mutable tokens
 
----
+Use a mutable token for a user-customized palette, density/radius setting, persisted application design preference, or design-system editor. It binds to a system root, addresses authored base/mode/case slots, and participates in system snapshots.
 
-## 5. SSR
+Use a port for progress, coordinates, per-component measurements, a library component's public styling input, or other per-instance values. It is owned/discovered through the exporting style or recipe and produces style fragments.
 
-**Why.** The live plane must not complicate server rendering: port values are inline style, the most boring SSR primitive there is.
+Both ultimately serialize custom-property declarations. They intentionally do not share an ownership API: a port is not a disguised mutable token, and a mutable token is not an anonymous component input.
 
-**Contract details.**
+## 6. Vue, SSR, and HMR
 
-- Port fragments serialize into the rendered `style` attribute; hydration sees identical values and does nothing.
-- No per-request style collection, no injected stylesheets, no hydration mismatch class — the failure modes of runtime CSS-in-JS are structurally absent.
-- The reactive binding (`usePorts`) is specced with the Vue overlay ([dux-spec-vue.md §1](./dux-spec-vue.md#1-useports)).
+- `usePorts(() => [port.set(value)])` is a typed computed style binding; validation completes before Vue receives the fragment.
+- SSR serializes the same object into the rendered `style` attribute; hydration sees identical data.
+- the function serializer restores handles and recipes without executing build-time styling work in the browser.
+- validation implementations are request/local-binding data, not mutable process globals, so SSR requests cannot contaminate one another.
+- HMR may replace authored defaults/metadata while the app retains its own reactive source of current port values; no stylesheet patching is involved.

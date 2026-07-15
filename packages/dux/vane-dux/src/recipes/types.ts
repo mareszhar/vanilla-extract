@@ -36,7 +36,7 @@ export type VaneRecipeArm<C extends string> = VaneNestedRule<C>
 /** The variant-space shapes `V` and `G` are inferred against — keys are the contract. */
 export type VaneVariantsInput = Record<string, Record<string, unknown>>
 export type VaneTogglesInput = Record<string, unknown>
-export type VanePortsInput = Record<string, VanePort<any>>
+export type VanePortsInput = Record<string, VanePort<any, any>>
 
 /**
  * The declared variants, typed as a mapped shape over the inferred `V` whose
@@ -236,7 +236,7 @@ export interface VaneRecipeRuntime {
   toggles: Record<string, string>
   compound: ReadonlyArray<{ when: Record<string, string | boolean>, class: string }>
   defaults: Record<string, string | boolean>
-  ports: Record<string, VanePort>
+  ports: Record<string, VanePort<any, any>>
 }
 
 /** The anatomy equivalent — every class map keyed by part. */
@@ -248,5 +248,5 @@ export interface VaneAnatomyRuntime {
   toggles: Record<string, Record<string, string>>
   compound: ReadonlyArray<{ when: Record<string, string | boolean>, classes: Record<string, string> }>
   defaults: Record<string, string | boolean>
-  ports: Record<string, VanePort>
+  ports: Record<string, VanePort<any, any>>
 }

@@ -10,6 +10,7 @@
  * the plugin (tests, the emit harness) pay one guarded push at most.
  */
 
+import type { VanePortMeta } from '../ports/types'
 import type { VaneAxisRegistryDescription } from '../system/axes'
 import type { VaneCssFeature } from '../values/protocol'
 import type { VaneSemanticTokenAddress, VaneTokenMode } from './handle'
@@ -116,14 +117,7 @@ export interface VanePortRecord extends VaneSourceRecord {
   /** The export name, via the debug-name transform; manual labels pass through too. */
   label?: string
   /** The live declaration record — read at manifest time so late `.describe()` calls still land. */
-  meta: {
-    name: string
-    kind: string
-    defaultValue: string | number
-    unit?: string
-    description?: string
-    deprecated?: string
-  }
+  meta: VanePortMeta
 }
 
 export type VaneEscapeForm = 'css.raw' | 'unsafe' | 'globalCss' | 'overrides'

@@ -46,6 +46,18 @@ export type VanePropsOptions<TProps extends object> = {
   [K in keyof TProps]-?: { type: PropType<Exclude<TProps[K], undefined>> }
 }
 
+type VaneOptionMap = Readonly<Record<string, { type: unknown }>>
+type VaneProjectedOptions<Source> = Source extends VanePropsSource<infer Props>
+  ? VanePropsOptions<Props>
+  : Source extends VaneOptionMap ? Source : never
+type VaneUnionToIntersection<Union> = (Union extends unknown ? (value: Union) => void : never) extends (value: infer Intersection) => void ? Intersection : never
+export type VaneNamespacedPropsOptions<Sources extends Readonly<Record<string, VanePropsSource<object> | VaneOptionMap>>>
+  = VaneUnionToIntersection<{
+    [Prefix in keyof Sources & string]: {
+      [Key in keyof VaneProjectedOptions<Sources[Prefix]> & string as `${Prefix}-${Key}`]: VaneProjectedOptions<Sources[Prefix]>[Key]
+    }
+  }[keyof Sources & string]>
+
 /**
  * Project a recipe's (or anatomy's) variant space into a Vue runtime props
  * declaration: `defineProps({ ...propsOf(button), disabled: Boolean })`. One
@@ -56,7 +68,21 @@ export type VanePropsOptions<TProps extends object> = {
  * `defineProps<VaneProps<…>>` macro is structurally out of its reach — while
  * the variant space is right there on the handle at runtime.
  */
-export function propsOf<TProps extends object>(recipe: VanePropsSource<TProps>): VanePropsOptions<TProps> {
+export function propsOf<TProps extends object>(recipe: VanePropsSource<TProps>): VanePropsOptions<TProps>
+export function propsOf<const Sources extends Readonly<Record<string, VanePropsSource<object> | VaneOptionMap>>>(
+  sources: Sources,
+): VaneNamespacedPropsOptions<Sources>
+export function propsOf<TProps extends object>(recipe: VanePropsSource<TProps> | Readonly<Record<string, VanePropsSource<object> | VaneOptionMap>>): VanePropsOptions<TProps> {
+  if (!isPropsSource(recipe)) {
+    const namespaced: Record<string, { type: unknown }> = {}
+    for (const [prefix, source] of Object.entries(recipe)) {
+      const projected = isPropsSource(source) ? propsOf(source) : source
+      for (const [key, option] of Object.entries(projected))
+        namespaced[`${prefix}-${key}`] = option
+    }
+    return namespaced as VanePropsOptions<TProps>
+  }
+
   const options: Record<string, { type: unknown }> = {}
 
   for (const axis of Object.keys(recipe.variants))
@@ -66,6 +92,13 @@ export function propsOf<TProps extends object>(recipe: VanePropsSource<TProps>):
     options[toggle] = { type: Boolean }
 
   return options as VanePropsOptions<TProps>
+}
+
+function isPropsSource(value: unknown): value is VanePropsSource<object> {
+  return (typeof value === 'object' || typeof value === 'function')
+    && value !== null
+    && 'variants' in value
+    && 'toggles' in value
 }
 
 export type VaneAnatomyResolver<TProps extends object, TParts extends Record<string, string>>

@@ -87,7 +87,7 @@ describe('the call site', () => {
       readonly size: readonly ('sm' | 'md')[]
     }>()
     expectTypeOf(b.toggles).toEqualTypeOf<readonly 'pill'[]>()
-    expectTypeOf(b.ports.paddingX).toExtend<VanePort<any>>()
+    expectTypeOf(b.ports.paddingX).toExtend<VanePort<any, any>>()
     // @ts-expect-error — unpublished ports don't exist on the handle
     void b.ports.gap
   })
