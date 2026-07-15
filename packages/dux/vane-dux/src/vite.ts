@@ -751,6 +751,7 @@ const sourceAuthoringNames = new Set([
   'createSystem',
   'defineTokens',
   'theme',
+  'tokenOverride',
   'derive',
   'compose',
   'build',

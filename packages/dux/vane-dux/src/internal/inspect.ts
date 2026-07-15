@@ -12,7 +12,7 @@
 
 import type { VaneAxisRegistryDescription } from '../system/axes'
 import type { VaneCssFeature } from '../values/protocol'
-import type { VaneTokenMode } from './handle'
+import type { VaneSemanticTokenAddress, VaneTokenMode } from './handle'
 
 // ─── Records ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +50,15 @@ export interface VaneTokenRecord extends VaneSourceRecord {
   deprecated?: string
   /** Every resolved declaration site, including semantic branch provenance. */
   emission?: readonly VaneTokenEmissionRecord[]
+  /** Opaque runtime addresses; semantic coordinates remain the primary key. */
+  runtime?: {
+    readonly type: string
+    readonly validation?: { readonly id: string, readonly runtime: false | 'dev' | 'always', readonly onInvalid: string }
+    readonly addresses: readonly {
+      readonly address: VaneSemanticTokenAddress
+      readonly slot: string
+    }[]
+  }
 }
 
 export interface VaneTokenEmissionRecord {
@@ -83,6 +92,11 @@ export interface VaneSystemRecord extends VaneSourceRecord {
   conditions: Record<string, string>
   axes?: VaneAxisRegistryDescription
   audit?: VaneAuditConfig
+  runtime?: {
+    readonly protocol: number
+    readonly system: string
+    readonly root: string
+  }
 }
 
 export interface VaneRecipeRecord extends VaneSourceRecord {

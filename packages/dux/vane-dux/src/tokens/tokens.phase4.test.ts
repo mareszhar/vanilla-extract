@@ -4,6 +4,25 @@ import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
 
 describe('environmental axes and declaration contexts', () => {
+  it('emits canonical grouped token overrides in the final token sublayer', () => {
+    const de = createEngine()
+    const module = de.defineTokens({ color: { brand: de.oklch(0.58, 0.2, 285) } })
+      .derive(({ color }) => ({ color: { soft: de.alpha(color.brand, 0.12) } }))
+    const { records, result } = collectInspection(() => emit(() => {
+      const ds = de.createSystem({ prefix: 'app', tokens: module })
+      return ds.tokenOverride({ color: { brand: '#111111' } }, 'midnight')
+    }))
+
+    expect(result.returned).toMatch(/^midnight/)
+    expect(result.css).toContain('@layer app.tokens.overrides')
+    expect(result.css).toContain('--app-color-brand: #111111;')
+    expect(records).toContainEqual(expect.objectContaining({
+      kind: 'style',
+      name: 'midnight',
+      vars: ['--app-color-brand'],
+    }))
+  })
+
   it('stages immutable axes with declaration order and an exhaustive override', () => {
     const base = createEngine()
     const environmental = base.axes(({ axis, data, scheme }) => ({

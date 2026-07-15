@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — runtime custom-property boundary, implementation pending
+status: target spec — Phase 5 runtime boundary, binding, snapshots, SSR projection, and HMR implemented
 
 # vane-dux next — spec: runtime
 
@@ -23,6 +23,8 @@ The runtime plane writes declared CSS custom-property values and selects pre-emi
 setCustomProperty(target, property, val)
 setCustomProperties(target, entries)
 ```
+
+These app-plane helpers are imported from `@mszr/vane-dux/runtime`; their handle and snapshot types remain available from the package root for authoring declarations.
 
 This is a direct CSS operation. It works with:
 
@@ -54,12 +56,13 @@ const runtime = ds.runtime(root, options)
 
 The runtime binds one serialized system contract to one concrete cascade instance.
 
-Root forms considered for the first implementation:
+The first implementation accepts:
 
-- explicit `ElementCSSInlineStyle`/HTML/SVG element — required;
-- omitted root as `document.documentElement` convenience for a `:root` system — recommended;
-- selector string resolving exactly one element at bind time — optional, never stylesheet injection;
-- shadow root requires an explicit eligible host/target strategy.
+- an explicit HTML/SVG inline-style element or equivalent structural target;
+- an omitted root as `document.documentElement` convenience only for a `:root` system;
+- a shadow host as the explicit target when inheritable custom properties should cross into that host's shadow tree.
+
+Selector strings are rejected (D71). Querying is ordinary application code: `ds.runtime(document.querySelector(...)!)`. A `ShadowRoot` itself has no inline style; bind its eligible host or another concrete styled target deliberately.
 
 Binding validates where possible:
 
@@ -254,6 +257,7 @@ de.token({
   val: de.length.rem(1),
   mutable: true,
   validate: {
+    id: 'positive-length',
     schema: PositiveLengthSchema,
     runtime: 'dev', // false | 'dev' | 'always'
     onInvalid: 'throw', // 'throw' | 'fallback' | 'omit'
@@ -263,11 +267,26 @@ de.token({
 
 Rules:
 
+- `id` is a stable semantic schema identifier and is part of the runtime contract;
+- defaults are `runtime: 'dev'` and `onInvalid: 'throw'`;
 - async schemas are rejected for synchronous `$set()` unless a separate async API is deliberately introduced;
 - schema output, not raw input, is serialized when transformation is supported;
 - transformed output must remain compatible with the token CSS data type;
+- branded vane values and bare numbers receive universal data-type checks; nonempty raw strings remain the standards/future-syntax lane and are ultimately parsed by CSS, while an optional schema may deliberately narrow them;
 - warning does not mean “write an invalid value anyway”;
 - port and token validation share infrastructure while retaining different ownership APIs.
+
+Schema functions are intentionally not serialized out of a style module. Build-plane calls use the authored schema directly. App/SSR code supplies the matching implementation by ID when validation is enabled:
+
+```ts
+const runtime = ds.runtime(root, {
+  validators: {
+    'positive-length': PositiveLengthSchema,
+  },
+})
+```
+
+`runtimeStyle()`, `runtimeProps()`, and `reconcileRuntimeSnapshot()` accept the same options. This keeps generated contracts JSON-safe and HMR-stable without weakening runtime validation.
 
 ## 9. Token overrides versus ports
 
@@ -379,6 +398,8 @@ const runtime = ds.runtime(document.documentElement, {
 })
 ```
 
+For Nuxt, call `ds.runtimeProps(snapshot)` during SSR and bind its `style` map plus attributes on the effective root, then pass the same snapshot to `ds.runtime(root, { initial: snapshot })` in `onMounted`. The core API stays framework-neutral; the Phase 5 Nuxt fixture locks this path before a later framework convenience is considered.
+
 Contracts:
 
 - no flash caused by waiting for client setters;
@@ -387,7 +408,9 @@ Contracts:
 - only explicit overrides are serialized, never the entire resolved graph;
 - persistence transport/storage is application-owned;
 - hydration does not redundantly rewrite matching inline values;
-- Nuxt adapters expose an SSR-safe integration path without making core framework-aware.
+- Nuxt integration has an SSR-safe `runtimeProps()` path without making core framework-aware; Phase 6 may add convenience without changing the snapshot contract.
+
+On compatible HMR, a second binding for the same prefix/effective-root family reads the prior controller's semantic snapshot, reconciles it against the new contract, avoids writes already present inline, and marks the old controller stale. Additive contracts therefore preserve valid choices; stale setters throw an actionable rebind error.
 
 ## 12. Optional runtime stylesheet
 

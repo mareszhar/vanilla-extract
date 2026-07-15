@@ -113,6 +113,75 @@ describe('the vite build', () => {
     expect(bundle.atoms({ gap: 'sm' })).toMatch(/^atoms_gap_sm__[\w-]+$/)
   })
 
+  it('restores Phase-5 runtime services and semantic handles in app code', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-runtime-plane-')))
+    await writeFile(join(root, 'package.json'), '{ "name": "vane-runtime-plane", "type": "module" }')
+    await writeFile(join(root, 'system.style.ts'), `import { createEngine } from '@mszr/vane-dux'
+const de = createEngine().axes(({ scheme }) => ({ scheme: scheme({ locality: 'root' }) }))
+const positive = { '~standard': { version: 1, vendor: 'fixture', validate: input => typeof input === 'number' && input > 0 ? { value: Math.round(input * 10) / 10 } : { issues: [{ message: 'positive only' }] } } }
+const system = de.createSystem({
+  prefix: 'app',
+  root: '#app',
+  tokens: {
+    color: {
+      brand: de.token.color({ val: 'red', mutable: true, axes: { scheme: { dark: null } } }),
+    },
+    ratio: de.token.number({ mutable: true, validate: { id: 'positive', schema: positive, runtime: 'always' } }),
+  },
+})
+export const { t, runtime, runtimeStyle, runtimeProps, reconcileRuntimeSnapshot } = system
+`)
+    await writeFile(join(root, 'entry.ts'), `import { runtime, runtimeProps, t } from './system.style'
+export function exercise() {
+  const values = new Map()
+  const attributes = new Map()
+  const target = {
+    style: {
+      setProperty: (name, value) => values.set(name, value),
+      removeProperty: name => { const value = values.get(name) ?? ''; values.delete(name); return value },
+      getPropertyValue: name => values.get(name) ?? '',
+    },
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: name => attributes.delete(name),
+    getAttribute: name => attributes.get(name) ?? null,
+    matches: selector => selector === '#app',
+  }
+  const positive = { '~standard': { version: 1, vendor: 'fixture', validate: input => typeof input === 'number' && input > 0 ? { value: Math.round(input * 10) / 10 } : { issues: [{ message: 'positive only' }] } } }
+  const bound = runtime(target, { validators: { positive } })
+  bound.applyTokenOverrides([[t.color.brand.$axes.scheme.dark, 'black']])
+  bound.t.ratio.$set(1.26)
+  bound.setScheme('dark')
+  return { snapshot: bound.snapshot(), props: runtimeProps(bound.snapshot()), values: [...values], attributes: [...attributes] }
+}
+`)
+    const result = await build({
+      configFile: false,
+      logLevel: 'silent',
+      root,
+      plugins: [vaneDuxPlugin({ identifiers: 'debug' })],
+      resolve: { alias: aliases },
+      build: {
+        write: false,
+        minify: false,
+        lib: { entry: join(root, 'entry.ts'), formats: ['es'], fileName: 'entry' },
+      },
+    })
+    const { output } = (Array.isArray(result) ? result[0] : result) as Rollup.RollupOutput
+    const chunk = output.find(item => item.type === 'chunk')
+    const js = chunk?.type === 'chunk' ? chunk.code : ''
+    const bundle = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`)
+    const exercised = bundle.exercise()
+
+    expect(exercised.snapshot.overrides).toEqual([expect.objectContaining({
+      token: ['color', 'brand'],
+      address: { kind: 'axis', axis: 'scheme', mode: 'dark' },
+      val: 'black',
+    }), expect.objectContaining({ token: ['ratio'], address: { kind: 'base' }, val: '1.3' })])
+    expect(exercised.props.attributes).toEqual({ 'data-scheme': 'dark' })
+    expect(exercised.values[0][0]).toMatch(/^--app-v-/)
+    expect(js).not.toContain('@vanilla-extract')
+  })
+
   it('writes the manifest beside the CSS — .vane/manifest.json, versioned', async () => {
     // A copy, so the build artifact never lands in the source tree.
     const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-manifest-')))

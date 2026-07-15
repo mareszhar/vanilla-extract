@@ -207,6 +207,37 @@ export type VaneTokenMetadataValue
 
 export type VaneTokenMetadata = Readonly<Record<string, VaneTokenMetadataValue>>
 
+export interface VaneStandardSchemaIssue {
+  readonly message: string
+  readonly path?: readonly (PropertyKey | { readonly key: PropertyKey })[]
+}
+
+/** The synchronous portion of Standard Schema v1 used at CSS write boundaries. */
+export interface VaneStandardSchemaV1<Input = unknown, Output = Input> {
+  readonly '~standard': {
+    readonly version: 1
+    readonly vendor: string
+    readonly validate: (
+      value: Input,
+    ) => { readonly value: Output, readonly issues?: undefined }
+      | { readonly issues: readonly VaneStandardSchemaIssue[] }
+      | PromiseLike<unknown>
+  }
+}
+
+export type VaneRuntimeValidationMode = false | 'dev' | 'always'
+export type VaneInvalidRuntimeValuePolicy = 'throw' | 'fallback' | 'omit'
+
+export interface VaneTokenValidation<Input = unknown, Output = Input> {
+  /** Stable lookup key required when this schema crosses the build/app boundary. */
+  readonly id: string
+  readonly schema?: VaneStandardSchemaV1<Input, Output>
+  readonly runtime?: VaneRuntimeValidationMode
+  readonly onInvalid?: VaneInvalidRuntimeValuePolicy
+  /** Required when onInvalid is 'fallback'; it passes universal data-type checks. */
+  readonly fallback?: Output
+}
+
 export interface VaneTokenCase<
   When extends Readonly<Record<string, string>> = Readonly<Record<string, string>>,
   Val = unknown,
@@ -230,8 +261,8 @@ export interface VaneTokenConfig<
   readonly description?: string
   readonly deprecated?: VaneTokenDeprecation
   readonly metadata?: VaneTokenMetadata
-  /** Runtime-bound validation policy; Standard Schema support lands with the runtime phase. */
-  readonly validate?: unknown
+  /** Optional synchronous Standard Schema policy for runtime-bound setters. */
+  readonly validate?: VaneTokenValidation
 }
 
 /** Runtime brand for an advanced token definition. Ordinary group keys stay unreserved. */
@@ -412,7 +443,11 @@ export type VaneTokenFallback<Type extends VaneCssDataType>
     | string
     | (Type extends 'number' | 'integer' | 'percentage' | 'number-percentage' ? number : never)
 
-export interface VaneTokenBranchHandle<Val = unknown> {
+declare const VANE_BRANCH_MUTABILITY: unique symbol
+
+export interface VaneTokenBranchHandle<Val = unknown, Mutable extends boolean = boolean> {
+  /** Type-only owner trait used to keep runtime tuple batches honest. */
+  readonly [VANE_BRANCH_MUTABILITY]: Mutable
   /** Authored branch value; undefined denotes an explicit no-default reservation. */
   readonly $val: VaneResolvedTokenVal<Val>
   readonly $description?: string
@@ -420,9 +455,9 @@ export interface VaneTokenBranchHandle<Val = unknown> {
   toString: () => string
 }
 
-type VaneAxisHandles<Axes> = Axes extends object ? {
+type VaneAxisHandles<Axes, Mutable extends boolean> = Axes extends object ? {
   readonly [Axis in keyof Axes]: Axes[Axis] extends object ? {
-    readonly [Mode in keyof Axes[Axis]]: VaneTokenBranchHandle<Axes[Axis][Mode]>
+    readonly [Mode in keyof Axes[Axis]]: VaneTokenBranchHandle<Axes[Axis][Mode], Mutable>
   } : never
 } : Record<never, never>
 
@@ -501,11 +536,11 @@ export interface VaneTokenHandle<
   readonly $deprecated?: string
   readonly $metadata?: VaneTokenMetadata
   readonly $register?: boolean | VaneTokenRegistration<Val>
-  readonly $validate?: unknown
-  readonly $axes: VaneAxisHandles<Axes>
+  readonly $validate?: VaneTokenValidation
+  readonly $axes: VaneAxisHandles<Axes, Mutable>
   readonly $case: (
     when: VaneCaseWhen<Cases>,
-  ) => VaneTokenBranchHandle<VaneCaseVal<Cases, VaneCaseWhen<Cases>>>
+  ) => VaneTokenBranchHandle<VaneCaseVal<Cases, VaneCaseWhen<Cases>>, Mutable>
   toString: () => string
 }
 
@@ -815,9 +850,18 @@ export interface VaneCheck {
   lc: (min: number) => VaneCheck
 }
 
-// ─── Theme override shapes ───────────────────────────────────────────────────
+// ─── Build-time token override shapes ────────────────────────────────────────
 
-/** Build-time `theme()` accepts overrides for any token. */
+/** Canonical `ds.tokenOverride()` accepts typed leaves from the bound graph. */
+export type VaneTokenOverrides<T> = {
+  [K in keyof T]?: T[K] extends VaneTokenHandleAny
+    ? VaneTokenFallback<T[K]['$type']>
+    : T[K] extends object
+      ? VaneTokenOverrides<T[K]>
+      : never
+}
+
+/** @deprecated D66 compatibility shape for the package-root `theme()` adapter. */
 export type VaneThemeOverrides<T> = {
   [K in keyof T]?: T[K] extends VaneColorToken<any, any> | VaneContrastToken<any, any>
     ? VaneColor<any> | string

@@ -25,14 +25,16 @@ import type {
   VaneThemeOverrides,
   VaneTokenBuilder,
   VaneTokenModule,
+  VaneTokenOverrides,
   VaneTokenPolicy,
   VaneTokens,
   VaneTokensFromDefinition,
   VaneVarsOf,
 } from '../tokens/types'
 import type { VaneCssValue, VaneValue } from '../values/types'
-import type { VaneAxisRegistry } from './axes'
+import type { VaneAxisDefinitions, VaneAxisRegistry } from './axes'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
+import type { VaneRuntimeServices } from './live'
 import { globalLayer } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { bindAtoms } from '../atoms/atoms'
@@ -47,11 +49,12 @@ import { requireStyleModule } from '../internal/styleModule'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
-import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
-import { theme as standaloneTheme } from '../tokens/theme'
+import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, runtimeContractOf, runtimeSchemasOf, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
+import { theme as standaloneTheme, tokenOverride as standaloneTokenOverride } from '../tokens/theme'
 import { defaultEngine } from '../values/defaultEngine'
 import { describeAxisRegistry } from './axes'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
+import { createRuntimeServices } from './live'
 
 export const VANE_DEFAULT_LAYERS = ['reset', 'tokens', 'recipes', 'utilities', 'overrides'] as const
 
@@ -135,14 +138,21 @@ export type VaneSystemConditionName<C, B extends boolean>
 
 // ─── The system ──────────────────────────────────────────────────────────────
 
-export interface VaneBoundSystem<T, C extends string, L extends string> {
+export interface VaneBoundSystem<
+  T,
+  C extends string,
+  L extends string,
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> extends VaneRuntimeServices<T, Axes> {
   /** The bound token graph — one import line serves every style file. */
   readonly t: T
   readonly css: VaneCssFunction<C, L>
   readonly keyframes: VaneKeyframesFunction
   readonly fontFace: VaneFontFaceFunction
   readonly globalCss: VaneGlobalCssFunction<C, L>
-  /** The bound form of `theme(t, overrides)` — the graph argument dropped. */
+  /** A grouped build-time override class in the system token override layer. */
+  readonly tokenOverride: (overrides: VaneTokenOverrides<T>, debugId?: string) => string
+  /** @deprecated D66 migration adapter; use `tokenOverride`. */
   readonly theme: (overrides: VaneThemeOverrides<T>, debugId?: string) => string
   /** Variants compress state: props in, classes out ([dux-spec-recipes.md §1]). */
   readonly recipe: VaneRecipeFactory<C, L>
@@ -176,16 +186,18 @@ export type VaneSystem<
   C extends string,
   L extends string,
   Constructors extends object = Record<never, never>,
-> = VaneBoundSystem<T, C, L> & Readonly<Constructors>
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> = VaneBoundSystem<T, C, L, Axes> & Readonly<Constructors>
 
 export interface VaneSystemEngineBinding<
   Constructors extends object,
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+  Axes extends VaneAxisDefinitions = VaneAxisDefinitions,
 > {
   readonly kernel: VaneEngineKernel<Constructors>
   readonly requirement: VaneEngineRequirement
   readonly tokenPolicy: TokenPolicy
-  readonly axes: VaneAxisRegistry<any>
+  readonly axes: VaneAxisRegistry<Axes>
 }
 
 /** @deprecated Use `createEngine().createSystem()`; removed at target-doc promotion. */
@@ -204,16 +216,17 @@ export function createSystem<
 export function createSystemForEngine<
   const Constructors extends object,
   const TokenPolicy extends VaneTokenPolicy,
+  const Axes extends VaneAxisDefinitions,
   const T extends object,
   const C extends Record<string, VaneConditionInput> = Record<never, never>,
   const L extends readonly string[] = VaneDefaultLayers,
   P extends string = 'vane',
   B extends boolean = true,
 >(
-  binding: VaneSystemEngineBinding<Constructors, TokenPolicy>,
+  binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes>,
   options: VaneEngineSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors> {
-  return createSystemInternal<Constructors, T, C, L, P, B, TokenPolicy, true>(
+): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes> {
+  return createSystemInternal<Constructors, T, C, L, P, B, TokenPolicy, true, Axes>(
     binding,
     options as VaneSystemOptions<T, C, L, P, B>,
   )
@@ -228,10 +241,11 @@ function createSystemInternal<
   B extends boolean,
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
   Canonical extends boolean = false,
+  Axes extends VaneAxisDefinitions = Record<never, never>,
 >(
-  binding: VaneSystemEngineBinding<Constructors, TokenPolicy> | undefined,
+  binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes> | undefined,
   options: VaneSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors> {
+): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes> {
   const file = requireStyleModule('createSystem')
   const prefix = options.prefix ?? 'vane'
   const root = options.root ?? ':root'
@@ -367,6 +381,7 @@ function createSystemInternal<
     globalDefaultLayer: layers.includes('reset') ? 'reset' : layers[0],
     layerRoot: prefix,
   }
+  const runtimeContract = runtimeContractOf(tokens)!
 
   record({
     kind: 'system',
@@ -380,13 +395,19 @@ function createSystemInternal<
     conditions: describeConditions(conditions),
     ...(binding === undefined || binding.axes.order.length === 0 ? {} : { axes: describeAxisRegistry(binding.axes) }),
     ...(options.audit === undefined ? {} : { audit: options.audit }),
+    runtime: {
+      protocol: runtimeContract.protocol,
+      system: runtimeContract.system,
+      root: runtimeContract.root,
+    },
   })
 
-  type Bound = VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors>
+  type Bound = VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes>
 
   const describedConditions = Object.freeze(describeConditions(conditions)) as Readonly<Record<VaneSystemConditionName<C, B>, string>>
   const kernel = binding?.kernel ?? defaultEngine
   const resolvedGraph = graphOf(tokens)!
+  const runtimeServices = createRuntimeServices<Bound['t'], Axes>(runtimeContract, runtimeSchemasOf(tokens))
   const projectTokens = (selection: object): object => {
     if (!isTokenBuilder(selection))
       return selection
@@ -435,6 +456,11 @@ function createSystemInternal<
     keyframes: buildPlane('keyframes', bindKeyframes(system)),
     fontFace: buildPlane('fontFace', bindFontFace()),
     globalCss: buildPlane('globalCss', bindGlobalCss(system) as Bound['globalCss']),
+    tokenOverride: buildPlane('tokenOverride', (overrides: VaneTokenOverrides<Bound['t']>, debugId?: string) => standaloneTokenOverride(
+      tokens as Bound['t'],
+      overrides as VaneTokenOverrides<Bound['t']>,
+      debugId,
+    )),
     theme: buildPlane('theme', (overrides: VaneThemeOverrides<Bound['t']>, debugId?: string) => standaloneTheme(
       tokens as Bound['t'],
       overrides as VaneThemeOverrides<Bound['t']>,
@@ -448,6 +474,10 @@ function createSystemInternal<
     tokensOf: buildPlane('tokensOf', projectTokens as Bound['tokensOf']),
     namesOf: buildPlane('namesOf', ((selection: object) => project(selection, 'name')) as Bound['namesOf']),
     varsOf: buildPlane('varsOf', ((selection: object) => project(selection, 'var')) as Bound['varsOf']),
+    runtime: appPlane(runtimeServices.runtime, 'restoreRuntimeFactory', runtimeContract),
+    reconcileRuntimeSnapshot: appPlane(runtimeServices.reconcileRuntimeSnapshot, 'restoreRuntimeReconciler', runtimeContract),
+    runtimeStyle: appPlane(runtimeServices.runtimeStyle, 'restoreRuntimeStyle', runtimeContract),
+    runtimeProps: appPlane(runtimeServices.runtimeProps, 'restoreRuntimeProps', runtimeContract),
     serialize: (value: VaneValue) => kernel.serializeValue(value, (reference) => {
       if (reference.name)
         return reference.name
@@ -501,5 +531,14 @@ function buildPlane<F>(name: string, fn: F): F {
     args: [{ name }],
   })
 
+  return fn
+}
+
+function appPlane<F>(fn: F, importName: string, contract: object): F {
+  addFunctionSerializer(fn as Parameters<typeof addFunctionSerializer>[0], {
+    importPath: '@mszr/vane-dux/runtime',
+    importName,
+    args: [contract as any],
+  })
   return fn
 }

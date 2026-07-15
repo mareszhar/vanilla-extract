@@ -85,6 +85,11 @@ describe('the manifest artifact', () => {
           },
         },
         "root": ":root",
+        "runtime": {
+          "protocol": 1,
+          "root": ":root",
+          "system": "vane-runtime-1-18v3i6a",
+        },
         "styles": {
           "chip__hash": {
             "file": "src/test-support/prism.style.ts",

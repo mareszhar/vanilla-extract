@@ -58,6 +58,7 @@ export interface VaneManifestToken extends VaneManifestSource {
   description?: string
   deprecated?: string
   emission?: VaneTokenRecord['emission']
+  runtime?: VaneTokenRecord['runtime']
 }
 
 export interface VaneManifestRecipe extends VaneManifestSource {
@@ -115,6 +116,11 @@ export interface VaneManifest {
   root?: string
   tokenLayer?: string
   engine?: string
+  runtime?: {
+    readonly protocol: number
+    readonly system: string
+    readonly root: string
+  }
   /** Cascade-layer order, as the system declared it. */
   layers: string[]
   /** Condition name → its compiled circumstance, readably serialized. */
@@ -178,6 +184,8 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
         }
         if (record.engine !== undefined)
           manifest.engine = record.engine
+        if (record.runtime !== undefined)
+          manifest.runtime = record.runtime
         if (record.audit)
           audit = { ...audit, ...record.audit }
         break
@@ -247,6 +255,7 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
       ...(token.description === undefined ? {} : { description: token.description }),
       ...(token.deprecated === undefined ? {} : { deprecated: token.deprecated }),
       ...(token.emission === undefined || token.emission.length === 0 ? {} : { emission: token.emission }),
+      ...(token.runtime === undefined ? {} : { runtime: token.runtime }),
       ...manifestSource(token),
     }
   }

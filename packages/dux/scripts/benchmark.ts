@@ -48,6 +48,7 @@ interface EditorMeasurement {
     css: TimedCount
     deep: TimedCount
     root: TimedCount
+    runtime: TimedCount
   }
   diagnostic: TimedCount
   rename: TimedCount
@@ -62,6 +63,8 @@ interface ScaleMeasurement {
   build: {
     cssBytes: number
     cssGzipBytes: number
+    jsBytes: number
+    jsGzipBytes: number
     manifestBytes: number
     wallMs: number
   }
@@ -249,6 +252,7 @@ function editorMeasurement(root: string): EditorMeasurement {
       css: completion('/* @complete-css */'),
       deep: completion('/* @complete-deep */'),
       root: completion('/* @complete-root */'),
+      runtime: completion('/* @complete-runtime */'),
     },
     diagnostic,
     rename,
@@ -284,10 +288,14 @@ function buildMeasurement(root: string): ScaleMeasurement['build'] {
   ])
   const css = filesBelow(dist).filter(path => extname(path) === '.css')
   const cssText = css.map(path => readFileSync(path)).reduce((all, next) => Buffer.concat([all, next]), Buffer.alloc(0))
+  const js = filesBelow(dist).filter(path => ['.js', '.mjs'].includes(extname(path)))
+  const jsText = js.map(path => readFileSync(path)).reduce((all, next) => Buffer.concat([all, next]), Buffer.alloc(0))
   const manifest = join(vane, 'manifest.json')
   return {
     cssBytes: cssText.byteLength,
     cssGzipBytes: gzipSync(cssText).byteLength,
+    jsBytes: jsText.byteLength,
+    jsGzipBytes: gzipSync(jsText).byteLength,
     manifestBytes: existsSync(manifest) ? statSync(manifest).size : 0,
     wallMs: measured.wallMs,
   }

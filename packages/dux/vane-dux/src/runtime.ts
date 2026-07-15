@@ -1,5 +1,5 @@
 /**
- * The live plane: the few hundred bytes that run in the browser. Runtime code
+ * The live plane: the framework-free code that runs in the browser. Runtime code
  * writes custom-property values and attributes — it never constructs CSS rules
  * ([dux-patterns.md §1]).
  */
@@ -19,6 +19,33 @@ export type { VaneAtomsRuntime } from './atoms/types'
 export type { VaneLiveOverrides }
 export type { VanePort, VanePortMeta, VanePortStyle, VanePortValue } from './ports/types'
 export type { VaneAnatomyRuntime, VaneRecipeRuntime } from './recipes/types'
+export {
+  restoreRuntimeFactory,
+  restoreRuntimeProps,
+  restoreRuntimeReconciler,
+  restoreRuntimeStyle,
+  setCustomProperties,
+  setCustomProperty,
+} from './system/live'
+export type {
+  VaneBoundRuntime,
+  VaneCustomPropertyEntries,
+  VaneCustomPropertyReference,
+  VaneCustomPropertyTarget,
+  VaneRuntimeBaseOverrides,
+  VaneRuntimeDiagnostic,
+  VaneRuntimeDiagnosticCode,
+  VaneRuntimeFactory,
+  VaneRuntimeInput,
+  VaneRuntimeOptions,
+  VaneRuntimeReconciliation,
+  VaneRuntimeRootProps,
+  VaneRuntimeSnapshotOverride,
+  VaneRuntimeSnapshotV1,
+  VaneRuntimeStyleDeclaration,
+  VaneRuntimeTarget,
+  VaneRuntimeTokens,
+} from './system/live'
 
 export type VaneRuntimeValue = string | number
 export type VaneRuntimeStyle = Record<`--${string}`, VaneRuntimeValue>

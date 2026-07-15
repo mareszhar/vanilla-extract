@@ -13,6 +13,12 @@ export interface VaneAxisTriggerArm extends VaneConditionArm {
   readonly priority: number
   readonly placement: 'root' | 'ancestor' | 'descendant' | 'absolute' | 'query'
   readonly degraded?: true
+  /** Query-free DOM mutation that selects this mode on a bound runtime root. */
+  readonly runtime?: {
+    readonly kind: 'attribute'
+    readonly name: string
+    readonly value: string
+  }
 }
 
 export const VANE_AXIS_TRIGGER = Symbol.for('vane.axisTrigger')
@@ -100,6 +106,7 @@ export interface VaneAxisRegistryDescription {
         readonly placement: VaneAxisTriggerArm['placement']
         readonly priority: number
         readonly degraded?: true
+        readonly runtime?: VaneAxisTriggerArm['runtime']
       }[]
     }>>
   }>>
@@ -343,7 +350,14 @@ export function axisData(
 ): VaneAxisTrigger {
   const name = `data-${kebab(attribute)}`
   const selector = value === undefined ? `[${name}]` : `[${name}='${value}']`
-  return axisCondition(selector, { ...options, on: options.on ?? 'root' })
+  const on = options.on ?? 'root'
+  const trigger = axisCondition(selector, { ...options, on })
+  if (on !== 'root')
+    return trigger
+  return createTrigger(trigger.arms.map(arm => Object.freeze({
+    ...arm,
+    runtime: Object.freeze({ kind: 'attribute' as const, name, value: value ?? '' }),
+  })))
 }
 
 export function axisSchemeIs(mode: 'light' | 'dark'): VaneAxisTrigger {
@@ -361,6 +375,7 @@ export function axisSchemeIs(mode: 'light' | 'dark'): VaneAxisTrigger {
       locality: 'root' as const,
       priority: 100,
       placement: 'root' as const,
+      runtime: Object.freeze({ kind: 'attribute' as const, name: 'data-scheme', value: mode }),
     }),
   ])
 }
@@ -438,6 +453,7 @@ export function describeAxisRegistry(registry: VaneAxisRegistry<any>): VaneAxisR
             placement: arm.placement,
             priority: arm.priority,
             ...(arm.degraded === undefined ? {} : { degraded: true as const }),
+            ...(arm.runtime === undefined ? {} : { runtime: arm.runtime }),
           })),
         }])),
       }]

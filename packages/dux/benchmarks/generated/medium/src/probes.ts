@@ -9,6 +9,7 @@ export const diagnosticProbe = ds.t.group00./* @diagnostic */token0001
 export const cssProbe = ds.css({ /* @complete-css */padding: ds.t.group00.token0001 })
 export const axisProbe = ds.t.group00.token0002.$axes./* @complete-axis */density
 export const caseProbe = ds.t.group00.token0002.$case({ /* @complete-case */scheme: 'dark', density: 'compact' })
+export const runtimeProbe = ds.runtime().t.group00.token0002./* @complete-runtime */$set
 export const moduleTokens = ds.tokensOf(tokenModule00)
 export const moduleNames = ds.namesOf(tokenModule00)
 export const moduleVars = ds.varsOf(tokenModule00)

@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — phases 0–4 complete; phase 5 ready
+status: active migration ledger — phases 0–5 complete; phase 6 ready
 
 # vane-dux next — implementation plan
 
@@ -41,8 +41,8 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | 1 | Unified typed CSS value IR and public extension contracts | ☑ |
 | 2 | Canonical engine authoring environment and two-stage setup | ☑ |
 | 3 | Token configuration, traits, handles, modules, and projections | ☑ |
-| 4 | Axes, cases, roots, conditions, registrations, and emission order | ☐ |
-| 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☐ |
+| 4 | Axes, cases, roots, conditions, registrations, and emission order | ☑ |
+| 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☑ |
 | 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☐ |
 | 7 | Manifest, explain, audits, DTCG, and plugin portability | ☐ |
 | 8 | Full integration matrix, packaging, documentation, and new flagship demo | ☐ |
@@ -313,9 +313,9 @@ Phase 5 is unblocked.
 
 ### Generic lane
 
-- [ ] Implement `setCustomProperty`/`setCustomProperties` for explicit DOM/style targets and external/vane handles.
-- [ ] Do not overload selectors as implicit stylesheet injection.
-- [ ] Decide whether selector query convenience belongs on `ds.runtime()`.
+- [x] Implement `setCustomProperty`/`setCustomProperties` for explicit DOM/style targets and external/vane handles.
+- [x] Do not overload selectors as implicit stylesheet injection.
+- [x] Reject selector query convenience on `ds.runtime()`; accept explicit targets and omitted `documentElement` only for `:root` systems (D71).
 
 ### Mutable slots
 
@@ -324,31 +324,31 @@ Phase 5 is unblocked.
 - [x] Emit addressable mode/case slots and public bindings (compiler half completed in Phase 4; runtime resolution remains below).
 - [x] Emit no authored slot value for reserved `null` branches and compile a noncyclic fallback to the previously effective expression.
 - [x] Keep slots inheritable/unregistered and public registration separate.
-- [ ] Serialize slot provenance into plane-neutral runtime metadata.
-- [ ] Keep private slot spelling opaque/non-normative and resolve it only from semantic token/branch addresses.
-- [ ] Implement `$set()` and `$unset()` on runtime-bound base/mode/case handles.
-- [ ] Validate substitution-point/root invariants in compiler and runtime.
+- [x] Serialize slot provenance into plane-neutral runtime metadata.
+- [x] Keep private slot spelling opaque/non-normative and resolve it only from semantic token/branch addresses.
+- [x] Implement `$set()` and `$unset()` on runtime-bound base/mode/case handles.
+- [x] Validate substitution-point/root invariants in compiler and runtime.
 
 ### Runtime binding
 
-- [ ] Implement `ds.runtime(root?)` and runtime-bound token tree.
-- [ ] Keep `ds.t` plane-neutral without misleading no-target setters.
-- [ ] Implement `applyTokenOverrides()` with an ergonomic base-tree form and explicit mutable-handle tuple entries for base/mode/case batches.
-- [ ] Accept same-system plane-neutral `ds.t` handles canonically in tuple entries and reject other-system/unauthored handles locally.
-- [ ] Implement `setMode`/clear and built-in scheme convenience.
-- [ ] Add Standard Schema-compatible optional setter validation with sync semantics.
+- [x] Implement `ds.runtime(root?)` and runtime-bound token tree.
+- [x] Keep `ds.t` plane-neutral without misleading no-target setters.
+- [x] Implement `applyTokenOverrides()` with an ergonomic base-tree form and explicit mutable-handle tuple entries for base/mode/case batches.
+- [x] Accept same-system plane-neutral `ds.t` handles canonically in tuple entries and reject other-system/unauthored handles locally.
+- [x] Implement `setMode`/clear and built-in scheme convenience.
+- [x] Add Standard Schema-compatible optional setter validation with sync semantics and stable cross-plane validator IDs (D72).
 
 ### SSR/persistence/HMR
 
-- [ ] Implement snapshot v1 with deterministic system schema ID, semantic `{ token, address, val }` base/axis/case records, and runtime-managed modes.
-- [ ] Normalize `$set()`, both `applyTokenOverrides()` forms, `$unset()`, SSR projection, and hydration through the same record set.
-- [ ] Implement per-entry schema reconciliation and `ds.reconcileRuntimeSnapshot()`; preserve valid entries across additive schema changes.
-- [ ] Reserve wholesale rejection for unreadable/unsupported snapshot protocol versions; emit exact migration diagnostics for skipped entries/modes.
-- [ ] Implement server-side snapshot → inline custom-property projection.
-- [ ] Implement snapshot → root style/attribute projection so runtime-managed modes also paint before hydration.
-- [ ] Implement hydration/rebind without flash or redundant writes.
-- [ ] Integrate Nuxt SSR payload/root style path.
-- [ ] Preserve compatible overrides through HMR by semantic address or diagnose an invalid runtime schema.
+- [x] Implement snapshot v1 with deterministic system schema ID, semantic `{ token, address, val }` base/axis/case records, and runtime-managed modes.
+- [x] Normalize `$set()`, both `applyTokenOverrides()` forms, `$unset()`, SSR projection, and hydration through the same record set.
+- [x] Implement per-entry schema reconciliation and `ds.reconcileRuntimeSnapshot()`; preserve valid entries across additive schema changes.
+- [x] Reserve wholesale rejection for unreadable/unsupported snapshot protocol versions; emit exact migration diagnostics for skipped entries/modes.
+- [x] Implement server-side snapshot → inline custom-property projection.
+- [x] Implement snapshot → root style/attribute projection so runtime-managed modes also paint before hydration.
+- [x] Implement hydration/rebind without flash or redundant writes.
+- [x] Integrate and lock the Nuxt SSR payload/root style path through the framework-neutral `runtimeProps()` contract.
+- [x] Preserve compatible overrides through HMR by semantic address, reconcile additive contracts, and supersede stale controllers (D73).
 
 ### Exit gate
 
@@ -356,6 +356,19 @@ Phase 5 is unblocked.
 - Base/mode/case changes and reset work in real browsers across document/widget/shadow policies.
 - Persisted SSR overrides paint correctly before hydration.
 - Runtime types/validation/metadata and bundle budgets are green.
+
+Accepted 2026-07-14. Phase 5 completes the platform-native mutation plane: core writes only inline custom properties and runtime-selectable attributes; mutable public bindings continue to live in extracted CSS; every runtime operation addresses a semantic token branch and the browser remains responsible for cascade and recomputation. The overlooked Phase 4 tracker gap was also closed: canonical `ds.tokenOverride()` now emits into the final token sublayer, retains exact tree typing/re-resolution, and records its emitted token paths; `theme` remains only as D66's compatibility adapter.
+
+Acceptance evidence:
+
+- Runtime/type/editor/Vite fixtures cover explicit HTML/SVG custom-property writes, omitted `:root` binding, exact mutable base/mode/case trees, same-system plane-neutral batches, other-system rejection, runtime axis adapters, `$unset()` reset, no-default reservations, all three invalid-value policies, async-schema rejection, app-plane validator registries, semantic snapshot ordering, additive/removed/unauthored reconciliation, protocol rejection, inspection provenance, compatible rebind, and stale-controller failure.
+- The production Nuxt browser fixture paints an SSR-projected dark-mode base/branch snapshot before hydration, performs zero redundant private-slot writes, proves base/dark/case reset paths, switches density, isolates sibling widgets, inherits through a shadow host, binds a `:root` document runtime, and writes an external SVG custom property. Snapshots contain semantic addresses and never private slot names.
+- The Nuxt dev fixture preserves an inline mutable override through a compatible authored-default CSS HMR update without reloading the document; unit evidence covers additive-contract rebind and exact schema diagnostics. Core runtime contains no stylesheet/CSS-rule construction.
+- At 5,000 tokens, TypeScript total time is 2.19s, instantiations 2,217,932, reported memory 576,569 kB, declarations 447,192 B, runtime completion 0.11ms, and graph rename 5.41ms—effectively level with Phase 4. Typical mutable coverage emits 206,918 B CSS / 20,863 B gzip and a 2,418,729 B manifest.
+- D74 records the deliberate runtime capability cost: the framework-free browser entry is 41,737 B / 7.53 kB gzip, the build-only root is 267,841 B / 46.8 kB gzip, and the large built application fixture carries 12,877 B / 2,775 B gzip JavaScript. This is the new regression baseline rather than an unexamined exception.
+- The permanent phase-boundary lint, type, SDK/demo build, browser/HMR/lifecycle, generated-fixture, benchmark, audit, and packed-consumer gates remain green.
+
+Phase 6 is unblocked.
 
 ## 10. Phase 6 — adjacent surfaces and ergonomics
 

@@ -142,6 +142,26 @@ export type {
   VaneSystemTokens,
 } from './system/createSystem'
 
+export type {
+  VaneBoundRuntime,
+  VaneCustomPropertyEntries,
+  VaneCustomPropertyReference,
+  VaneCustomPropertyTarget,
+  VaneRuntimeBaseOverrides,
+  VaneRuntimeDiagnostic,
+  VaneRuntimeDiagnosticCode,
+  VaneRuntimeFactory,
+  VaneRuntimeInput,
+  VaneRuntimeOptions,
+  VaneRuntimeReconciliation,
+  VaneRuntimeRootProps,
+  VaneRuntimeSnapshotOverride,
+  VaneRuntimeSnapshotV1,
+  VaneRuntimeStyleDeclaration,
+  VaneRuntimeTarget,
+  VaneRuntimeTokens,
+} from './system/live'
+
 // ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
 
 export { check } from './tokens/checks'
@@ -184,11 +204,15 @@ export type {
   VaneGraphInput,
   VaneHueInterpolation,
   VaneInterpolatedColor,
+  VaneInvalidRuntimeValuePolicy,
   VaneLiveOverrides,
   VaneModeOf,
   VaneNamesOf,
   VanePolarColorSpace,
   VaneResolvedTokens,
+  VaneRuntimeValidationMode,
+  VaneStandardSchemaIssue,
+  VaneStandardSchemaV1,
   VaneThemeOverrides,
   VaneTokenBranchHandle,
   VaneTokenBuilder,
@@ -205,12 +229,14 @@ export type {
   VaneTokenMode,
   VaneTokenModule,
   VaneTokenModuleOptions,
+  VaneTokenOverrides,
   VaneTokenPolicy,
   VaneTokenReference,
   VaneTokenRegistration,
   VaneTokens,
   VaneTokensOptions,
   VaneTokenStage,
+  VaneTokenValidation,
   VaneTypedNoDefaultTokenFactory,
   VaneValueToken,
   VaneVarsOf,

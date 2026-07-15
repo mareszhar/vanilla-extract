@@ -131,7 +131,7 @@ export interface VaneEngineMethods<
     B extends boolean = true,
   >(
     options: VaneEngineSystemOptions<T, C, L, P, B>,
-  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors>
+  ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes>
   readonly axes: <const Added extends VaneAxisDefinitions>(
     factory: (
       context: Omit<VaneEngine<Constructors, TokenPolicy, Axes>, keyof VaneAxisAuthoringHelpers>
@@ -219,6 +219,7 @@ const ENGINE_METHOD_NAMES = new Set<string>([
   'extend',
   // Transitional current-system member; target surface v1 replaces it with tokenOverride.
   'theme',
+  'tokenOverride',
 ])
 
 export function defineEnginePlugin<

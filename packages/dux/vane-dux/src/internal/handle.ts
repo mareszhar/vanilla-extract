@@ -10,6 +10,20 @@ type VaneHandleMetadata = Readonly<Record<string, VaneHandleMetadataValue>>
 
 export const VANE_HANDLE = Symbol.for('vane.tokenHandle')
 export const VANE_BRANCH_HANDLE = Symbol.for('vane.tokenBranchHandle')
+export const VANE_RUNTIME_ADDRESS = Symbol.for('vane.runtimeAddress')
+
+export type VaneSemanticTokenAddress
+  = { readonly kind: 'base' }
+    | { readonly kind: 'axis', readonly axis: string, readonly mode: string }
+    | { readonly kind: 'case', readonly when: Readonly<Record<string, string>> }
+
+/** Internal cross-plane identity. Private slot names never enter snapshots. */
+export interface VaneHandleRuntimeAddress {
+  readonly system: string
+  readonly token: readonly string[]
+  readonly address: VaneSemanticTokenAddress
+  readonly slot: string
+}
 
 export interface VaneHandleMeta {
   /** The emitted custom-property name, e.g. `--vane-color-brand`. */
@@ -29,22 +43,26 @@ export interface VaneHandleMeta {
   metadata?: VaneHandleMetadata
   register?: unknown
   validate?: unknown
+  runtime?: VaneHandleRuntimeAddress
   axes?: Readonly<Record<string, Readonly<Record<string, {
     value?: string | number
     description?: string
     metadata?: VaneHandleMetadata
+    runtime?: VaneHandleRuntimeAddress
   }>>>>
   cases?: readonly {
     when: Readonly<Record<string, string>>
     value?: string | number
     description?: string
     metadata?: VaneHandleMetadata
+    runtime?: VaneHandleRuntimeAddress
   }[]
 }
 
 export interface VaneRuntimeBranchHandle {
   (): string
   readonly [VANE_BRANCH_HANDLE]: true
+  readonly [VANE_RUNTIME_ADDRESS]?: VaneHandleRuntimeAddress
   $val?: string | number
   $description?: string
   $metadata?: VaneHandleMetadata
@@ -54,6 +72,7 @@ export interface VaneRuntimeBranchHandle {
 export interface VaneRuntimeHandle {
   (): string
   readonly [VANE_HANDLE]: true
+  readonly [VANE_RUNTIME_ADDRESS]?: VaneHandleRuntimeAddress
   readonly name: string
   readonly var: `var(--${string})`
   readonly path: string
@@ -107,6 +126,8 @@ export function createHandle(meta: VaneHandleMeta): VaneRuntimeHandle {
 
   Object.defineProperty(handle, 'name', { value: meta.name, configurable: true })
   Object.defineProperty(handle, VANE_HANDLE, { value: true })
+  if (meta.runtime)
+    Object.defineProperty(handle, VANE_RUNTIME_ADDRESS, { configurable: true, value: meta.runtime })
   defineGetter(handle, 'var', () => variable)
   defineGetter(handle, 'path', () => state.path)
   defineMutable(handle, 'mode', () => state.mode, value => state.mode = value)
@@ -174,11 +195,14 @@ export function updateHandle(handle: VaneRuntimeHandle, update: Partial<VaneHand
 export function createBranchHandle(value?: string | number, meta: {
   description?: string
   metadata?: VaneHandleMetadata
+  runtime?: VaneHandleRuntimeAddress
 } = {}): VaneRuntimeBranchHandle {
   const state = { value, ...meta }
   const render = () => state.value === undefined ? '' : String(state.value)
   const handle = (() => render()) as VaneRuntimeBranchHandle
   Object.defineProperty(handle, VANE_BRANCH_HANDLE, { value: true })
+  if (meta.runtime)
+    Object.defineProperty(handle, VANE_RUNTIME_ADDRESS, { configurable: true, value: meta.runtime })
   defineMutable(handle, '$val', () => state.value, next => state.value = next)
   defineMutable(handle, '$description', () => state.description, next => state.description = next)
   defineMutable(handle, '$metadata', () => state.metadata, next => state.metadata = next)
@@ -240,6 +264,19 @@ export function isHandle(value: unknown): value is VaneRuntimeHandle {
 export function isBranchHandle(value: unknown): value is VaneRuntimeBranchHandle {
   return typeof value === 'function'
     && (value as Partial<Record<typeof VANE_BRANCH_HANDLE, unknown>>)[VANE_BRANCH_HANDLE] === true
+}
+
+export function runtimeAddressOf(value: unknown): VaneHandleRuntimeAddress | undefined {
+  if (!isHandle(value) && !isBranchHandle(value))
+    return undefined
+  return value[VANE_RUNTIME_ADDRESS]
+}
+
+export function setRuntimeAddress(
+  value: VaneRuntimeHandle | VaneRuntimeBranchHandle,
+  runtime: VaneHandleRuntimeAddress,
+): void {
+  Object.defineProperty(value, VANE_RUNTIME_ADDRESS, { configurable: true, value: runtime })
 }
 
 function serializeFallback(value: unknown): string {

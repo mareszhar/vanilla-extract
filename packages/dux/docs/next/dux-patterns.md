@@ -133,7 +133,7 @@ Both write custom properties and share value serialization, but their ownership 
 
 ## 10. Generic CSS capability remains available
 
-`setCustomProperty(target, property, value)` is the direct platform operation and may target vane-owned or external properties. It requires an explicit target and does not imply token mutability.
+`setCustomProperty(target, property, value)` from `@mszr/vane-dux/runtime` is the direct platform operation and may target vane-owned or external properties. It requires an explicit target and does not imply token mutability.
 
 Runtime selector-rule injection, if implemented, lives behind an explicit sheet object. Passing a selector must never ambiguously mean “query an element” in one API and “create a CSS rule” in another.
 

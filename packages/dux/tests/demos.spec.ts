@@ -7,6 +7,7 @@ declare global {
       background: string
       display: string
     }
+    __phase5StyleWrites?: number
   }
 }
 
@@ -180,6 +181,60 @@ test('Phase 4 axes preserve root locality, case order, registration, and element
       .some(rule => rule.cssText.includes('@property --phase4-probe-inset'))
     return registered
   })).toBe(true)
+  expect(browserErrors, browserErrors.join('\n')).toEqual([])
+})
+
+test('Phase 5 runtime preserves SSR paint, semantic resets, widget isolation, and shadow hosts', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.addInitScript(() => {
+    window.__phase5StyleWrites = 0
+    const original = CSSStyleDeclaration.prototype.setProperty
+    CSSStyleDeclaration.prototype.setProperty = function (name, value, priority) {
+      if (name.startsWith('--phase5-v-'))
+        window.__phase5StyleWrites = (window.__phase5StyleWrites ?? 0) + 1
+      return original.call(this, name, value, priority)
+    }
+  })
+  const response = await page.goto('http://127.0.0.1:3100', { waitUntil: 'networkidle' })
+  const html = await response!.text()
+  expect(html).toContain('data-scheme="dark"')
+  expect(html).toMatch(/--phase5-v-[\w-]+:rgb\(110 70 210\)/)
+
+  const primary = page.locator('#phase5-primary')
+  const sibling = page.locator('#phase5-sibling')
+  await expect(primary).toHaveCSS('background-color', 'rgb(40, 190, 170)')
+  await expect(sibling).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+  await expect(page.locator('#phase5-document')).toHaveCSS('background-color', 'rgb(70, 80, 90)')
+  expect(await page.locator('#phase5-svg').evaluate(element => getComputedStyle(element).fill)).toBe('rgb(240, 90, 20)')
+  expect(await page.evaluate(() => window.__phase5StyleWrites)).toBe(0)
+
+  await page.evaluate(() => window.__phase5!.setDark('rgb(20 120 240)'))
+  await expect(primary).toHaveCSS('background-color', 'rgb(20, 120, 240)')
+  await expect(sibling).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+
+  await page.evaluate(() => window.__phase5!.unsetDark())
+  await expect(primary).toHaveCSS('background-color', 'rgb(110, 70, 210)')
+  await page.evaluate(() => window.__phase5!.unsetBase())
+  await expect(primary).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+
+  await page.evaluate(() => window.__phase5!.setDensity('compact'))
+  await expect(primary).toHaveCSS('padding-top', '8px')
+  const compactShadow = await primary.evaluate(element => getComputedStyle(element).boxShadow)
+  await page.evaluate(() => window.__phase5!.setCase('none'))
+  await expect(primary).toHaveCSS('box-shadow', 'none')
+  await page.evaluate(() => window.__phase5!.unsetCase())
+  expect(await primary.evaluate(element => getComputedStyle(element).boxShadow)).toBe(compactShadow)
+
+  await page.evaluate(() => window.__phase5!.setShadowBase('rgb(0 210 240)'))
+  expect(await page.locator('[data-phase5-root]').nth(2).evaluate((host) => {
+    const probe = host.shadowRoot!.querySelector('#probe')!
+    return getComputedStyle(probe).backgroundColor
+  })).toBe('rgb(0, 210, 240)')
+  await expect(sibling).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+
+  const snapshot = await page.evaluate(() => window.__phase5!.snapshot()) as any
+  expect(JSON.stringify(snapshot)).not.toContain('--phase5-v-')
+  expect(snapshot.overrides.every((entry: any) => Array.isArray(entry.token) && typeof entry.address.kind === 'string')).toBe(true)
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
 

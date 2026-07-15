@@ -46,7 +46,7 @@ function tokenModuleSource(scale: BenchmarkScale, moduleIndex: number, start: nu
     const val = offset === 0
       ? `de.oklch(0.96, 0.01, ${index % 360})`
       : conditional
-        ? `de.token({ val: de.oklch(0.96, 0.01, ${index % 360}), axes: { scheme: { dark: de.oklch(0.16, 0.01, ${index % 360}) }, density: { compact: de.oklch(0.9, 0.02, ${index % 360}) } }, cases: [{ when: { scheme: 'dark', density: 'compact' }, val: de.oklch(0.22, 0.02, ${index % 360}) }], description: 'Module ${moduleIndex} conditional' })`
+        ? `de.token({ val: de.oklch(0.96, 0.01, ${index % 360}), mutable: true, axes: { scheme: { dark: de.oklch(0.16, 0.01, ${index % 360}) }, density: { compact: de.oklch(0.9, 0.02, ${index % 360}) } }, cases: [{ when: { scheme: 'dark', density: 'compact' }, val: de.oklch(0.22, 0.02, ${index % 360}) }], description: 'Module ${moduleIndex} conditional' })`
         : `'${(index % 64) + 1}px'`
     const renameMarker = moduleIndex === 0 && offset === 0 ? '/* @rename */' : ''
     return `    ${renameMarker}${tokenName(index)}: ${val},`
@@ -125,6 +125,7 @@ export const diagnosticProbe = ds.t.${groupName(0)}./* @diagnostic */${tokenName
 export const cssProbe = ds.css({ /* @complete-css */padding: ds.t.${groupName(0)}.${tokenName(deep)} })
 export const axisProbe = ds.t.${groupName(0)}.${tokenName(conditional)}.$axes./* @complete-axis */density
 export const caseProbe = ds.t.${groupName(0)}.${tokenName(conditional)}.$case({ /* @complete-case */scheme: 'dark', density: 'compact' })
+export const runtimeProbe = ds.runtime().t.${groupName(0)}.${tokenName(conditional)}./* @complete-runtime */$set
 export const moduleTokens = ds.tokensOf(tokenModule00)
 export const moduleNames = ds.namesOf(tokenModule00)
 export const moduleVars = ds.varsOf(tokenModule00)

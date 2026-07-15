@@ -139,6 +139,7 @@ function validateTokenConfig(config: VaneTokenConfig, axes?: VaneAxisRegistry<an
     throw new TypeError('[vane] token.axes must be an object keyed by axis and mode')
   if (config.cases !== undefined && !Array.isArray(config.cases))
     throw new TypeError('[vane] token.cases must be an array of explicit intersections')
+  validateRuntimePolicy(config.validate)
 
   for (const [axis, modes] of Object.entries(config.axes ?? {})) {
     const definition = axes?.definitions[axis]
@@ -170,6 +171,24 @@ function validateTokenConfig(config: VaneTokenConfig, axes?: VaneAxisRegistry<an
     if (caseAddresses.has(address))
       throw new TypeError(`[vane] duplicate token case '${address}'`)
     caseAddresses.add(address)
+  }
+}
+
+function validateRuntimePolicy(validate: VaneTokenConfig['validate']): void {
+  if (validate === undefined)
+    return
+  if (!isPlainObject(validate) || typeof validate.id !== 'string' || validate.id.trim().length === 0)
+    throw new TypeError('[vane] token.validate needs a stable non-empty id for build/app schema lookup')
+  if (validate.runtime !== undefined && validate.runtime !== false && validate.runtime !== 'dev' && validate.runtime !== 'always')
+    throw new TypeError('[vane] token.validate.runtime must be false, \'dev\', or \'always\'')
+  if (validate.onInvalid !== undefined && validate.onInvalid !== 'throw' && validate.onInvalid !== 'fallback' && validate.onInvalid !== 'omit')
+    throw new TypeError('[vane] token.validate.onInvalid must be \'throw\', \'fallback\', or \'omit\'')
+  if (validate.onInvalid === 'fallback' && !Object.hasOwn(validate, 'fallback'))
+    throw new TypeError('[vane] token.validate with onInvalid: \'fallback\' needs a fallback value')
+  if (validate.schema !== undefined) {
+    const standard = validate.schema['~standard']
+    if (!standard || standard.version !== 1 || typeof standard.vendor !== 'string' || typeof standard.validate !== 'function')
+      throw new TypeError('[vane] token.validate.schema must implement Standard Schema v1')
   }
 }
 

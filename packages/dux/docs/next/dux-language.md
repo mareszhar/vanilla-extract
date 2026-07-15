@@ -457,9 +457,11 @@ darkBrand.$set(newDarkBrand)
 Generic explicit-target operations work for any custom property:
 
 ```ts
-setCustomProperty(element, t.color.brand, value)
+import { setCustomProperties, setCustomProperty } from '@mszr/vane-dux/runtime'
+
+setCustomProperty(element, ds.t.color.brand, value)
 setCustomProperties(element, [
-  [t.color.brand, value],
+  [ds.t.color.brand, value],
   [externalProperty, otherValue],
 ])
 ```
@@ -487,6 +489,8 @@ runtime.applyTokenOverrides([
 `ds.tokenOverride()` is the canonical build-time class primitive. `runtime.applyTokenOverrides()` is the canonical runtime batch primitive. Its object form addresses base leaves; its tuple-entry form accepts plane-neutral mutable base/mode/case handles from the same system. Both runtime forms feed the same snapshot address model as `$set()`.
 
 Snapshot schema changes reconcile per semantic address: valid overrides survive, invalid/removed ones produce migration diagnostics, and only an unsupported snapshot protocol rejects the document wholesale.
+
+An app-plane validation schema is registered under the stable ID authored in `token({ validate: { id, schema } })`; schema functions never get embedded in generated style-module contracts. Runtime selector strings are intentionally absent—query an element explicitly, or omit the target only for a `:root` system.
 
 ## 12. Property aliases
 

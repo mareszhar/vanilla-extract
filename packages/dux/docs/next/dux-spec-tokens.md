@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 4 token axes, roots, registration, and emission implemented; Phase 5 runtime and later interoperability pending
+status: target spec — Phase 4 token language/emission and Phase 5 mutable runtime implemented; later interoperability pending
 
 # vane-dux next — spec: tokens
 

@@ -38,7 +38,8 @@ When a target document conflicts with a current document, the target document go
 - Phase 2 is accepted: the canonical configurable engine, semantic identity, engine-bound token modules, single-owner system finalization, root/layer emission, and one-import styling surface pass the permanent phase-boundary gates.
 - Phase 3 is accepted: independent token traits, branded configuration, CSS-reactive shorthand, the finalized `$` handle language, exact authored branch addresses, cross-plane restoration, and deterministic token/name/var projections pass their evidence planes.
 - Phase 4 is accepted: immutable staged axes, root-anchored trigger locality, exact modes/cases, group roots, registration, deterministic token sublayers, mutable-address reservations, guarded native scheme output, and emission provenance pass their evidence planes.
-- Phase 5 is next: bind mutable token/custom-property addresses to explicit runtime roots, setters, batches, validation, snapshots, SSR, hydration, and HMR reconciliation.
+- Phase 5 is accepted: explicit custom-property writes, runtime-bound mutable base/mode/case handles, validation, semantic snapshots, SSR root projection, zero-rewrite hydration, and HMR reconciliation pass their evidence planes.
+- Phase 6 is next: migrate ports/recipes/preset/framework helpers onto the common value and validation contracts, then add the settled ergonomic plugins and patterns.
 
 The detailed checklist and acceptance evidence live in the [implementation plan](./dux-implementation-plan.md). The [current baseline](./dux-current-baseline.md) remains the immutable pre-refactor comparison point rather than a rolling description of the new implementation.
 

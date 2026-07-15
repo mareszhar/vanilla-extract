@@ -1,34 +1,50 @@
 /**
- * `theme()` — a scoped set of token overrides, at build time
- * ([dux-spec-tokens.md §7]): a class that re-declares the overridden variables
+ * `tokenOverride()` — a scoped set of token overrides, at build time
+ * ([dux-spec-tokens.md §10]): a class that re-declares the overridden variables
  * plus every build-folded value downstream of them (re-folded under the
  * overrides — a legible pairing may flip its pick). Live derivations re-derive
  * in the cascade and need no re-declaration; that is the point of liveness.
  */
 
 import type { VaneOverride } from './graph'
-import type { VaneThemeOverrides } from './types'
+import type { VaneThemeOverrides, VaneTokenOverrides } from './types'
 import { style } from '@vanilla-extract/css'
 import { didYouMean, VaneError } from '../diagnostics'
 import { isHandle } from '../internal/handle'
+import { record } from '../internal/inspect'
 import { isColorValue, isContrastValue } from './color'
 import { graphOf, resolveGraph } from './graph'
 
+export function tokenOverride<T extends object>(tokens: T, overrides: VaneTokenOverrides<T>, debugId?: string): string {
+  return createTokenOverride(tokens, overrides as object, debugId, 'tokenOverride')
+}
+
+/** @deprecated D66 compatibility adapter; canonical systems use `ds.tokenOverride()`. */
 export function theme<T extends object>(tokens: T, overrides: VaneThemeOverrides<T>, debugId?: string): string {
+  return createTokenOverride(tokens, overrides as object, debugId, 'theme')
+}
+
+function createTokenOverride<T extends object>(
+  tokens: T,
+  overrides: object,
+  debugId: string | undefined,
+  invocation: 'tokenOverride' | 'theme',
+): string {
   const graph = graphOf(tokens)
 
   if (!graph) {
     throw new VaneError({
       code: 'VANE_TOKENS_INVALID_OVERRIDE',
-      message: 'theme() needs the tokens returned by defineTokens',
-      fix: 'pass the graph itself — theme(t, { … }) — from a style module',
+      message: `${invocation}() needs the tokens returned by defineTokens`,
+      fix: `pass the graph itself — ${invocation}(t, { … }) — from a style module`,
     })
   }
 
   const substitutions = new Map<string, VaneOverride>()
   collectOverrides(overrides, tokens, [], substitutions, graph.file)
 
-  const { results, diagnostics } = resolveGraph(graph, substitutions, debugId ? `theme ${debugId}` : 'theme')
+  const context = debugId ? `${invocation} ${debugId}` : invocation
+  const { results, diagnostics } = resolveGraph(graph, substitutions, context)
 
   if (diagnostics.length > 0)
     throw new VaneError(diagnostics)
@@ -42,7 +58,18 @@ export function theme<T extends object>(tokens: T, overrides: VaneThemeOverrides
       vars[node.name] = emitted
   }
 
-  return style({ vars }, debugId)
+  const rule = { vars }
+  const className = style(graph.phaseLayers?.overrides === undefined
+    ? rule
+    : { '@layer': { [graph.phaseLayers.overrides]: rule } }, debugId)
+  record({
+    kind: 'style',
+    class: className,
+    ...(debugId === undefined ? {} : { name: debugId }),
+    vars: Object.keys(vars),
+    ...(graph.file === undefined ? {} : { file: graph.file }),
+  })
+  return className
 }
 
 function collectOverrides(

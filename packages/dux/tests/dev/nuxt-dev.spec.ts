@@ -6,6 +6,7 @@ import { expect, test } from '@playwright/test'
 const origin = 'http://127.0.0.1:3200'
 const tokensFile = fileURLToPath(new URL('../../sandbox/demo-main/app/design/foundations.tokens.ts', import.meta.url))
 const appStyleFile = fileURLToPath(new URL('../../sandbox/demo-main/app/app.style.ts', import.meta.url))
+const phase5StyleFile = fileURLToPath(new URL('../../sandbox/demo-main/app/components/Phase5Fixture.style.ts', import.meta.url))
 
 declare global {
   interface Window {
@@ -47,6 +48,7 @@ test('Nuxt dev keeps first paint styled and HMR deterministic', async ({ page })
   const stylesheetResponses: Array<{ url: string, status: number }> = []
   const originalTokens = await readFile(tokensFile, 'utf8')
   const originalAppStyle = await readFile(appStyleFile, 'utf8')
+  const originalPhase5Style = await readFile(phase5StyleFile, 'utf8')
 
   page.on('response', (response) => {
     if (response.request().resourceType() === 'stylesheet')
@@ -104,6 +106,18 @@ test('Nuxt dev keeps first paint styled and HMR deterministic', async ({ page })
     await expect(select).toHaveCSS('border-radius', '14px')
     expect(await loadCount(page)).toBe(loadsBeforeHmr)
 
+    await page.evaluate(() => {
+      const runtime = (window as any).__phase5
+      runtime.unsetDark()
+      runtime.setBase('rgb(220 60 90)')
+    })
+    await expect(page.locator('#phase5-primary')).toHaveCSS('background-color', 'rgb(220, 60, 90)')
+    expect(originalPhase5Style).toContain('val: \'rgb(180 50 100)\'')
+    await writeFile(phase5StyleFile, originalPhase5Style.replace('val: \'rgb(180 50 100)\'', 'val: \'rgb(181 51 101)\''))
+    await expect(page.locator('#phase5-sibling')).toHaveCSS('background-color', 'rgb(181, 51, 101)')
+    await expect(page.locator('#phase5-primary')).toHaveCSS('background-color', 'rgb(220, 60, 90)')
+    expect(await loadCount(page)).toBe(loadsBeforeHmr)
+
     const shapeProbe = '\nexport const __vaneHmrShapeProbe = css({ opacity: 1 })\n'
     await writeFile(appStyleFile, `${originalAppStyle}${shapeProbe}`)
 
@@ -116,6 +130,7 @@ test('Nuxt dev keeps first paint styled and HMR deterministic', async ({ page })
     await Promise.all([
       writeFile(tokensFile, originalTokens),
       writeFile(appStyleFile, originalAppStyle),
+      writeFile(phase5StyleFile, originalPhase5Style),
     ])
   }
 })

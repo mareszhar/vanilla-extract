@@ -110,6 +110,8 @@ Test each data type against:
 - multiple independent axes in each order;
 - explicit sparse case;
 - mutable base/mode/case set and unset;
+- explicit-target external/vane custom-property writes on HTML, SVG, and `CSSStyleDeclaration`-like targets;
+- Standard Schema transformed output plus `throw`/`fallback`/`omit`, missing app-plane registry, and async-schema rejection;
 - authored/reserved branches appear in handle types while omitted partial modes and unauthored cases do not;
 - mutable `null` mode/case reservation has no authored slot value, accepts `$set()`, and `$unset()` restores the prior effective expression;
 - native scheme output composes a reserved branch fallback inside `light-dark()` and selector emission preserves the equivalent fallback behavior;
@@ -216,11 +218,13 @@ Browser tests assert:
 - no failed stylesheet/resource requests;
 - no console/page errors;
 - first styled paint remains styled under SSR;
+- omitted-root document binding works only for a `:root` system; widget roots remain explicit;
 - custom-property inheritance and axis selection produce real computed values;
 - mutable base/mode/case writes update expected descendants;
 - `$unset()` restores authored values;
 - inner widget runtimes do not leak to siblings;
 - shadow-root behavior matches the documented support policy;
+- external custom-property writes affect SVG presentation attributes through ordinary CSS;
 - `light-dark()` or selector scheme output behaves in supported browsers;
 - unregistered element-local `light-dark()` tokens respond to nested `color-scheme` overrides;
 - typed registered public properties never silently freeze an element-local scheme token at an ancestor;

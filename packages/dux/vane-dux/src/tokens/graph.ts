@@ -9,8 +9,9 @@
  */
 
 import type { VaneDiagnostic } from '../diagnostics'
-import type { VaneRuntimeBranchHandle, VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
+import type { VaneRuntimeBranchHandle, VaneRuntimeHandle, VaneSemanticTokenAddress, VaneTokenMode } from '../internal/handle'
 import type { VaneAxisDefinition, VaneAxisRegistry, VaneAxisTriggerArm } from '../system/axes'
+import type { VaneRuntimeContract, VaneRuntimeTokenContract } from '../system/live'
 import type { VaneCssSupportTarget } from '../values/protocol'
 import type { VaneCssValue } from '../values/types'
 import type { VaneColorExpr } from './color'
@@ -36,10 +37,13 @@ import {
   attachCaseBranch,
   createBranchHandle,
   createHandle,
+  setRuntimeAddress,
   updateHandle,
+  VANE_RUNTIME_ADDRESS,
   wireCaseBranches,
 } from '../internal/handle'
 import { inspecting, record } from '../internal/inspect'
+import { sealRuntimeContract } from '../system/live'
 import { collectNodeRequirements, nodeOf as valueNodeOf } from '../values/protocol'
 import { isCssValue } from '../values/types'
 import { TextContrastCheck } from './checks'
@@ -117,6 +121,7 @@ interface NodeResult {
 
 export interface TokenGraph {
   prefix: string
+  root: string
   nodes: Map<string, TokenNode>
   results: Map<string, NodeResult>
   /** Engine-bound serializer; absent only on the deprecated root builder. */
@@ -126,10 +131,20 @@ export interface TokenGraph {
   phaseLayers?: VaneTokenPhaseLayers
   contributions?: ReadonlySet<object>
   file?: string
+  runtime?: VaneRuntimeContract
+  runtimeSchemas?: Readonly<Record<string, import('./types').VaneStandardSchemaV1>>
 }
 
 export function graphOf(tokens: object): TokenGraph | undefined {
   return (tokens as { [GRAPH]?: TokenGraph })[GRAPH]
+}
+
+export function runtimeContractOf(tokens: object): VaneRuntimeContract | undefined {
+  return graphOf(tokens)?.runtime
+}
+
+export function runtimeSchemasOf(tokens: object): Readonly<Record<string, import('./types').VaneStandardSchemaV1>> {
+  return graphOf(tokens)?.runtimeSchemas ?? {}
 }
 
 function cssOf(graph: TokenGraph, value: VaneCssValue): string {
@@ -408,6 +423,7 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
 
   const unresolved: TokenGraph = {
     prefix,
+    root: defaultRoot,
     nodes,
     results: new Map(),
     file,
@@ -426,20 +442,27 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
     throw new VaneError(diagnostics)
 
   hydrateGraphHandles(resolved)
+  resolved.runtime = buildRuntimeContract(resolved)
+  resolved.runtimeSchemas = collectRuntimeSchemas(resolved)
+  attachRuntimeAddresses(resolved)
 
   for (const node of nodes.values()) {
     const result = results.get(node.key)!
-    const axes: Record<string, Record<string, { value?: string | number }>> = {}
-    const cases: { when: Readonly<Record<string, string>>, value?: string | number }[] = []
+    const axes: Record<string, Record<string, { value?: string | number, runtime?: import('../internal/handle').VaneHandleRuntimeAddress }>> = {}
+    const cases: { when: Readonly<Record<string, string>>, value?: string | number, runtime?: import('../internal/handle').VaneHandleRuntimeAddress }[] = []
     for (const branch of node.branches) {
       if (branch.kind === 'axis') {
         axes[branch.axis] ??= {}
-        axes[branch.axis]![branch.mode] = branch.handle.$val === undefined ? {} : { value: branch.handle.$val }
+        axes[branch.axis]![branch.mode] = {
+          ...(branch.handle.$val === undefined ? {} : { value: branch.handle.$val }),
+          ...(branch.handle[VANE_RUNTIME_ADDRESS] === undefined ? {} : { runtime: branch.handle[VANE_RUNTIME_ADDRESS] }),
+        }
       }
       else {
         cases.push({
           when: branch.when,
           ...(branch.handle.$val === undefined ? {} : { value: branch.handle.$val }),
+          ...(branch.handle[VANE_RUNTIME_ADDRESS] === undefined ? {} : { runtime: branch.handle[VANE_RUNTIME_ADDRESS] }),
         })
       }
     }
@@ -458,9 +481,12 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
         ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
         ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
         ...(node.contract.metadata === undefined ? {} : { metadata: node.contract.metadata }),
+        ...(node.contract.register === undefined ? {} : { register: serializableRegistration(node, resolved) }),
+        ...(runtimeValidationOf(node, resolved) === undefined ? {} : { validate: runtimeValidationOf(node, resolved) }),
+        ...(node.handle[VANE_RUNTIME_ADDRESS] === undefined ? {} : { runtime: node.handle[VANE_RUNTIME_ADDRESS] }),
         ...(Object.keys(axes).length === 0 ? {} : { axes }),
         ...(cases.length === 0 ? {} : { cases }),
-      }],
+      } as any],
     })
   }
 
@@ -484,6 +510,7 @@ function hydratePartialGraph(
     return
   const unresolved: TokenGraph = {
     prefix,
+    root: options.root ?? ':root',
     nodes,
     results: new Map(),
     file,
@@ -549,6 +576,175 @@ function serializeBranch(definition: VaneLeafDefinition, graph: TokenGraph): str
   return traits.cssLive || traits.volatile
     ? serializeExpr(definition.expr, resolver)
     : formatOklch(foldExpr(definition.expr, 'light', resolver))
+}
+
+function buildRuntimeContract(graph: TokenGraph): VaneRuntimeContract {
+  const axisOrder = [...(graph.axes?.order ?? [])]
+  const axes = Object.fromEntries(axisOrder.map((axis) => {
+    const definition = graph.axes!.definitions[axis]!
+    const runtimeArms: { mode: string, arm: VaneAxisTriggerArm | undefined }[] = definition.modeOrder.map((mode: string) => ({
+      mode,
+      arm: [...definition.modes[mode]!.arms]
+        .filter(arm => arm.runtime !== undefined)
+        .sort((left, right) => right.priority - left.priority)[0],
+    }))
+    const names = new Set<string>(runtimeArms.flatMap(entry => entry.arm?.runtime?.name ?? []))
+    let attribute: import('../system/live').VaneRuntimeAxisContract['attribute']
+    if (names.size === 1) {
+      const name = [...names][0]!
+      const values: Record<string, string | null> = {}
+      let complete = true
+      for (const { mode, arm } of runtimeArms) {
+        if (arm?.runtime?.name === name)
+          values[mode] = arm.runtime.value
+        else if (mode === definition.defaultMode && definition.modes[mode]!.arms.length === 0)
+          values[mode] = null
+        else
+          complete = false
+      }
+      if (complete)
+        attribute = { name, values: Object.freeze(values) }
+    }
+    return [axis, Object.freeze({
+      ...(definition.defaultMode === undefined ? {} : { defaultMode: definition.defaultMode }),
+      modes: Object.freeze([...definition.modeOrder]),
+      ...(attribute === undefined ? {} : { attribute: Object.freeze(attribute) }),
+    })]
+  }))
+
+  const tokens: VaneRuntimeTokenContract[] = []
+  for (const node of graph.nodes.values()) {
+    const result = graph.results.get(node.key)!
+    const branches = node.branches.map((branch) => {
+      const address: Exclude<VaneSemanticTokenAddress, { readonly kind: 'base' }> = branch.kind === 'axis'
+        ? { kind: 'axis', axis: branch.axis, mode: branch.mode }
+        : { kind: 'case', when: orderedWhen(branch.when, axisOrder) }
+      return Object.freeze({
+        address,
+        ...(usesMutableSlots(node) ? { slot: slotOfBranch(graph.prefix, node, branch) } : {}),
+        ...(branch.handle.$val === undefined ? {} : { value: branch.handle.$val }),
+      })
+    })
+    const validation = runtimeValidationOf(node, graph)
+    tokens.push(Object.freeze({
+      token: Object.freeze(node.key.split('.')),
+      name: node.name as `--${string}`,
+      root: node.root,
+      type: node.contract.type,
+      reference: node.contract.reference,
+      emit: node.contract.emit,
+      mutable: node.contract.mutable,
+      ...(node.definition.kind === 'none' ? {} : { value: result.emitted }),
+      ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
+      ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
+      ...(node.contract.metadata === undefined ? {} : { metadata: node.contract.metadata }),
+      ...(validation === undefined ? {} : { validation }),
+      ...(usesMutableSlots(node) ? { baseSlot: privateAddress(graph.prefix, node.key, 'base') } : {}),
+      branches: Object.freeze(branches),
+    }))
+  }
+
+  return sealRuntimeContract({
+    protocol: 1,
+    prefix: graph.prefix,
+    root: graph.root,
+    axisOrder: Object.freeze(axisOrder),
+    axes: Object.freeze(axes),
+    tokens: Object.freeze(tokens),
+  })
+}
+
+function collectRuntimeSchemas(graph: TokenGraph): Readonly<Record<string, import('./types').VaneStandardSchemaV1>> {
+  const schemas: Record<string, import('./types').VaneStandardSchemaV1> = {}
+  for (const node of graph.nodes.values()) {
+    const validate = node.contract.validate as import('./types').VaneTokenValidation | undefined
+    if (!validate?.schema)
+      continue
+    const existing = schemas[validate.id]
+    if (existing && existing['~standard'].vendor !== validate.schema['~standard'].vendor)
+      throw new TypeError(`[vane] runtime validation id '${validate.id}' is claimed by multiple Standard Schema vendors`)
+    schemas[validate.id] ??= validate.schema
+  }
+  return Object.freeze(schemas)
+}
+
+function runtimeValidationOf(
+  node: TokenNode,
+  graph: TokenGraph,
+): import('../system/live').VaneRuntimeValidationContract | undefined {
+  const validate = node.contract.validate as import('./types').VaneTokenValidation | undefined
+  if (!validate)
+    return undefined
+  const fallback = validate.fallback === undefined
+    ? undefined
+    : serializeBranch(classifyLeafValue(validate.fallback, `${node.key}.validate.fallback`), graph)
+  return Object.freeze({
+    id: validate.id,
+    runtime: validate.runtime ?? 'dev',
+    onInvalid: validate.onInvalid ?? 'throw',
+    ...(fallback === undefined ? {} : { fallback: String(fallback) }),
+  })
+}
+
+function serializableRegistration(node: TokenNode, graph: TokenGraph): unknown {
+  if (node.contract.register === true)
+    return true
+  const plan = planTokenEmission(node, graph).registration
+  return plan === undefined
+    ? undefined
+    : Object.freeze({
+        syntax: plan.syntax,
+        inherits: plan.inherits,
+        ...(plan.initialValue === undefined ? {} : { initialVal: plan.initialValue }),
+      })
+}
+
+function attachRuntimeAddresses(graph: TokenGraph): void {
+  const contract = graph.runtime!
+  for (const node of graph.nodes.values()) {
+    const token = contract.tokens.find(entry => entry.token.join('.') === node.key)!
+    if (!token.mutable || !token.baseSlot)
+      continue
+    setRuntimeAddress(node.handle, Object.freeze({
+      system: contract.system,
+      token: token.token,
+      address: Object.freeze({ kind: 'base' as const }),
+      slot: token.baseSlot,
+    }))
+    for (const branch of node.branches) {
+      const address: Exclude<VaneSemanticTokenAddress, { readonly kind: 'base' }> = branch.kind === 'axis'
+        ? { kind: 'axis', axis: branch.axis, mode: branch.mode }
+        : { kind: 'case', when: orderedWhen(branch.when, contract.axisOrder) }
+      const runtimeBranch = token.branches.find(candidate => sameSemanticAddress(candidate.address, address))!
+      setRuntimeAddress(branch.handle, Object.freeze({
+        system: contract.system,
+        token: token.token,
+        address,
+        slot: runtimeBranch.slot!,
+      }))
+    }
+  }
+}
+
+function orderedWhen(
+  when: Readonly<Record<string, string>>,
+  axisOrder: readonly string[],
+): Readonly<Record<string, string>> {
+  const rank = new Map(axisOrder.map((axis, index) => [axis, index]))
+  return Object.freeze(Object.fromEntries(Object.entries(when).sort(([left], [right]) =>
+    (rank.get(left) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right) ?? Number.MAX_SAFE_INTEGER)
+    || left.localeCompare(right))))
+}
+
+function sameSemanticAddress(left: VaneSemanticTokenAddress, right: VaneSemanticTokenAddress): boolean {
+  if (left.kind !== right.kind)
+    return false
+  if (left.kind === 'base')
+    return true
+  if (left.kind === 'axis' && right.kind === 'axis')
+    return left.axis === right.axis && left.mode === right.mode
+  return left.kind === 'case' && right.kind === 'case'
+    && JSON.stringify(left.when) === JSON.stringify(right.when)
 }
 
 /** Paths contributed by a module after this system finalized it. */
@@ -1422,6 +1618,7 @@ function recordGraph(graph: TokenGraph): void {
       : node.definition.kind === 'literal' || node.definition.kind === 'none' ? [] : [...colorRequirements(node.definition.expr)]
     const preview = previewOf(node)
     const plan = planTokenEmission(node, graph)
+    const runtimeToken = graph.runtime?.tokens.find(token => token.token.join('.') === node.key)
     const emission: import('../internal/inspect').VaneTokenEmissionRecord[] = []
     if (Object.keys(plan.baseVars).length > 0) {
       emission.push({
@@ -1482,6 +1679,18 @@ function recordGraph(graph: TokenGraph): void {
       ...(result.supportsUpgrade === undefined ? {} : { upgrade: result.supportsUpgrade }),
       refs: [...refs],
       ...(emission.length === 0 ? {} : { emission }),
+      ...(runtimeToken?.mutable !== true || runtimeToken.baseSlot === undefined
+        ? {}
+        : {
+            runtime: {
+              type: runtimeToken.type,
+              ...(runtimeToken.validation === undefined ? {} : { validation: runtimeToken.validation }),
+              addresses: [
+                ...(runtimeToken.baseSlot === undefined ? [] : [{ address: { kind: 'base' as const }, slot: runtimeToken.baseSlot }]),
+                ...runtimeToken.branches.flatMap(branch => branch.slot === undefined ? [] : [{ address: branch.address, slot: branch.slot }]),
+              ],
+            },
+          }),
       ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
       ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
     })

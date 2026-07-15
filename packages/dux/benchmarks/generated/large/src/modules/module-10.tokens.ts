@@ -6,7 +6,7 @@ export const tokenModule10 = de.defineTokens({
   group10: {
     token1000: de.oklch(0.96, 0.01, 280),
     token1001: '42px',
-    token1002: de.token({ val: de.oklch(0.96, 0.01, 282), axes: { scheme: { dark: de.oklch(0.16, 0.01, 282) }, density: { compact: de.oklch(0.9, 0.02, 282) } }, cases: [{ when: { scheme: 'dark', density: 'compact' }, val: de.oklch(0.22, 0.02, 282) }], description: 'Module 10 conditional' }),
+    token1002: de.token({ val: de.oklch(0.96, 0.01, 282), mutable: true, axes: { scheme: { dark: de.oklch(0.16, 0.01, 282) }, density: { compact: de.oklch(0.9, 0.02, 282) } }, cases: [{ when: { scheme: 'dark', density: 'compact' }, val: de.oklch(0.22, 0.02, 282) }], description: 'Module 10 conditional' }),
     token1003: '44px',
     token1004: '45px',
     token1005: '46px',

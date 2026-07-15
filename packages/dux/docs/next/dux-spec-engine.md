@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 2 engine/system foundation and Phase 4 axes/emission implemented; later plugins and runtime pending
+status: target spec — Phase 2 engine/system foundation, Phase 4 axes/emission, and Phase 5 runtime services implemented; later plugins pending
 
 # vane-dux next — spec: engine and system
 
