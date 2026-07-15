@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 2 engine/system foundation and Phase 3 token projections implemented; axes pending
+status: target spec — Phase 2 engine/system foundation and Phase 4 axes/emission implemented; later plugins and runtime pending
 
 # vane-dux next — spec: engine and system
 
@@ -11,12 +11,12 @@ The engine defines the design-system language. The system finalizes one design s
 | --- | --- | --- |
 | Root free functions | Deprecated migration adapters | Canonical authoring derives value/token helpers from `createEngine()`; D66 removes the adapters at target-doc promotion. |
 | `createSystem(options)` | Canonical `engine.createSystem(options)` implemented | Preserve the root function only as a deprecated migration adapter. |
-| Conditions/layers | Implemented and shared across surfaces | Root and token/module layers are integrated; axis sublayers follow with axes. |
+| Conditions/layers | Implemented and shared across surfaces | Root, token/module, ordered axis, case, and override sublayers are integrated. |
 | Token prefix | Final system is the sole owner | Preserve single finalization as later token traits arrive. |
 | Extensions | Public `.use()`/`.extend()` plus value-extension contracts implemented | Expand the same protocol to later plugins/presets. |
-| Scheme | Hardcoded color/light/dark concept | Engine-defined general axes. |
+| Scheme | Engine-defined built-in axis adapter | Preserve element-local/root-bound policy and color-only native optimization. |
 
-Phase 2 implements the complete two-stage spine: zero-config/configured engines, deterministic semantic signatures, immutable extensions/plugins, engine-bound unfinished modules, engine-owned system finalization, module/system roots and token layers, manifest ownership, and direct constructor/plugin re-exposure on `ds`. The existing package-root authoring functions remain deprecated internal-transition adapters under D66; they are not another supported design language.
+Phases 2 and 4 implement the two-stage spine and its environmental layer: zero-config/configured engines, deterministic semantic signatures, immutable extensions/plugins/axes, engine-bound unfinished modules, engine-owned system finalization, system/module/group roots, ordered token sublayers, manifest ownership, and direct constructor/plugin re-exposure on `ds`. The existing package-root authoring functions remain deprecated internal-transition adapters under D66; they are not another supported design language.
 
 ## 1. `createEngine()`
 
@@ -113,7 +113,7 @@ Axes are declared after the engine helpers they may use:
 
 ```ts
 const de = createEngine()
-  .axes(({ axis, data, schemeIs, darken }) => ({
+  .axes(({ axis, data, defaultMode, schemeIs, darken }) => ({
     scheme: axis({
       modes: {
         light: defaultMode(),
@@ -127,8 +127,8 @@ const de = createEngine()
 
     density: axis({
       modes: {
-        compact: data('density', 'compact', { on: 'root' }),
-        cozy: data('density', 'cozy', { on: 'root' }),
+        compact: data('density', 'compact'),
+        cozy: data('density', 'cozy'),
       },
     }),
   }))
@@ -144,13 +144,14 @@ An axis defines:
 - literal mode names;
 - a default/base relationship;
 - one or more ordered condition bindings per mode;
-- optional exposure/requirement policy for token groups;
 - optional per-mode derivations;
 - optional native emission optimization;
 - native selection locality (`element` or effective `root`) when an optimization can compute at different elements;
 - manifest description.
 
 An axis is not merely a record of selectors. It promises coherent mode semantics.
+
+Mode derivations lower eagerly when the engine-bound `de.token()` configuration is created. Their results become ordinary self-contained value IR inside the unfinished token module; system finalization never re-runs an opaque callback from whichever equivalent engine happens to own the build. Derivation callbacks and descriptive metadata therefore do not enter the semantic signature. This preserves deterministic signature/HMR compatibility without hashing function source or rejecting documentation-only edits.
 
 ### 4.2 Order
 
@@ -168,13 +169,7 @@ The built-in scheme adapter defaults to element-local native selection so descen
 
 Exposure/requirement paths must be typed against token structure only when that structure exists. Engine-time strings pointing into a future graph are not accepted as if they were safely typed.
 
-Preferred solutions, in order:
-
-1. group-local `$axes`/requirement metadata;
-2. module identity supplied to axis configuration after module creation;
-3. explicit reusable selectors with diagnostics;
-
-The implementation must not claim type safety for unchecked future dot paths.
+Per-token `axes` is the canonical exposure point and receives the engine's exact axis/mode vocabulary before any system exists. Group `$axes` is deliberately deferred by D68: the prototype added transposition complexity, weaker error locality, and a larger type surface without unlocking CSS capability. The implementation does not accept unchecked future dot paths.
 
 ### 4.4 Trigger-arm locality
 
@@ -256,7 +251,7 @@ de.createSystem({
 Effective root precedence:
 
 ```text
-nearest group root (if supported)
+nearest group root
 → module root
 → system root
 → :root default
@@ -270,12 +265,13 @@ Loose conditions continue to type `css`, recipes, anatomy, and atoms.
 
 Axis mode bindings use the same condition IR but carry axis guarantees and explicit root placement. The two concepts share infrastructure without becoming synonyms.
 
-Selector conditions use `&` as the effective-root anchor:
+Selector conditions use `&` as the effective-root anchor, or select placement explicitly:
 
 ```ts
 condition('&[data-x="y"]')
 condition('[data-x="y"] &')
 condition('& [data-x="y"]')
+condition('[data-x="y"]', { on: 'ancestor', priority: 20 })
 absoluteCondition('[data-x="y"]')
 ```
 

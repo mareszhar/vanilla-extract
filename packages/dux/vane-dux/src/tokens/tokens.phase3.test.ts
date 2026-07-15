@@ -39,7 +39,10 @@ describe('canonical token traits and handles', () => {
   })
 
   it('represents no-default bases and exact authored branches without sentinels', () => {
-    const de = createEngine()
+    const de = createEngine().axes(({ axis, data }) => ({
+      scheme: axis({ modes: { dark: data('scheme', 'dark'), contrast: data('scheme', 'contrast') } }),
+      density: axis({ modes: { compact: data('density', 'compact') } }),
+    }))
     const { css, returned: ds } = emit(() => de.createSystem({
       tokens: de.defineTokens({
         fill: null,
@@ -50,7 +53,10 @@ describe('canonical token traits and handles', () => {
           emit: 'emit-token',
         },
         color: {
-          future: de.token.color({ mutable: true, register: { inherits: true } }),
+          future: de.token.color({
+            mutable: true,
+            register: { inherits: true, initialVal: de.oklch(0.5, 0, 0) },
+          }),
           accent: de.token({
             val: de.oklch(0.58, 0.2, 285),
             mutable: true,
@@ -93,11 +99,13 @@ describe('canonical token traits and handles', () => {
     expect(() => (ds.t.color.accent as any).$case({ scheme: 'light', density: 'compact' }))
       .toThrow(/no authored case/)
     expect(css).not.toContain('--vane-fill:')
-    expect(css).not.toContain('--vane-color-future:')
+    expect(css).toMatch(/--vane-color-future:\s*var\(--vane-v-[a-z0-9]+\)/)
   })
 
   it('diagnoses trait conflicts at the configured field', () => {
-    const de = createEngine()
+    const de = createEngine().axes(({ axis, data }) => ({
+      scheme: axis({ modes: { dark: data('scheme', 'dark') } }),
+    }))
     expect(() => de.token({ val: 'red', mutable: true, reference: 'val' } as any))
       .toThrow(/token\.reference cannot be 'val'/)
     expect(() => de.token({ val: 'red', axes: { scheme: { dark: 'black' } }, emit: false } as any))

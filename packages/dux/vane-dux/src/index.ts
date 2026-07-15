@@ -107,7 +107,27 @@ export type {
 
 // ─── The system: createSystem, conditions, layers (phase 2) ──────────────────
 
+export type {
+  VaneAbsoluteAxisConditionOptions,
+  VaneAxisAuthoringHelpers,
+  VaneAxisConditionOptions,
+  VaneAxisConfig,
+  VaneAxisDefinition,
+  VaneAxisDefinitions,
+  VaneAxisLocality,
+  VaneAxisMechanism,
+  VaneAxisModeInput,
+  VaneAxisName,
+  VaneAxisRegistry,
+  VaneAxisRegistryDescription,
+  VaneAxisTrigger,
+  VaneAxisTriggerArm,
+  VaneDefaultAxisMode,
+  VaneNativeSchemePolicy,
+  VaneSchemeAxisOptions,
+} from './system/axes'
 export { aria, container, data, media, schemeIs, supports } from './system/conditions'
+
 export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneConditionInput } from './system/conditions'
 
 export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'

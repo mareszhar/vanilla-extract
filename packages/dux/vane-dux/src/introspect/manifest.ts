@@ -20,6 +20,7 @@ import type {
   VaneStyleRecord,
   VaneTokenRecord,
 } from '../internal/inspect'
+import type { VaneAxisRegistryDescription } from '../system/axes'
 import type { VaneCssFeature } from '../values/protocol'
 
 // ─── The format ──────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ export interface VaneManifestToken extends VaneManifestSource {
   preview?: { status: 'unavailable', reason: string }
   description?: string
   deprecated?: string
+  emission?: VaneTokenRecord['emission']
 }
 
 export interface VaneManifestRecipe extends VaneManifestSource {
@@ -117,6 +119,8 @@ export interface VaneManifest {
   layers: string[]
   /** Condition name → its compiled circumstance, readably serialized. */
   conditions: Record<string, string>
+  /** Environmental vocabulary, precedence, and per-trigger locality. */
+  axes?: VaneAxisRegistryDescription
   /** Token path (`color.brand`) → the token. */
   tokens: Record<string, VaneManifestToken>
   /** Export name → the recipe or anatomy (anatomies carry `parts`). */
@@ -162,6 +166,8 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
       case 'system':
         manifest.layers = record.layers
         manifest.conditions = record.conditions
+        if (record.axes !== undefined)
+          manifest.axes = record.axes
         if (record.root !== undefined) {
           manifest.root = record.root
           systemRoot = record.root
@@ -240,6 +246,7 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
       ...(token.preview.status === 'available' ? {} : { preview: token.preview }),
       ...(token.description === undefined ? {} : { description: token.description }),
       ...(token.deprecated === undefined ? {} : { deprecated: token.deprecated }),
+      ...(token.emission === undefined || token.emission.length === 0 ? {} : { emission: token.emission }),
       ...manifestSource(token),
     }
   }

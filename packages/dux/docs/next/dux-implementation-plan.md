@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: active migration ledger — phases 0–3 complete; phase 4 ready
+status: active migration ledger — phases 0–4 complete; phase 5 ready
 
 # vane-dux next — implementation plan
 
@@ -255,39 +255,39 @@ Phase 4 is unblocked.
 
 ### Axes
 
-- [ ] Implement `.axes(context => record)` on the staged engine.
-- [ ] Use normalized declaration order by default; implement optional typed `.axisOrder(...)` with completeness/duplicate checks.
-- [ ] Implement axis/mode condition bindings, defaults, descriptions, and optional derivations.
-- [ ] Implement explicit trigger priority for overlapping conditions; built-in scheme preference loses to explicit selection.
-- [ ] Record native-element, root/subtree-selector, document-media, and absolute-selector locality per trigger arm; prohibit unacknowledged element-local degradation.
-- [ ] Decide exposure/requirement API without unchecked future dot paths.
-- [ ] Add built-in scheme and generic data-axis adapters.
+- [x] Implement `.axes(context => record)` on the staged engine.
+- [x] Use normalized declaration order by default; implement optional typed `.axisOrder(...)` with completeness/duplicate checks.
+- [x] Implement axis/mode condition bindings, defaults, descriptions, and optional derivations.
+- [x] Implement explicit trigger priority for overlapping conditions; built-in scheme preference loses to explicit selection.
+- [x] Record native-element, root/subtree-selector, document-media, and absolute-selector locality per trigger arm; prohibit unacknowledged element-local degradation.
+- [x] Decide exposure/requirement API without unchecked future dot paths: exact per-token axes ship; group `$axes` is explicitly deferred (D68).
+- [x] Add built-in scheme and generic data-axis adapters.
 
 ### Token authoring
 
-- [ ] Implement complete single-axis maps, base plus partial maps, multiple axes, and sparse cases.
-- [ ] Accept `null` on mutable modes/cases as an explicit no-default address reservation; reject it on nonmutable branches.
-- [ ] Emit diagnostics for totality, duplicate cases, impossible modes, and likely accidental precedence.
-- [ ] Prototype group `$axes`; ship only if API/performance gates pass.
-- [ ] Add color-agnostic axes across arbitrary value data types.
+- [x] Implement complete single-axis maps, base plus partial maps, multiple axes, and sparse cases.
+- [x] Accept `null` on mutable modes/cases as an explicit no-default address reservation; reject it on nonmutable branches.
+- [x] Emit diagnostics for totality, duplicate cases, impossible modes, duplicate trigger/priority arms, and invalid precedence declarations.
+- [x] Prototype group `$axes`; retain per-token axes after API/performance/error-locality evaluation (D68).
+- [x] Add color-agnostic axes across arbitrary value data types.
 
 ### Roots/conditions
 
-- [ ] Implement system/module effective roots; prototype group `$root` separately.
-- [ ] Implement root-anchored condition IR with self/ancestor/descendant/absolute placement.
-- [ ] Preserve bare styling conditions and selector/at-rule reach.
-- [ ] Reserve actual `@scope` support and terminology.
-- [ ] Surface resolved emission contexts in diagnostics/manifest.
+- [x] Implement system/module effective roots and composable group `$root`.
+- [x] Implement root-anchored condition IR with self/ancestor/descendant/absolute placement.
+- [x] Preserve bare styling conditions and selector/at-rule reach.
+- [x] Reserve actual `@scope` support and terminology.
+- [x] Surface resolved emission contexts in diagnostics/manifest.
 
 ### Emission
 
-- [ ] Establish token sublayers before declarations.
-- [ ] Guarantee base → ordered axes → cases → overrides.
-- [ ] Add optional native `light-dark()` optimization behind support/toolchain policy.
-- [ ] Cover reserved light/dark branches in both native `light-dark()` and selector emission, including their slot fallback chains.
-- [ ] Implement `@property` registration with inferred syntax and validity checks.
-- [ ] Model element-local versus root-bound scheme selection; reject typed registration that would silently freeze element-local `light-dark()` behavior.
-- [ ] Ensure unlayered consumer CSS and system override layers behave predictably.
+- [x] Establish token sublayers before declarations.
+- [x] Guarantee base → ordered axes → cases → overrides.
+- [x] Add optional color-only native `light-dark()` optimization behind support/toolchain policy.
+- [x] Cover reserved light/dark branches in both native `light-dark()` and selector emission, including their slot fallback chains.
+- [x] Implement `@property` registration with inferred syntax and validity checks.
+- [x] Model element-local versus root-bound scheme selection; reject typed registration that would silently freeze element-local `light-dark()` behavior.
+- [x] Ensure unlayered consumer CSS and system override layers behave predictably.
 
 ### Exit gate
 
@@ -295,6 +295,19 @@ Phase 4 is unblocked.
 - Import order cannot change semantics.
 - Mutable-compatible binding placement is defined before runtime slot implementation.
 - Scheme is no longer a hardcoded color/light/dark graph shape.
+
+Accepted 2026-07-14. Phase 4 turns the Phase 3 branch vocabulary into a deterministic environmental compiler: axes are immutable engine stages; roots and conditions resolve before emission; exact modes/cases lower to ordered layers; registration and mutable reservations obey platform computed-value rules; and scheme is one built-in adapter over the general model.
+
+Acceptance evidence:
+
+- Dedicated runtime/type/editor/output fixtures cover staged identity, exact axis/mode/case completion, exhaustive `.axisOrder()`, eager self-contained defaults/derivations, totality/type/case diagnostics, duplicate trigger arms, composable group roots, all condition placements/query mechanisms, registration validity, base/branch reservations, and opaque noncyclic slot fallbacks.
+- Output declares `<prefix>.tokens.base`, one sublayer per normalized axis, cases, and overrides before declarations. Nonmutable branches write the public property directly so descendant/absolute selectors retain local cascade semantics; only root-safe mutable multi-axis fallback chains use private stages. Axis priority/mode order and case placement are independent of module import order; non-color scheme values correctly use selector/media arms because CSS `light-dark()` is color-only.
+- Inspection records the full ordered axis registry plus per-arm mechanism/locality/priority and every token's resolved base/native/axis/case declaration context. Canonical axis types are exported for plugins and tooling.
+- The Nuxt Chromium fixture proves real computed behavior: element-local light/dark descendants diverge from one custom-property token, a group root responds to density, a sparse density/emphasis case wins after both triggers change, and `@property` registration reaches the live CSSOM.
+- The generated corpus now scales from 2 to 4 axes and benchmarks axis/case completion. At 5,000 tokens: 2.23s TypeScript total time, 2,216,611 instantiations, 573,904 kB reported memory, 445,681 B declarations, 5.39ms graph rename, 204,640 B CSS (20,109 B gzip), and 2,413,399 B manifest. D70 records the sole >20% Phase 3 delta—the exact-axis/case TypeScript memory peak—while time, instantiations, declarations, and editor latency remain inside their accepted budgets.
+- Permanent phase-boundary gates pass: lint and audit are clean; SDK plus both demos typecheck/build; 60 SDK files and 475 tests pass with zero type errors; five production-browser tests, the Nuxt dev/HMR test, and both lifecycle repetitions pass; generated benchmark fixtures match their generator; and packed fresh Vite/Nuxt consumers pass strict types, production build, HTTP, HMR, and lifecycle checks.
+
+Phase 5 is unblocked.
 
 ## 9. Phase 5 — mutable runtime and custom properties
 
@@ -306,11 +319,11 @@ Phase 4 is unblocked.
 
 ### Mutable slots
 
-- [ ] Emit uniform base slots for every `mutable: true` token.
-- [ ] Emit a public binding and empty base slot for typed mutable no-default tokens; let unregistered bindings remain invalid-until-set and registered `initial-value` supply the platform default.
-- [ ] Emit addressable mode/case slots and public bindings.
-- [ ] Emit no authored slot value for reserved `null` branches and compile a noncyclic fallback to the previously effective expression.
-- [ ] Keep slots inheritable/unregistered and public registration separate.
+- [x] Emit uniform base slots for every `mutable: true` token (compiler half completed in Phase 4).
+- [x] Emit a public binding and empty base slot for typed mutable no-default tokens; let unregistered bindings remain invalid-until-set and registered `initial-value` supply the platform default (compiler half completed in Phase 4).
+- [x] Emit addressable mode/case slots and public bindings (compiler half completed in Phase 4; runtime resolution remains below).
+- [x] Emit no authored slot value for reserved `null` branches and compile a noncyclic fallback to the previously effective expression.
+- [x] Keep slots inheritable/unregistered and public registration separate.
 - [ ] Serialize slot provenance into plane-neutral runtime metadata.
 - [ ] Keep private slot spelling opaque/non-normative and resolve it only from semantic token/branch addresses.
 - [ ] Implement `$set()` and `$unset()` on runtime-bound base/mode/case handles.

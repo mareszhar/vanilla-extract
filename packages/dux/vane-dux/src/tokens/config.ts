@@ -1,5 +1,6 @@
 /** Canonical token configuration branding. The wrapper is data, not a group. */
 
+import type { VaneAxisDefinitions, VaneAxisRegistry } from '../system/axes'
 import type { VaneCssDataType } from '../values/types'
 import type {
   VaneConfiguredToken,
@@ -34,17 +35,19 @@ const DATA_TYPES = {
   url: 'url',
 } as const satisfies Readonly<Record<string, VaneCssDataType>>
 
-export function createTokenFactory(): VaneTokenFactory {
-  const token = ((config: VaneTokenConfig) => configuredToken(config, inferConfiguredType(config))) as VaneTokenFactory
+export function createTokenFactory<Axes extends VaneAxisDefinitions = Record<never, never>>(
+  axes?: VaneAxisRegistry<Axes>,
+): VaneTokenFactory<Axes> {
+  const token = ((config: VaneTokenConfig) => configuredToken(config, inferConfiguredType(config), axes)) as VaneTokenFactory<Axes>
 
   for (const [name, type] of Object.entries(DATA_TYPES)) {
     Object.defineProperty(token, name, {
       enumerable: true,
-      value: ((config: Omit<VaneTokenConfig<never>, 'val'> = {}) => configuredToken(config, type)) as unknown as VaneTypedNoDefaultTokenFactory<VaneCssDataType>,
+      value: ((config: Omit<VaneTokenConfig<never>, 'val'> = {}) => configuredToken(config, type, axes)) as unknown as VaneTypedNoDefaultTokenFactory<VaneCssDataType, Axes>,
     })
   }
 
-  return Object.freeze(token) as unknown as VaneTokenFactory
+  return Object.freeze(token) as unknown as VaneTokenFactory<Axes>
 }
 
 export function isConfiguredToken(value: unknown): value is VaneConfiguredToken {
@@ -55,19 +58,65 @@ export function isConfiguredToken(value: unknown): value is VaneConfiguredToken 
 function configuredToken<const Config extends VaneTokenConfig, Type extends VaneCssDataType>(
   config: Config,
   type: Type,
+  axes?: VaneAxisRegistry<any>,
 ): VaneConfiguredToken<Config, Type> {
   if (!isPlainObject(config))
     throw new TypeError('[vane] token() needs one plain configuration object')
 
-  validateTokenConfig(config)
+  validateTokenConfig(config, axes)
+  const lowered = lowerAxisDerivations(config, axes)
   return Object.freeze({
     [VANE_CONFIGURED_TOKEN]: true as const,
-    config: deepFreeze({ ...config }) as Config,
+    config: deepFreeze(lowered) as Config,
     type,
   })
 }
 
-function validateTokenConfig(config: VaneTokenConfig): void {
+/**
+ * Axis derivations are authoring sugar, not deferred engine semantics. Lower
+ * them while the originating engine is present so unfinished modules carry
+ * self-contained public value IR across HMR and compatible engine instances.
+ */
+function lowerAxisDerivations<Config extends VaneTokenConfig>(
+  config: Config,
+  axes?: VaneAxisRegistry<any>,
+): Config {
+  if (config.axes === undefined || axes === undefined)
+    return { ...config }
+
+  const loweredAxes: Record<string, Record<string, unknown | null>> = {}
+  for (const [axis, configuredModes] of Object.entries(config.axes)) {
+    const definition = axes.definitions[axis]!
+    const loweredModes: Record<string, unknown | null> = { ...configuredModes }
+    const context: Record<string, unknown> = { ...loweredModes }
+    if (definition.defaultMode !== undefined && Object.hasOwn(config, 'val') && !(definition.defaultMode in context))
+      context[definition.defaultMode] = config.val
+
+    for (const mode of definition.modeOrder) {
+      const derive = (definition.derive as Readonly<Record<string, ((modes: Readonly<Record<string, any>>) => unknown) | undefined>>)[mode]
+      if (derive === undefined || mode in context)
+        continue
+      let value: unknown
+      try {
+        value = derive(Object.freeze({ ...context }))
+      }
+      catch (error) {
+        throw new TypeError(
+          `[vane] token axis '${axis}' could not derive mode '${mode}': ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+      if (value !== undefined) {
+        loweredModes[mode] = value
+        context[mode] = value
+      }
+    }
+    loweredAxes[axis] = loweredModes
+  }
+
+  return { ...config, axes: loweredAxes } as Config
+}
+
+function validateTokenConfig(config: VaneTokenConfig, axes?: VaneAxisRegistry<any>): void {
   const conditional = config.mutable === true || config.axes !== undefined || config.cases !== undefined
   if (conditional && config.reference === 'val') {
     throw new TypeError(
@@ -91,14 +140,43 @@ function validateTokenConfig(config: VaneTokenConfig): void {
   if (config.cases !== undefined && !Array.isArray(config.cases))
     throw new TypeError('[vane] token.cases must be an array of explicit intersections')
 
+  for (const [axis, modes] of Object.entries(config.axes ?? {})) {
+    const definition = axes?.definitions[axis]
+    if (!definition)
+      throw new TypeError(`[vane] token axis '${axis}' is not declared by this engine`)
+    if (!isPlainObject(modes))
+      throw new TypeError(`[vane] token axis '${axis}' must be an object keyed by mode`)
+    for (const mode of Object.keys(modes)) {
+      if (!(mode in definition.modes))
+        throw new TypeError(`[vane] token axis '${axis}' has no mode '${mode}'`)
+    }
+  }
+
+  const caseAddresses = new Set<string>()
   for (const entry of config.cases ?? []) {
     if (!isPlainObject(entry) || !isPlainObject(entry.when) || !('val' in entry))
       throw new TypeError('[vane] every token case needs plain when and val fields')
+    const names = Object.keys(entry.when)
+    if (names.length < 2)
+      throw new TypeError('[vane] a sparse token case must intersect at least two declared axes')
+    for (const [axis, mode] of Object.entries(entry.when)) {
+      const definition = axes?.definitions[axis]
+      if (!definition)
+        throw new TypeError(`[vane] token case axis '${axis}' is not declared by this engine`)
+      if (typeof mode !== 'string' || !(mode in definition.modes))
+        throw new TypeError(`[vane] token case axis '${axis}' has no mode '${String(mode)}'`)
+    }
+    const address = [...Object.entries(entry.when)].sort(([a], [b]) => a.localeCompare(b)).map(([axis, mode]) => `${axis}:${mode}`).join('|')
+    if (caseAddresses.has(address))
+      throw new TypeError(`[vane] duplicate token case '${address}'`)
+    caseAddresses.add(address)
   }
 }
 
 function inferConfiguredType(config: VaneTokenConfig): VaneCssDataType {
-  const val = config.val
+  const val = Object.hasOwn(config, 'val')
+    ? config.val
+    : firstConfiguredValue(config)
   if ((typeof val === 'object' || typeof val === 'function') && val !== null && 'type' in val && typeof val.type === 'string')
     return val.type as VaneCssDataType
   if (typeof val === 'number')
@@ -114,6 +192,20 @@ function inferConfiguredType(config: VaneTokenConfig): VaneCssDataType {
       return 'time'
   }
   return 'unknown'
+}
+
+function firstConfiguredValue(config: VaneTokenConfig): unknown {
+  for (const modes of Object.values(config.axes ?? {})) {
+    for (const value of Object.values(modes)) {
+      if (value !== null)
+        return value
+    }
+  }
+  for (const entry of config.cases ?? []) {
+    if (entry.val !== null)
+      return entry.val
+  }
+  return undefined
 }
 
 function isPlainObject(value: unknown): value is Record<string, any> {

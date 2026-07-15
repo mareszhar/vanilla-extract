@@ -56,6 +56,7 @@ const tabItems = [
 </script>
 
 <template>
+  <Phase4Fixture />
   <main :class="page">
     <div :class="shell">
       <header :class="hero">

@@ -10,6 +10,7 @@
 
 import type { VaneDiagnostic } from '../diagnostics'
 import type { VaneRuntimeBranchHandle, VaneRuntimeHandle, VaneTokenMode } from '../internal/handle'
+import type { VaneAxisDefinition, VaneAxisRegistry, VaneAxisTriggerArm } from '../system/axes'
 import type { VaneCssSupportTarget } from '../values/protocol'
 import type { VaneCssValue } from '../values/types'
 import type { VaneColorExpr } from './color'
@@ -25,7 +26,7 @@ import type {
   VaneTokens,
   VaneTokensOptions,
 } from './types'
-import { globalStyle } from '@vanilla-extract/css'
+import { createGlobalVar, globalLayer, globalStyle } from '@vanilla-extract/css'
 import { getFileScope, hasFileScope } from '@vanilla-extract/css/fileScope'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
 import { diagnosticSource, didYouMean, VaneError } from '../diagnostics'
@@ -121,6 +122,8 @@ export interface TokenGraph {
   /** Engine-bound serializer; absent only on the deprecated root builder. */
   serializeValue?: (value: VaneCssValue) => string
   support?: VaneCssSupportTarget
+  axes?: VaneAxisRegistry<any>
+  phaseLayers?: VaneTokenPhaseLayers
   contributions?: ReadonlySet<object>
   file?: string
 }
@@ -178,6 +181,16 @@ export interface RuntimeBuildOptions extends VaneTokensOptions<object, string> {
   readonly layers?: readonly string[]
   readonly serializeValue?: (value: VaneCssValue) => string
   readonly support?: VaneCssSupportTarget
+  readonly axes?: VaneAxisRegistry<any>
+  readonly phaseLayers?: VaneTokenPhaseLayers
+}
+
+export interface VaneTokenPhaseLayers {
+  readonly root: string
+  readonly base: string
+  readonly axes: Readonly<Record<string, string>>
+  readonly cases: string
+  readonly overrides: string
 }
 
 /** Whether a value is the unfinished definition returned by `defineTokens`. */
@@ -364,7 +377,7 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
         prefix,
       })
       const added: string[] = []
-      walkInto(contribution.graph, [], prefix, nodes, tree, false, emission, tokenPolicy, added, file)
+      walkInto(contribution.graph, [], prefix, nodes, tree, false, emission, tokenPolicy, options.axes, added, file)
       CONTRIBUTION_PATHS.set(contribution, Object.freeze(added))
       continue
     }
@@ -389,7 +402,7 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
       prefix,
     })
     const added: string[] = []
-    walkInto(additions, [], prefix, nodes, tree, true, emission, tokenPolicy, added, file)
+    walkInto(additions, [], prefix, nodes, tree, true, emission, tokenPolicy, options.axes, added, file)
     CONTRIBUTION_PATHS.set(contribution, Object.freeze(added))
   }
 
@@ -401,6 +414,8 @@ function buildTokens<T extends object, Prefix extends string = 'vane'>(
     contributions: new Set(contributions),
     ...(options.serializeValue === undefined ? {} : { serializeValue: options.serializeValue }),
     ...(options.support === undefined ? {} : { support: options.support }),
+    ...(options.axes === undefined ? {} : { axes: options.axes }),
+    ...(options.phaseLayers === undefined ? {} : { phaseLayers: options.phaseLayers }),
   }
   const { results, diagnostics } = resolveGraph(unresolved)
   const resolved: TokenGraph = { ...unresolved, results }
@@ -474,6 +489,8 @@ function hydratePartialGraph(
     file,
     ...(options.serializeValue === undefined ? {} : { serializeValue: options.serializeValue }),
     ...(options.support === undefined ? {} : { support: options.support }),
+    ...(options.axes === undefined ? {} : { axes: options.axes }),
+    ...(options.phaseLayers === undefined ? {} : { phaseLayers: options.phaseLayers }),
   }
   const { results, diagnostics } = resolveGraph(unresolved)
   if (diagnostics.length > 0)
@@ -560,12 +577,26 @@ function walkInto(
   derived: boolean,
   emission: { readonly root: string, readonly layer?: string },
   tokenPolicy: VaneTokenPolicy | undefined,
+  axes: VaneAxisRegistry<any> | undefined,
   added: string[],
   file?: string,
 ): void {
+  const groupEmission = tokenPolicy === undefined
+    ? emission
+    : emissionForGroup(group, emission, path, file)
+
   for (const [key, raw] of Object.entries(group)) {
-    if (tokenPolicy !== undefined && (key === '$description' || key === '$root' || key === '$axes'))
+    if (tokenPolicy !== undefined && (key === '$description' || key === '$root'))
       continue
+    if (tokenPolicy !== undefined && key === '$axes') {
+      throw new VaneError({
+        code: 'VANE_TOKENS_INVALID_COLOR',
+        message: `${path.join('.') || 'the token root'}.$axes is not part of the canonical token language`,
+        path: [...path, key].join('.'),
+        file,
+        fix: 'author axes on each token with de.token({ axes }); the transposed bulk form remains deliberately deferred',
+      })
+    }
     const leafPath = [...path, key]
     const keyPath = leafPath.join('.')
 
@@ -577,18 +608,52 @@ function walkInto(
 
       const child = existing as Record<string, unknown> | undefined ?? {}
       tree[key] = child
-      walkInto(raw, leafPath, prefix, nodes, child, derived, emission, tokenPolicy, added, file)
+      walkInto(raw, leafPath, prefix, nodes, child, derived, groupEmission, tokenPolicy, axes, added, file)
       continue
     }
 
     if (key in tree)
       duplicateToken(keyPath, file)
 
-    const node = createNode(leafPath, prefix, raw, derived, emission, tokenPolicy)
+    const node = createNode(leafPath, prefix, raw, derived, groupEmission, tokenPolicy, axes)
     nodes.set(node.key, node)
     tree[key] = node.handle
     added.push(node.key)
   }
+}
+
+function emissionForGroup(
+  group: object,
+  inherited: { readonly root: string, readonly layer?: string },
+  path: readonly string[],
+  file?: string,
+): { readonly root: string, readonly layer?: string } {
+  const authored = (group as { readonly $root?: unknown }).$root
+  if (authored === undefined)
+    return inherited
+  if (typeof authored !== 'string' || authored.trim().length === 0) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_INVALID_ROOT',
+      message: `${path.join('.') || 'the token root'}.$root must be a non-empty selector`,
+      path: [...path, '$root'].join('.'),
+      file,
+    })
+  }
+
+  const root = authored.includes('&')
+    ? authored.replaceAll('&', `:is(${inherited.root})`)
+    : authored
+  const reason = checkSelector(root)
+  if (reason) {
+    throw new VaneError({
+      code: 'VANE_SYSTEM_INVALID_ROOT',
+      message: `${path.join('.') || 'the token root'}.$root does not parse: ${reason}`,
+      path: [...path, '$root'].join('.'),
+      file,
+      fix: 'use an absolute selector, or anchor a relative selector with &',
+    })
+  }
+  return inherited.layer === undefined ? { root } : { root, layer: inherited.layer }
 }
 
 function isGroup(value: unknown): value is object {
@@ -634,9 +699,10 @@ function createNode(
   derived: boolean,
   emission: { readonly root: string, readonly layer?: string },
   tokenPolicy: VaneTokenPolicy | undefined,
+  axes: VaneAxisRegistry<any> | undefined,
 ): TokenNode {
   const key = path.join('.')
-  const normalized = normalizeToken(raw, key, tokenPolicy)
+  const normalized = normalizeToken(raw, key, tokenPolicy, axes)
   const name = tokenName(prefix, path)
   const handle = createHandle({
     name,
@@ -697,7 +763,12 @@ interface NormalizedToken {
   )[]
 }
 
-function normalizeToken(raw: unknown, key: string, policy: VaneTokenPolicy | undefined): NormalizedToken {
+function normalizeToken(
+  raw: unknown,
+  key: string,
+  policy: VaneTokenPolicy | undefined,
+  axes: VaneAxisRegistry<any> | undefined,
+): NormalizedToken {
   if (policy === undefined) {
     return {
       rawVal: raw,
@@ -756,11 +827,76 @@ function normalizeToken(raw: unknown, key: string, policy: VaneTokenPolicy | und
     ...(deprecated === undefined ? {} : { deprecated }),
   }
   const branches: NormalizedToken['branches'][number][] = []
+  const authoredAxes = new Map<string, Record<string, unknown | null>>()
 
   for (const [axis, modes] of Object.entries(config?.axes ?? {})) {
+    const definition = requireAxis(axes, axis, key)
+    const authored = { ...modes }
+    for (const mode of Object.keys(authored)) {
+      if (!(mode in definition.modes))
+        invalidTrait(key, `axes.${axis}.${mode}`, `use one of the declared modes: ${definition.modeOrder.join(', ')}`)
+    }
+
+    authoredAxes.set(axis, authored)
+  }
+
+  const caseAxes = new Set<string>()
+  const caseAddresses = new Set<string>()
+  for (const entry of config?.cases ?? []) {
+    const entries = Object.entries(entry.when)
+    if (entries.length < 2)
+      invalidTrait(key, 'cases.when', 'a sparse case intersects at least two declared axes; use an axis mode for one dimension')
+    const normalizedWhen: Record<string, string> = {}
+    for (const axis of axes?.order ?? []) {
+      if (!(axis in entry.when))
+        continue
+      const mode = entry.when[axis]!
+      const definition = requireAxis(axes, axis, key)
+      if (!(mode in definition.modes))
+        invalidTrait(key, `cases.when.${axis}`, `use one of the declared modes: ${definition.modeOrder.join(', ')}`)
+      normalizedWhen[axis] = mode
+      caseAxes.add(axis)
+    }
+    for (const axis of Object.keys(entry.when)) {
+      if (!(axis in normalizedWhen))
+        requireAxis(axes, axis, key)
+    }
+    const address = Object.entries(normalizedWhen).map(([axis, mode]) => `${axis}:${mode}`).join('|')
+    if (caseAddresses.has(address))
+      invalidTrait(key, 'cases', `remove the duplicate case ${address}`)
+    caseAddresses.add(address)
+  }
+
+  const usedAxes = new Set([...authoredAxes.keys(), ...caseAxes])
+  if (!hasVal && usedAxes.size > 1)
+    invalidTrait(key, 'val', 'a token varying across multiple independent axes needs a base val before sparse overrides')
+
+  if (!hasVal && authoredAxes.size === 1) {
+    const [axis, authored] = [...authoredAxes][0]!
+    const definition = requireAxis(axes, axis, key)
+    const missing = definition.modeOrder.filter(mode => !(mode in authored))
+    if (missing.length > 0) {
+      invalidTrait(
+        key,
+        `axes.${axis}`,
+        `author every mode when no base val exists; missing: ${missing.join(', ')}`,
+      )
+    }
+  }
+
+  for (const [axis, modes] of authoredAxes) {
+    const definition = requireAxis(axes, axis, key)
     for (const [mode, val] of Object.entries(modes)) {
       if (val === null && config?.mutable !== true)
         invalidTrait(key, `axes.${axis}.${mode}`, 'null reserves a runtime address and therefore requires mutable: true')
+      if (hasVal && definition.defaultMode === mode && definition.modes[mode]!.arms.length === 0) {
+        invalidTrait(
+          key,
+          `axes.${axis}.${mode}`,
+          `the triggerless default mode already uses val; omit this branch or give defaultMode() an explicit condition`,
+        )
+      }
+      assertBranchType(type, val, key, `axes.${axis}.${mode}`)
       branches.push({
         kind: 'axis',
         axis,
@@ -773,9 +909,14 @@ function normalizeToken(raw: unknown, key: string, policy: VaneTokenPolicy | und
   for (const entry of config?.cases ?? []) {
     if (entry.val === null && config?.mutable !== true)
       invalidTrait(key, 'cases.val', 'null reserves a runtime address and therefore requires mutable: true')
+    assertBranchType(type, entry.val, key, 'cases.val')
+    const orderedWhen = Object.freeze(Object.fromEntries((axes?.order ?? Object.keys(entry.when))
+      .filter(axis => axis in entry.when)
+      .map(axis => [axis, entry.when[axis]!]),
+    ))
     branches.push({
       kind: 'case',
-      when: Object.freeze({ ...entry.when }),
+      when: orderedWhen,
       definition: entry.val === null ? { kind: 'none' } : classifyLeafValue(entry.val, `${key}.$case`),
     })
   }
@@ -795,6 +936,35 @@ function normalizeToken(raw: unknown, key: string, policy: VaneTokenPolicy | und
     },
     meta,
     branches,
+  }
+}
+
+function requireAxis(
+  axes: VaneAxisRegistry<any> | undefined,
+  axis: string,
+  token: string,
+): import('../system/axes').VaneAxisDefinition {
+  const definition = axes?.definitions[axis]
+  if (!definition)
+    invalidTrait(token, `axes.${axis}`, 'declare this axis on the engine before defining tokens')
+  return definition
+}
+
+function assertBranchType(
+  expected: import('../values/types').VaneCssDataType,
+  value: unknown,
+  token: string,
+  field: string,
+): void {
+  if (value === null || expected === 'unknown' || expected === 'declaration')
+    return
+  const actual = inferTokenType(value)
+  if (actual !== 'unknown' && actual !== expected) {
+    invalidTrait(
+      token,
+      field,
+      `use a ${expected} value; this branch is ${actual}`,
+    )
   }
 }
 
@@ -1251,6 +1421,49 @@ function recordGraph(graph: TokenGraph): void {
       ? [...collectNodeRequirements(valueNodeOf(node.definition.value))]
       : node.definition.kind === 'literal' || node.definition.kind === 'none' ? [] : [...colorRequirements(node.definition.expr)]
     const preview = previewOf(node)
+    const plan = planTokenEmission(node, graph)
+    const emission: import('../internal/inspect').VaneTokenEmissionRecord[] = []
+    if (Object.keys(plan.baseVars).length > 0) {
+      emission.push({
+        kind: 'base',
+        root: node.root,
+        ...(phaseLayer(graph, node, 'base') === undefined ? {} : { layer: phaseLayer(graph, node, 'base') }),
+      })
+    }
+    if (plan.native !== undefined) {
+      emission.push({
+        kind: 'native',
+        root: node.root,
+        layer: phaseLayer(graph, node, 'base'),
+        axis: plan.native.axis,
+        locality: plan.native.locality,
+        mechanism: 'native',
+      })
+    }
+    emission.push(...plan.axisDeclarations.map(entry => ({
+      kind: 'axis' as const,
+      root: entry.root,
+      layer: phaseLayer(graph, node, 'axis', entry.axis),
+      axis: entry.axis,
+      mode: entry.mode,
+      mechanism: entry.mechanism,
+      locality: entry.locality,
+      placement: entry.placement,
+      priority: entry.priority,
+      ...(entry.media === undefined ? {} : { media: entry.media }),
+      ...(entry.supports === undefined ? {} : { supports: entry.supports }),
+      ...(entry.container === undefined ? {} : { container: entry.container }),
+    })))
+    emission.push(...plan.caseDeclarations.map(entry => ({
+      kind: 'case' as const,
+      root: entry.root,
+      layer: phaseLayer(graph, node, 'case'),
+      when: entry.when,
+      priority: entry.priority,
+      ...(entry.media === undefined ? {} : { media: entry.media }),
+      ...(entry.supports === undefined ? {} : { supports: entry.supports }),
+      ...(entry.container === undefined ? {} : { container: entry.container }),
+    })))
 
     record({
       kind: 'token',
@@ -1268,6 +1481,7 @@ function recordGraph(graph: TokenGraph): void {
       preview,
       ...(result.supportsUpgrade === undefined ? {} : { upgrade: result.supportsUpgrade }),
       refs: [...refs],
+      ...(emission.length === 0 ? {} : { emission }),
       ...(node.meta.description === undefined ? {} : { description: node.meta.description }),
       ...(node.meta.deprecated === undefined ? {} : { deprecated: node.meta.deprecated }),
     })
@@ -1303,12 +1517,16 @@ function emitGraph(graph: TokenGraph): void {
   interface EmissionGroup {
     readonly root: string
     readonly layer?: string
+    readonly media?: string
+    readonly supports?: string
+    readonly container?: string
     readonly vars: Record<string, string>
     readonly upgrades: Record<string, string>
     hasSchemePairs: boolean
   }
 
-  const groups = new Map<string, EmissionGroup>()
+  const baseGroups = new Map<string, EmissionGroup>()
+  const conditionalGroups = new Map<string, EmissionGroup>()
   let hasSchemePairs = false
 
   // The former nested contract emitter kept a reopened top-level group in its
@@ -1325,41 +1543,77 @@ function emitGraph(graph: TokenGraph): void {
     return group === 0 ? a.index - b.index : group
   })
 
-  for (const { node } of orderedNodes) {
-    const result = graph.results.get(node.key)!
-    if (!node.contract.emit || node.definition.kind === 'none')
-      continue
-    const key = `${node.root}\0${node.layer ?? ''}`
-    let group = groups.get(key)
-    if (!group) {
-      group = {
-        root: node.root,
-        ...(node.layer === undefined ? {} : { layer: node.layer }),
-        vars: {},
-        upgrades: {},
-        hasSchemePairs: false,
+  const plans = orderedNodes.map(({ node }) => planTokenEmission(node, graph))
+
+  for (const plan of plans) {
+    const { node } = plan
+    if (plan.registration)
+      createGlobalVar(node.name, plan.registration as Parameters<typeof createGlobalVar>[1])
+
+    if (node.layer !== undefined && graph.phaseLayers && node.layer !== graph.phaseLayers.root)
+      globalLayer(node.layer)
+
+    if (Object.keys(plan.baseVars).length > 0) {
+      const layer = phaseLayer(graph, node, 'base')
+      const group = emissionGroup(baseGroups, { root: node.root, layer })
+      Object.assign(group.vars, plan.baseVars)
+      if (plan.upgrade !== undefined)
+        group.upgrades[node.name] = plan.upgrade
+      if (Object.values(plan.baseVars).some(value => value.includes('light-dark('))) {
+        hasSchemePairs = true
+        group.hasSchemePairs = true
       }
-      groups.set(key, group)
-    }
-
-    group.vars[node.name] = result.emitted
-
-    if (result.supportsUpgrade)
-      group.upgrades[node.name] = result.supportsUpgrade
-
-    if (result.emitted.includes('light-dark(')) {
-      hasSchemePairs = true
-      group.hasSchemePairs = true
     }
   }
 
+  for (const axis of graph.axes?.order ?? []) {
+    const entries = plans.flatMap(plan => plan.axisDeclarations.filter(entry => entry.axis === axis))
+      .sort((a, b) => a.priority - b.priority || a.modeOrder - b.modeOrder || a.tokenOrder - b.tokenOrder)
+    for (const entry of entries) {
+      const layer = phaseLayer(graph, entry.node, 'axis', axis)
+      const group = emissionGroup(conditionalGroups, {
+        root: entry.root,
+        layer,
+        ...(entry.media === undefined ? {} : { media: entry.media }),
+        ...(entry.supports === undefined ? {} : { supports: entry.supports }),
+        ...(entry.container === undefined ? {} : { container: entry.container }),
+      })
+      group.vars[entry.name] = entry.value
+    }
+  }
+
+  const cases = plans.flatMap(plan => plan.caseDeclarations)
+    .sort((a, b) => a.priority - b.priority || a.tokenOrder - b.tokenOrder)
+  for (const entry of cases) {
+    const layer = phaseLayer(graph, entry.node, 'case')
+    const group = emissionGroup(conditionalGroups, {
+      root: entry.root,
+      layer,
+      ...(entry.media === undefined ? {} : { media: entry.media }),
+      ...(entry.supports === undefined ? {} : { supports: entry.supports }),
+      ...(entry.container === undefined ? {} : { container: entry.container }),
+    })
+    group.vars[entry.name] = entry.value
+  }
+
   const schemeRoots = new Set<string>()
-  for (const group of groups.values()) {
+  for (const group of [...baseGroups.values(), ...conditionalGroups.values()]) {
     if (group.hasSchemePairs && !schemeRoots.has(group.root)) {
       schemeRoots.add(group.root)
       globalStyle(group.root, { colorScheme: 'light dark' })
     }
 
+    emitGroup(group)
+  }
+
+  if (hasSchemePairs) {
+    // Explicit application selection beats native preference and remains a
+    // platform color-scheme declaration, not a parallel JS theme registry.
+    globalStyle('[data-scheme=\'light\']', { colorScheme: 'light' })
+    globalStyle('[data-scheme=\'dark\']', { colorScheme: 'dark' })
+  }
+
+  function emitGroup(group: EmissionGroup): void {
     let rule: Record<string, unknown> = { vars: group.vars }
     if (Object.keys(group.upgrades).length > 0) {
       rule = {
@@ -1369,16 +1623,541 @@ function emitGraph(graph: TokenGraph): void {
         },
       }
     }
+    if (group.container !== undefined)
+      rule = { '@container': { [group.container]: rule } }
+    if (group.supports !== undefined)
+      rule = { '@supports': { [group.supports]: rule } }
+    if (group.media !== undefined)
+      rule = { '@media': { [group.media]: rule } }
     if (group.layer !== undefined)
       rule = { '@layer': { [group.layer]: rule } }
 
     globalStyle(group.root, rule)
   }
+}
 
-  if (hasSchemePairs) {
-    // Forcing a scheme is standard CSS: the scopes pin `color-scheme`;
-    // `/runtime`'s `setScheme` writes the attribute ([dux-spec-tokens.md §3]).
-    globalStyle('[data-scheme=\'light\']', { colorScheme: 'light' })
-    globalStyle('[data-scheme=\'dark\']', { colorScheme: 'dark' })
+interface PlannedConditionalDeclaration {
+  readonly node: TokenNode
+  readonly axis: string
+  readonly mode?: string
+  readonly when?: Readonly<Record<string, string>>
+  readonly mechanism?: VaneAxisTriggerArm['mechanism']
+  readonly locality?: VaneAxisTriggerArm['locality']
+  readonly placement?: VaneAxisTriggerArm['placement']
+  readonly name: string
+  readonly value: string
+  readonly root: string
+  readonly media?: string
+  readonly supports?: string
+  readonly container?: string
+  readonly priority: number
+  readonly modeOrder: number
+  readonly tokenOrder: number
+}
+
+interface PlannedTokenEmission {
+  readonly node: TokenNode
+  readonly baseVars: Readonly<Record<string, string>>
+  readonly axisDeclarations: readonly PlannedConditionalDeclaration[]
+  readonly caseDeclarations: readonly PlannedConditionalDeclaration[]
+  readonly registration?: {
+    readonly syntax: '*' | string
+    readonly inherits: boolean
+    readonly initialValue?: string
   }
+  readonly native?: {
+    readonly axis: string
+    readonly locality: 'element' | 'root'
+  }
+  readonly upgrade?: string
+}
+
+function planTokenEmission(node: TokenNode, graph: TokenGraph): PlannedTokenEmission {
+  const result = graph.results.get(node.key)!
+  const baseVars: Record<string, string> = {}
+  const axisDeclarations: PlannedConditionalDeclaration[] = []
+  const caseDeclarations: PlannedConditionalDeclaration[] = []
+  const axes = graph.axes
+  const branchAxes = new Map<string, Map<string, TokenBranch & { kind: 'axis' }>>()
+  const cases: (TokenBranch & { kind: 'case' })[] = []
+  for (const branch of node.branches) {
+    if (branch.kind === 'axis') {
+      branchAxes.set(branch.axis, branchAxes.get(branch.axis) ?? new Map())
+      branchAxes.get(branch.axis)!.set(branch.mode, branch)
+    }
+    else {
+      cases.push(branch)
+    }
+  }
+
+  const usedAxisOrder = axes?.order.filter(axis => branchAxes.has(axis) || cases.some(branch => axis in branch.when)) ?? []
+  const native = nativeSchemePlan(node, graph, branchAxes, usedAxisOrder)
+  // Ordinary token branches compose most faithfully by declaring the public
+  // property in ordered layers: descendant and absolute triggers then compute
+  // where their selector matches. Private stages are only needed for mutable
+  // multi-axis fallback chains, whose bindings are constrained to the token's
+  // effective root so var() substitution cannot freeze a downstream trigger.
+  const needsStages = usesMutableSlots(node) && usedAxisOrder.length > 1
+  let priorExpression: string | undefined
+
+  if (usesMutableSlots(node)) {
+    const baseSlot = privateAddress(graph.prefix, node.key, 'base')
+    if (node.definition.kind !== 'none')
+      baseVars[baseSlot] = result.emitted
+    priorExpression = `var(${baseSlot})`
+    for (const branch of node.branches) {
+      if (branch.definition.kind === 'none')
+        continue
+      baseVars[slotOfBranch(graph.prefix, node, branch)] = serializeBranch(branch.definition, graph)!.toString()
+    }
+  }
+  else if (node.definition.kind !== 'none') {
+    priorExpression = result.emitted
+  }
+
+  if (priorExpression === undefined && usedAxisOrder.length === 1) {
+    const axis = usedAxisOrder[0]!
+    const definition = axes?.definitions[axis]
+    const defaultBranch = definition?.defaultMode === undefined
+      ? undefined
+      : branchAxes.get(axis)?.get(definition.defaultMode)
+    if (defaultBranch) {
+      priorExpression = branchExpression(node, defaultBranch, graph, undefined)
+    }
+  }
+
+  for (const axis of usedAxisOrder) {
+    const definition = axes!.definitions[axis]!
+    const stageName = needsStages ? privateAddress(graph.prefix, node.key, `stage:${axis}`) : node.name
+    const nativeForAxis = native?.axis === axis ? native : undefined
+    const incoming = priorExpression
+
+    if (nativeForAxis) {
+      const light = nativeSourceExpression(node, nativeForAxis.light, graph, incoming)
+      const dark = nativeSourceExpression(node, nativeForAxis.dark, graph, incoming)
+      const nativeExpression = `light-dark(${light}, ${dark})`
+      if (needsStages) {
+        baseVars[stageName] = nativeExpression
+        priorExpression = `var(${stageName})`
+      }
+      else {
+        priorExpression = nativeExpression
+      }
+    }
+    else if (needsStages && incoming !== undefined) {
+      baseVars[stageName] = incoming
+      priorExpression = `var(${stageName})`
+    }
+
+    const branches = branchAxes.get(axis)
+    if (!branches && !nativeForAxis)
+      continue
+    for (const mode of definition.modeOrder) {
+      const branch = branches?.get(mode)
+      const nativeSource = nativeForAxis === undefined
+        ? undefined
+        : mode === definition.native?.light
+          ? nativeForAxis.light
+          : mode === definition.native?.dark
+            ? nativeForAxis.dark
+            : undefined
+      if (!branch && !nativeSource)
+        continue
+      const trigger = definition.modes[mode]!
+      const isTriggerlessDefault = definition.defaultMode === mode && trigger.arms.length === 0
+      if (isTriggerlessDefault)
+        continue
+      const value = branch
+        ? branchExpression(node, branch, graph, incoming)
+        : nativeSourceExpression(node, nativeSource!, graph, incoming)
+      for (const arm of trigger.arms) {
+        if (nativeForAxis && arm.mechanism !== 'selector')
+          continue
+        assertMutablePlacement(node, arm)
+        const resolved = resolveArm(node.root, arm)
+        axisDeclarations.push({
+          node,
+          axis,
+          mode,
+          mechanism: arm.mechanism,
+          locality: arm.locality,
+          placement: arm.placement,
+          name: stageName,
+          value,
+          root: resolved.selector,
+          ...(resolved.media === undefined ? {} : { media: resolved.media }),
+          ...(resolved.supports === undefined ? {} : { supports: resolved.supports }),
+          ...(resolved.container === undefined ? {} : { container: resolved.container }),
+          priority: arm.priority,
+          modeOrder: definition.modeOrder.indexOf(mode),
+          tokenOrder: [...graph.nodes.keys()].indexOf(node.key),
+        })
+      }
+    }
+  }
+
+  if (node.contract.emit && priorExpression !== undefined)
+    baseVars[node.name] = priorExpression
+
+  for (const branch of cases) {
+    const arms = caseArms(node, branch, graph)
+    const fallback = priorExpression
+    const value = branchExpression(node, branch, graph, fallback)
+    for (const arm of arms) {
+      caseDeclarations.push({
+        node,
+        axis: '$case',
+        when: branch.when,
+        name: node.name,
+        value,
+        root: arm.selector,
+        ...(arm.media === undefined ? {} : { media: arm.media }),
+        ...(arm.supports === undefined ? {} : { supports: arm.supports }),
+        ...(arm.container === undefined ? {} : { container: arm.container }),
+        priority: arm.priority,
+        modeOrder: 0,
+        tokenOrder: [...graph.nodes.keys()].indexOf(node.key),
+      })
+    }
+  }
+
+  const registration = registrationOf(node, graph, result.emitted, native)
+  return {
+    node,
+    baseVars,
+    axisDeclarations,
+    caseDeclarations,
+    ...(registration === undefined ? {} : { registration }),
+    ...(native === undefined ? {} : { native: { axis: native.axis, locality: native.definition.native!.locality } }),
+    ...(result.supportsUpgrade === undefined ? {} : { upgrade: result.supportsUpgrade }),
+  }
+}
+
+function nativeSchemePlan(
+  node: TokenNode,
+  graph: TokenGraph,
+  branches: ReadonlyMap<string, ReadonlyMap<string, TokenBranch & { kind: 'axis' }>>,
+  usedAxisOrder: readonly string[],
+): {
+  readonly axis: string
+  readonly definition: VaneAxisDefinition
+  readonly light: NativeSchemeSource
+  readonly dark: NativeSchemeSource
+} | undefined {
+  for (const axis of usedAxisOrder) {
+    const definition = graph.axes!.definitions[axis]!
+    const native = definition.native
+    if (native?.kind !== 'scheme')
+      continue
+    // CSS light-dark() is a <color> function. Other data types use the same
+    // scheme vocabulary through its selector/media trigger arms.
+    if (node.contract.type !== 'color')
+      continue
+    if (axis !== usedAxisOrder[0])
+      continue
+    const light = branches.get(axis)?.get(native.light)
+      ?? (definition.defaultMode === native.light && node.definition.kind !== 'none'
+        ? { kind: 'base' as const, definition: node.definition }
+        : undefined)
+    const dark = branches.get(axis)?.get(native.dark)
+      ?? (definition.defaultMode === native.dark && node.definition.kind !== 'none'
+        ? { kind: 'base' as const, definition: node.definition }
+        : undefined)
+    if (!light || !dark)
+      continue
+    if (node.branches.some(branch => branch.kind === 'case' && axis in branch.when)
+      && native.locality === 'element') {
+      invalidTrait(
+        node.key,
+        'cases',
+        'an element-local native scheme cannot expose its used mode to a cross-axis selector; choose scheme({ locality: \'root\' })',
+      )
+    }
+    if (!graph.support?.features.has('light-dark')) {
+      if (native.locality === 'element' && native.fallback === 'diagnose') {
+        throw new VaneError({
+          code: 'VANE_TOKENS_INVALID_COLOR',
+          message: `${node.key} requests element-local scheme selection, but support target '${graph.support?.id ?? 'unknown'}' lacks light-dark()`,
+          path: `${node.key}.axes.${axis}`,
+          fix: 'use a support target with light-dark(), choose root locality, or acknowledge fallback: \'document\'',
+        })
+      }
+      return undefined
+    }
+    return { axis, definition, light, dark }
+  }
+  return undefined
+}
+
+type NativeSchemeSource = (TokenBranch & { kind: 'axis' }) | {
+  readonly kind: 'base'
+  readonly definition: VaneLeafDefinition
+}
+
+function nativeSourceExpression(
+  node: TokenNode,
+  source: NativeSchemeSource,
+  graph: TokenGraph,
+  fallback: string | undefined,
+): string {
+  if (source.kind !== 'base')
+    return branchExpression(node, source, graph, fallback)
+  if (usesMutableSlots(node)) {
+    const slot = privateAddress(graph.prefix, node.key, 'base')
+    return `var(${slot})`
+  }
+  return graph.results.get(node.key)!.emitted
+}
+
+function branchExpression(
+  node: TokenNode,
+  branch: TokenBranch,
+  graph: TokenGraph,
+  fallback: string | undefined,
+): string {
+  if (usesMutableSlots(node)) {
+    const slot = slotOfBranch(graph.prefix, node, branch)
+    return fallback === undefined ? `var(${slot})` : `var(${slot}, ${fallback})`
+  }
+  const value = serializeBranch(branch.definition, graph)
+  if (value === undefined) {
+    if (fallback === undefined)
+      return ''
+    return fallback
+  }
+  return String(value)
+}
+
+function registrationOf(
+  node: TokenNode,
+  graph: TokenGraph,
+  emittedBase: string,
+  native: ReturnType<typeof nativeSchemePlan>,
+): PlannedTokenEmission['registration'] | undefined {
+  const authored = node.contract.register
+  if (authored === undefined || authored === false)
+    return undefined
+  const config = authored === true ? {} : authored as import('./types').VaneTokenRegistration
+  const syntax = config.syntax ?? propertySyntax(node.contract.type)
+  const inherits = config.inherits ?? true
+
+  if (native?.definition.native?.locality === 'element' && syntax !== '*') {
+    invalidTrait(
+      node.key,
+      'register.syntax',
+      'use syntax: \'*\' to preserve element-local light-dark() token streams, or choose scheme({ locality: \'root\' })',
+    )
+  }
+
+  let initialValue: string | undefined
+  if (config.initialVal !== undefined) {
+    assertBranchType(node.contract.type, config.initialVal, node.key, 'register.initialVal')
+    initialValue = serializeRegistrationValue(config.initialVal, graph, node.key)
+  }
+  else if (syntax !== '*' && node.definition.kind !== 'none' && isComputationallyIndependent(emittedBase)) {
+    initialValue = emittedBase
+  }
+
+  if (syntax !== '*' && initialValue === undefined) {
+    invalidTrait(
+      node.key,
+      'register.initialVal',
+      `typed @property syntax '${syntax}' requires a computationally independent initialVal`,
+    )
+  }
+  if (initialValue !== undefined && !isComputationallyIndependent(initialValue)) {
+    invalidTrait(
+      node.key,
+      'register.initialVal',
+      'use a computationally independent initial value without var(), environment dependencies, or relative units',
+    )
+  }
+
+  return { syntax, inherits, ...(initialValue === undefined ? {} : { initialValue }) }
+}
+
+function propertySyntax(type: import('../values/types').VaneCssDataType): string {
+  const syntax: Partial<Record<import('../values/types').VaneCssDataType, string>> = {
+    'color': '<color>',
+    'length': '<length>',
+    'length-percentage': '<length-percentage>',
+    'percentage': '<percentage>',
+    'number': '<number>',
+    'integer': '<integer>',
+    'angle': '<angle>',
+    'time': '<time>',
+    'frequency': '<frequency>',
+    'resolution': '<resolution>',
+    'flex': '<flex>',
+    'custom-ident': '<custom-ident>',
+  }
+  return syntax[type] ?? '*'
+}
+
+function serializeRegistrationValue(value: unknown, graph: TokenGraph, key: string): string {
+  return String(serializeBranch(classifyLeafValue(value, `${key}.register.initialVal`), graph))
+}
+
+function isComputationallyIndependent(value: string): boolean {
+  return !/\b(?:var|env)\(/.test(value)
+    && !/(?:^|[^-\w.])-?(?:\d+(?:\.\d+)?|\.\d+)(?:em|rem|ex|cap|ch|ic|lh|rlh|vw|vh|vi|vb|vmin|vmax|cqw|cqh|cqi|cqb|cqmin|cqmax)\b/i.test(value)
+    && !/\bcurrentColor\b/i.test(value)
+}
+
+function slotOfBranch(prefix: string, node: TokenNode, branch: TokenBranch): string {
+  return branch.kind === 'axis'
+    ? privateAddress(prefix, node.key, `axis:${branch.axis}:${branch.mode}`)
+    : privateAddress(prefix, node.key, `case:${Object.entries(branch.when).map(([axis, mode]) => `${axis}:${mode}`).join('|')}`)
+}
+
+function usesMutableSlots(node: TokenNode): boolean {
+  return node.contract.canonical && node.contract.mutable
+}
+
+function privateAddress(prefix: string, token: string, address: string): string {
+  let hash = 2166136261
+  for (const char of `${token}\0${address}`) {
+    hash ^= char.charCodeAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `--${prefix}-v-${(hash >>> 0).toString(36)}`
+}
+
+function phaseLayer(
+  graph: TokenGraph,
+  node: TokenNode,
+  kind: 'base' | 'axis' | 'case',
+  axis?: string,
+): string | undefined {
+  if (!graph.phaseLayers)
+    return node.layer
+  const phase = kind === 'base'
+    ? graph.phaseLayers.base
+    : kind === 'case'
+      ? graph.phaseLayers.cases
+      : graph.phaseLayers.axes[axis!]!
+  const suffix = node.layer?.startsWith(`${graph.phaseLayers.root}.`)
+    ? node.layer.slice(graph.phaseLayers.root.length + 1)
+    : undefined
+  return suffix ? `${phase}.${suffix}` : phase
+}
+
+function emissionGroup(
+  groups: Map<string, {
+    readonly root: string
+    readonly layer?: string
+    readonly media?: string
+    readonly supports?: string
+    readonly container?: string
+    readonly vars: Record<string, string>
+    readonly upgrades: Record<string, string>
+    hasSchemePairs: boolean
+  }>,
+  context: {
+    readonly root: string
+    readonly layer?: string
+    readonly media?: string
+    readonly supports?: string
+    readonly container?: string
+  },
+) {
+  const key = [context.root, context.layer, context.media, context.supports, context.container].join('\0')
+  let group = groups.get(key)
+  if (!group) {
+    group = { ...context, vars: {}, upgrades: {}, hasSchemePairs: false }
+    groups.set(key, group)
+  }
+  return group
+}
+
+function resolveArm(root: string, arm: VaneAxisTriggerArm): {
+  readonly selector: string
+  readonly media?: string
+  readonly supports?: string
+  readonly container?: string
+} {
+  const selector = arm.placement === 'absolute'
+    ? arm.selector!
+    : arm.selector === undefined ? root : arm.selector.replaceAll('&', `:is(${root})`)
+  return {
+    selector,
+    ...(arm.media === undefined ? {} : { media: arm.media }),
+    ...(arm.supports === undefined ? {} : { supports: arm.supports }),
+    ...(arm.container === undefined ? {} : { container: arm.container }),
+  }
+}
+
+function assertMutablePlacement(node: TokenNode, arm: VaneAxisTriggerArm): void {
+  if (!node.contract.mutable)
+    return
+  if (arm.placement === 'descendant' || arm.placement === 'absolute') {
+    invalidTrait(
+      node.key,
+      'axes',
+      `mutable bindings must compute on their effective root; '${arm.placement}' placement would move slot substitution elsewhere`,
+    )
+  }
+}
+
+function caseArms(
+  node: TokenNode,
+  branch: TokenBranch & { kind: 'case' },
+  graph: TokenGraph,
+): readonly {
+  readonly selector: string
+  readonly media?: string
+  readonly supports?: string
+  readonly container?: string
+  readonly priority: number
+}[] {
+  let combinations: readonly {
+    readonly selectors: readonly string[]
+    readonly media?: string
+    readonly supports?: string
+    readonly container?: string
+    readonly priority: number
+  }[] = [{ selectors: [], priority: 0 }]
+
+  for (const [axis, mode] of Object.entries(branch.when)) {
+    const definition = graph.axes?.definitions[axis]
+    const trigger = definition?.modes[mode]
+    if (!definition || !trigger)
+      invalidTrait(node.key, `cases.when.${axis}`, 'reference a declared axis mode')
+    if (trigger.arms.length === 0) {
+      invalidTrait(
+        node.key,
+        `cases.when.${axis}`,
+        `mode '${mode}' has no trigger, so its intersection cannot be selected; give defaultMode() an explicit condition`,
+      )
+    }
+    combinations = combinations.flatMap(existing => trigger.arms.map((arm: VaneAxisTriggerArm) => {
+      assertMutablePlacement(node, arm)
+      const resolved = resolveArm(node.root, arm)
+      return {
+        selectors: [...existing.selectors, resolved.selector],
+        media: combineQuery(existing.media, resolved.media),
+        supports: combineQuery(existing.supports, resolved.supports),
+        container: combineQuery(existing.container, resolved.container),
+        priority: existing.priority + arm.priority,
+      }
+    }))
+  }
+
+  return combinations.map(combination => ({
+    selector: combination.selectors.length === 1
+      ? combination.selectors[0]!
+      : combination.selectors.map(selector => `:is(${selector})`).join(''),
+    ...(combination.media === undefined ? {} : { media: combination.media }),
+    ...(combination.supports === undefined ? {} : { supports: combination.supports }),
+    ...(combination.container === undefined ? {} : { container: combination.container }),
+    priority: combination.priority,
+  }))
+}
+
+function combineQuery(left: string | undefined, right: string | undefined): string | undefined {
+  if (left === undefined)
+    return right
+  if (right === undefined)
+    return left
+  return `${left} and ${right}`
 }

@@ -186,7 +186,7 @@ describe('engine-owned system finalization', () => {
     expect(css).toContain('@layer app.tokens.components')
     expect(css).toContain('#widget {\n    --app-color-brand: oklch(0.58 0.2 285);')
     expect(css).toContain('--app-color-accent: var(--app-color-brand);')
-    expect(css).toContain('@layer app.tokens {')
+    expect(css).toContain('@layer app.tokens.base {')
     expect(css).toContain('#app {\n    --app-space-sm: 0.5rem;')
   })
 

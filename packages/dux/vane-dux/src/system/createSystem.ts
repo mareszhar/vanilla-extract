@@ -13,6 +13,7 @@ import type { VaneEngineKernel } from '../internal/engineKernel'
 import type { VaneAuditConfig } from '../internal/inspect'
 import type { VanePort, VanePortInput, VanePortOptions, VanePortWiden } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
+import type { VaneTokenPhaseLayers } from '../tokens/graph'
 import type {
   VaneCanonicalTokens,
   VaneCheck,
@@ -30,6 +31,7 @@ import type {
   VaneVarsOf,
 } from '../tokens/types'
 import type { VaneCssValue, VaneValue } from '../values/types'
+import type { VaneAxisRegistry } from './axes'
 import type { VaneBaseConditionName, VaneConditionInput } from './conditions'
 import { globalLayer } from '@vanilla-extract/css'
 import { addFunctionSerializer } from '@vanilla-extract/css/functionSerializer'
@@ -48,6 +50,7 @@ import { bindRecipe } from '../recipes/recipe'
 import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
 import { theme as standaloneTheme } from '../tokens/theme'
 import { defaultEngine } from '../values/defaultEngine'
+import { describeAxisRegistry } from './axes'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
 
 export const VANE_DEFAULT_LAYERS = ['reset', 'tokens', 'recipes', 'utilities', 'overrides'] as const
@@ -182,6 +185,7 @@ export interface VaneSystemEngineBinding<
   readonly kernel: VaneEngineKernel<Constructors>
   readonly requirement: VaneEngineRequirement
   readonly tokenPolicy: TokenPolicy
+  readonly axes: VaneAxisRegistry<any>
 }
 
 /** @deprecated Use `createEngine().createSystem()`; removed at target-doc promotion. */
@@ -278,6 +282,25 @@ function createSystemInternal<
   for (const layer of layers)
     globalLayer({ parent: prefix }, layer)
 
+  let phaseLayers: VaneTokenPhaseLayers | undefined
+  if (binding !== undefined && qualifiedTokenLayer !== undefined) {
+    const baseLayer = globalLayer({ parent: qualifiedTokenLayer }, 'base')
+    const axesLayer = globalLayer({ parent: qualifiedTokenLayer }, 'axes')
+    const axisLayers = Object.freeze(Object.fromEntries(binding.axes.order.map(axis => [
+      axis,
+      globalLayer({ parent: axesLayer }, axis),
+    ])))
+    const casesLayer = globalLayer({ parent: qualifiedTokenLayer }, 'cases')
+    const overridesLayer = globalLayer({ parent: qualifiedTokenLayer }, 'overrides')
+    phaseLayers = Object.freeze({
+      root: qualifiedTokenLayer,
+      base: baseLayer,
+      axes: axisLayers,
+      cases: casesLayer,
+      overrides: overridesLayer,
+    })
+  }
+
   // Static graphs and staged builders finalize exactly once at the system
   // boundary. Canonical engine systems refuse already-finalized graphs because
   // their prefix/root identity has already been claimed elsewhere.
@@ -322,6 +345,8 @@ function createSystemInternal<
       layers,
       ...(binding === undefined ? {} : { serializeValue: (value: VaneCssValue) => binding.kernel.serializeValue(value) }),
       ...(binding === undefined ? {} : { support: binding.kernel.support }),
+      ...(binding === undefined ? {} : { axes: binding.axes }),
+      ...(phaseLayers === undefined ? {} : { phaseLayers }),
       ...(qualifiedTokenLayer === undefined ? {} : { layer: qualifiedTokenLayer }),
       ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
     })
@@ -353,6 +378,7 @@ function createSystemInternal<
     ...(binding === undefined ? {} : { engine: binding.kernel.signature }),
     layers: [...layers],
     conditions: describeConditions(conditions),
+    ...(binding === undefined || binding.axes.order.length === 0 ? {} : { axes: describeAxisRegistry(binding.axes) }),
     ...(options.audit === undefined ? {} : { audit: options.audit }),
   })
 

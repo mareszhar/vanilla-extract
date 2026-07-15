@@ -146,6 +146,43 @@ test('Nuxt lab remains operable and semantically connected at phone and desktop 
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
 
+test('Phase 4 axes preserve root locality, case order, registration, and element-local scheme', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('http://127.0.0.1:3100', { waitUntil: 'networkidle' })
+
+  const group = page.locator('[data-phase4-group]')
+  const light = page.locator('#phase4-light')
+  const dark = page.locator('#phase4-dark')
+
+  await expect(light).toHaveCSS('padding-top', '16px')
+  await expect(light).toHaveCSS('border-top-width', '1px')
+  expect(await light.evaluate(element => getComputedStyle(element).color))
+    .not
+    .toBe(await dark.evaluate(element => getComputedStyle(element).color))
+
+  await group.evaluate((element) => {
+    element.setAttribute('data-density', 'compact')
+    element.setAttribute('data-emphasis', 'high')
+  })
+  await expect(light).toHaveCSS('padding-top', '8px')
+  await expect(light).toHaveCSS('border-top-width', '5px')
+
+  expect(await page.evaluate(() => {
+    const registered = [...document.styleSheets]
+      .flatMap((sheet) => {
+        try {
+          return [...sheet.cssRules]
+        }
+        catch {
+          return []
+        }
+      })
+      .some(rule => rule.cssText.includes('@property --phase4-probe-inset'))
+    return registered
+  })).toBe(true)
+  expect(browserErrors, browserErrors.join('\n')).toEqual([])
+})
+
 test('comparison lanes stay functional, visible, and live-themed', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' })

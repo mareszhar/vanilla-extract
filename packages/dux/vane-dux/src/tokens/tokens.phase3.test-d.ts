@@ -1,7 +1,10 @@
 import { createEngine } from '@mszr/vane-dux'
 import { describe, expectTypeOf, it } from 'vitest'
 
-const de = createEngine()
+const de = createEngine().axes(({ axis, data }) => ({
+  scheme: axis({ modes: { dark: data('scheme', 'dark'), contrast: data('scheme', 'contrast') } }),
+  density: axis({ modes: { compact: data('density', 'compact') } }),
+}))
 const colors = de.defineTokens({
   color: {
     brand: de.oklch(0.58, 0.2, 285),
@@ -15,7 +18,10 @@ const colors = de.defineTokens({
     }),
   },
   fill: null,
-  future: de.token.color({ mutable: true, register: { inherits: true } }),
+  future: de.token.color({
+    mutable: true,
+    register: { inherits: true, initialVal: de.oklch(0.5, 0, 0) },
+  }),
 })
 const ds = de.createSystem({ tokens: colors, prefix: 'app' })
 
@@ -76,16 +82,16 @@ describe('canonical Phase-3 token types', () => {
   })
 
   it('rejects incompatible trait combinations at their keys', () => {
+    // @ts-expect-error — mutable tokens require a var reference
     de.token({
       val: 'red',
       mutable: true,
-      // @ts-expect-error — mutable tokens require a var reference
       reference: 'val',
     })
+    // @ts-expect-error — environmental values require an emitted binding
     de.token({
       val: 'red',
       axes: { scheme: { dark: 'black' } },
-      // @ts-expect-error — environmental values require an emitted binding
       emit: false,
     })
 

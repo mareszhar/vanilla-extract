@@ -80,7 +80,7 @@ export const de = createEngine({
       measure: defineValue(/* extension-owned serializer */),
     },
   }))
-  .axes(({ axis, data, schemeIs, darken }) => ({
+  .axes(({ axis, data, defaultMode, schemeIs, darken }) => ({
     scheme: axis({
       modes: {
         light: defaultMode(),
@@ -398,7 +398,7 @@ de.createSystem({
 })
 ```
 
-A module may carry a nearer root. Group-local root metadata, if shipped, is `$root` because it shares user structure.
+A module may carry a nearer root. Group-local `$root` ships as the nearest refinement because it shares user structure; it accepts an absolute selector or composes an `&`-anchored selector against the inherited root.
 
 Conditions anchor explicitly to the effective root:
 
@@ -422,6 +422,7 @@ Typed helpers should express the same placement without string assembly:
 data('scheme', 'dark', { on: 'root' })
 data('scheme', 'dark', { on: 'ancestor' })
 data('scheme', 'dark', { on: 'descendant' })
+condition(media('print'), { priority: 0 })
 ```
 
 Raw typed conditions require an `&` anchor or an explicit absolute constructor. No implicit descendant surprise.

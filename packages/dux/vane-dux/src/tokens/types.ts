@@ -10,6 +10,7 @@
  *   half-clobbering it.
  */
 
+import type { VaneAxisDefinitions, VaneAxisModeName } from '../system/axes'
 import type {
   VaneCssDataType,
   VaneCssValue,
@@ -237,7 +238,7 @@ export interface VaneTokenConfig<
 export const VANE_CONFIGURED_TOKEN = Symbol.for('vane.configuredToken')
 
 export interface VaneConfiguredToken<
-  Config extends VaneTokenConfig = VaneTokenConfig,
+  Config extends object = VaneTokenConfig,
   Type extends VaneCssDataType = VaneCssDataType,
 > {
   readonly [VANE_CONFIGURED_TOKEN]: true
@@ -245,53 +246,165 @@ export interface VaneConfiguredToken<
   readonly type: Type
 }
 
-type VaneTokenConfigGuard<Config extends VaneTokenConfig>
-  = {
-    readonly [Key in keyof Config]: Key extends 'reference'
-      ? Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] }
-        ? 'var'
-        : Config[Key]
-      : Key extends 'emit'
-        ? Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] }
-          ? true
-          : Config[Key]
-        : Config[Key]
+type VaneAxisValues<Axes extends VaneAxisDefinitions> = {
+  readonly [Axis in keyof Axes]?: Readonly<Partial<Record<VaneAxisModeName<Axes[Axis]>, unknown | null>>>
+}
+
+type VaneCaseAddress<Axes extends VaneAxisDefinitions> = {
+  readonly [Axis in keyof Axes]?: VaneAxisModeName<Axes[Axis]>
+}
+
+/** An independent vocabulary surface keeps literal values intact while excess keys fail locally. */
+type VaneTokenAxisInput<Axes extends VaneAxisDefinitions>
+  = [keyof Axes] extends [never]
+    ? { readonly axes?: never, readonly cases?: never }
+    : {
+        readonly axes?: VaneAxisValues<Axes>
+        readonly cases?: readonly {
+          readonly when: VaneCaseAddress<Axes>
+          readonly val: unknown | null
+        }[]
+      }
+
+type VaneTokenTraitDiagnostic<Config>
+  = Config extends { readonly mutable: true } | { readonly axes: object } | { readonly cases: readonly unknown[] }
+    ? (Config extends { readonly reference: infer Reference }
+      ? Reference extends 'var' ? unknown : { readonly 'mutable/axes/cases require reference: \'var\'': never }
+      : unknown)
+    & (Config extends { readonly emit: infer Emit }
+      ? Emit extends true ? unknown : { readonly 'mutable/axes/cases require emit: true': never }
+      : unknown)
+    : unknown
+
+type VaneAxesVocabularyGuard<Configured, Axes extends VaneAxisDefinitions>
+  = Configured extends object ? {
+    readonly [Axis in keyof Configured]: Axis extends keyof Axes
+      ? Configured[Axis] extends object ? {
+        readonly [Mode in keyof Configured[Axis]]: Mode extends VaneAxisModeName<Axes[Axis]>
+          ? Configured[Axis][Mode]
+          : never
+      } : never
+      : never
+  } : never
+
+type VaneCaseVocabularyGuard<When, Axes extends VaneAxisDefinitions>
+  = When extends object ? {
+    readonly [Axis in keyof When]: Axis extends keyof Axes
+      ? When[Axis] extends VaneAxisModeName<Axes[Axis]> ? When[Axis] : never
+      : never
+  } : never
+
+type VaneTokenVocabularyGuard<Config, Axes extends VaneAxisDefinitions>
+  = (Config extends { readonly axes: infer Configured }
+    ? { readonly axes: VaneAxesVocabularyGuard<Configured, Axes> }
+    : unknown)
+  & (Config extends { readonly cases: infer Cases extends readonly unknown[] }
+    ? {
+        readonly cases: {
+          readonly [Index in keyof Cases]: Cases[Index] extends { readonly when: infer When }
+            ? Omit<Cases[Index], 'when'> & { readonly when: VaneCaseVocabularyGuard<When, Axes> }
+            : never
+        }
+      }
+    : unknown)
+
+export type VaneTokenInitialVal<Type extends VaneCssDataType>
+  = | VaneValue<Type>
+    | string
+    | (Type extends 'number' | 'integer' | 'percentage' | 'number-percentage' ? number : never)
+
+type VaneNoDefaultTokenConfig<Type extends VaneCssDataType>
+  = Omit<VaneTokenConfig<never>, 'val' | 'register'> & {
+    readonly register?: boolean | VaneTokenRegistration<VaneTokenInitialVal<Type>>
   }
 
-export interface VaneTypedNoDefaultTokenFactory<Type extends VaneCssDataType> {
+export interface VaneTypedNoDefaultTokenFactory<
+  Type extends VaneCssDataType,
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> {
   (): VaneConfiguredToken<Record<never, never> & VaneTokenConfig<never>, Type>
-  <const Config extends Omit<VaneTokenConfig<never>, 'val'>>(
-    config: VaneTokenConfigGuard<Config>,
+  <const Config extends VaneNoDefaultTokenConfig<Type>>(
+    config: Config
+      & VaneTokenAxisInput<Axes>
+      & NoInfer<VaneTokenVocabularyGuard<Config, Axes> & VaneTokenTraitDiagnostic<Config>>,
   ): VaneConfiguredToken<Config, Type>
 }
 
-export interface VaneTokenFactory {
-  <const Config extends VaneTokenConfig>(
-    config: VaneTokenConfigGuard<Config>,
-  ): VaneConfiguredToken<Config, Config extends { readonly val: infer Val } ? VaneDataTypeOf<Val> : 'unknown'>
+type VaneConfiguredType<Config extends object>
+  = Config extends { readonly val: infer Val } ? VaneDataTypeOf<Val>
+    : Config extends { readonly axes: infer Axes extends object }
+      ? VaneDataTypeOf<Exclude<Axes[keyof Axes] extends infer Modes
+        ? Modes extends object ? Modes[keyof Modes] : never
+        : never, null>>
+      : Config extends { readonly cases: readonly (infer Case)[] }
+        ? Case extends { readonly val: infer Val } ? VaneDataTypeOf<Exclude<Val, null>> : 'unknown'
+        : 'unknown'
 
-  readonly unknown: VaneTypedNoDefaultTokenFactory<'unknown'>
-  readonly number: VaneTypedNoDefaultTokenFactory<'number'>
-  readonly integer: VaneTypedNoDefaultTokenFactory<'integer'>
-  readonly percentage: VaneTypedNoDefaultTokenFactory<'percentage'>
-  readonly numberPercentage: VaneTypedNoDefaultTokenFactory<'number-percentage'>
-  readonly length: VaneTypedNoDefaultTokenFactory<'length'>
-  readonly lengthPercentage: VaneTypedNoDefaultTokenFactory<'length-percentage'>
-  readonly angle: VaneTypedNoDefaultTokenFactory<'angle'>
-  readonly time: VaneTypedNoDefaultTokenFactory<'time'>
-  readonly frequency: VaneTypedNoDefaultTokenFactory<'frequency'>
-  readonly resolution: VaneTypedNoDefaultTokenFactory<'resolution'>
-  readonly flex: VaneTypedNoDefaultTokenFactory<'flex'>
-  readonly color: VaneTypedNoDefaultTokenFactory<'color'>
-  readonly image: VaneTypedNoDefaultTokenFactory<'image'>
-  readonly position: VaneTypedNoDefaultTokenFactory<'position'>
-  readonly easingFunction: VaneTypedNoDefaultTokenFactory<'easing-function'>
-  readonly transformFunction: VaneTypedNoDefaultTokenFactory<'transform-function'>
-  readonly transformList: VaneTypedNoDefaultTokenFactory<'transform-list'>
-  readonly customIdent: VaneTypedNoDefaultTokenFactory<'custom-ident'>
-  readonly dashedIdent: VaneTypedNoDefaultTokenFactory<'dashed-ident'>
-  readonly string: VaneTypedNoDefaultTokenFactory<'string'>
-  readonly url: VaneTypedNoDefaultTokenFactory<'url'>
+type VaneDerivedModes<Axis>
+  = Axis extends { readonly derive: infer Derive } ? Derive : Record<never, never>
+
+type VaneDerivedAxis<Configured extends object, Axis> = Configured & {
+  readonly [Mode in Exclude<keyof VaneDerivedModes<Axis>, keyof Configured>]:
+  VaneDerivedModes<Axis>[Mode] extends (...args: any[]) => infer Result ? Result : never
+}
+
+type VaneAxisWithDerivations<Configured, Axis>
+  = Configured extends object ? VaneDerivedAxis<Configured, Axis> : Configured
+
+type VaneApplyAxisDerivations<Configured, Axes extends VaneAxisDefinitions>
+  = Configured extends object ? {
+    readonly [Axis in keyof Configured]: Axis extends keyof Axes
+      ? VaneAxisWithDerivations<Configured[Axis], Axes[Axis]>
+      : Configured[Axis]
+  } : Configured
+
+type VaneMissingAxisDerivations<Configured, Axes extends VaneAxisDefinitions>
+  = Configured extends object ? {
+    [Axis in keyof Configured]: Axis extends keyof Axes
+      ? Configured[Axis] extends object
+        ? Exclude<keyof VaneDerivedModes<Axes[Axis]>, keyof Configured[Axis]>
+        : never
+      : never
+  }[keyof Configured] : never
+
+type VaneConfigWithAxisDerivations<Config extends object, Axes extends VaneAxisDefinitions>
+  = Config extends { readonly axes: infer ConfiguredAxes }
+    ? [VaneMissingAxisDerivations<ConfiguredAxes, Axes>] extends [never]
+        ? Config
+        : Omit<Config, 'axes'> & { readonly axes: VaneApplyAxisDerivations<ConfiguredAxes, Axes> }
+    : Config
+
+export interface VaneTokenFactory<
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> {
+  <const Config extends VaneTokenConfig>(
+    config: Config
+      & VaneTokenAxisInput<Axes>
+      & NoInfer<VaneTokenVocabularyGuard<Config, Axes> & VaneTokenTraitDiagnostic<Config>>,
+  ): VaneConfiguredToken<VaneConfigWithAxisDerivations<Config, Axes>, VaneConfiguredType<Config>>
+
+  readonly unknown: VaneTypedNoDefaultTokenFactory<'unknown', Axes>
+  readonly number: VaneTypedNoDefaultTokenFactory<'number', Axes>
+  readonly integer: VaneTypedNoDefaultTokenFactory<'integer', Axes>
+  readonly percentage: VaneTypedNoDefaultTokenFactory<'percentage', Axes>
+  readonly numberPercentage: VaneTypedNoDefaultTokenFactory<'number-percentage', Axes>
+  readonly length: VaneTypedNoDefaultTokenFactory<'length', Axes>
+  readonly lengthPercentage: VaneTypedNoDefaultTokenFactory<'length-percentage', Axes>
+  readonly angle: VaneTypedNoDefaultTokenFactory<'angle', Axes>
+  readonly time: VaneTypedNoDefaultTokenFactory<'time', Axes>
+  readonly frequency: VaneTypedNoDefaultTokenFactory<'frequency', Axes>
+  readonly resolution: VaneTypedNoDefaultTokenFactory<'resolution', Axes>
+  readonly flex: VaneTypedNoDefaultTokenFactory<'flex', Axes>
+  readonly color: VaneTypedNoDefaultTokenFactory<'color', Axes>
+  readonly image: VaneTypedNoDefaultTokenFactory<'image', Axes>
+  readonly position: VaneTypedNoDefaultTokenFactory<'position', Axes>
+  readonly easingFunction: VaneTypedNoDefaultTokenFactory<'easing-function', Axes>
+  readonly transformFunction: VaneTypedNoDefaultTokenFactory<'transform-function', Axes>
+  readonly transformList: VaneTypedNoDefaultTokenFactory<'transform-list', Axes>
+  readonly customIdent: VaneTypedNoDefaultTokenFactory<'custom-ident', Axes>
+  readonly dashedIdent: VaneTypedNoDefaultTokenFactory<'dashed-ident', Axes>
+  readonly string: VaneTypedNoDefaultTokenFactory<'string', Axes>
+  readonly url: VaneTypedNoDefaultTokenFactory<'url', Axes>
 }
 
 export type VaneTokenFallback<Type extends VaneCssDataType>

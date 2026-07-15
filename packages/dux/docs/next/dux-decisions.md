@@ -100,18 +100,17 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D64 | Core CSS support targets are explicit versioned feature sets. | `defineCssSupportTarget({ id, features })` is the stable adapter; optional Browserslist/bundler integrations may derive it, but core behavior never floats with external market data. |
 | D65 | Relative performance thresholds have a 1ms measurement floor for editor micro-operations. | Below that floor, repeated-run stability, completion/diagnostic counts, and absolute latency govern acceptance; percentage changes between sub-millisecond medians are treated as timer noise, not fictitious user-visible regressions. |
 | D66 | Deprecated package-root authoring functions are migration adapters, not a second canonical dialect. | Until target-doc promotion they preserve inherited regression gates and receive no new language features. The target root centers `createEngine`, public types, and explicit standards/adapter entrypoints; engine-derived constructors and `de.createSystem()` are the only canonical authoring path. |
+| D67 | Axis conditions use the engine-callback `condition(input, { on, priority })`, `absoluteCondition(selector, { priority })`, and specialized adapters such as axis-aware `data()`/`schemeIs()`. | `on` is `root`, `ancestor`, or `descendant`; selectors containing `&` infer the same placement. At-rules remain query arms, absolute selectors are never silently rooted, and every arm records mechanism/locality/priority. |
+| D68 | Group `$root` ships; group `$axes` does not ship in the initial language. | `$root` accepts an absolute selector or an `&`-anchored refinement and inherits module/system ownership. Per-token `axes` remains the canonical and better-localized form; `$axes` is diagnosed rather than partially implemented until new DX/performance evidence justifies it. |
+| D69 | The built-in adapter is `scheme({ locality, fallback })`; native `light-dark()` is a guarded color-only optimization. | `locality` defaults to `element`; `fallback` defaults to `diagnose` and may explicitly accept document-global media fallback. Non-color values retain the same scheme axis through selector/media emission, typed registration obeys D51, and explicit selector arms remain available beside native preference selection. |
+| D70 | Phase 4 accepts one measured large-fixture TypeScript-memory exception for exact axes/cases. | At 5,000 tokens with 4 staged axes and representative cross-axis cases, TypeScript total time (2.23s), instantiations (2,216,611), declarations (445,681 B), and editor operations stayed within the accepted Phase 3 budgets, while reported memory rose from 414,338 kB to 573,904 kB. Exact axis/mode/case completion and local validation are the user-visible gain; later phases must monitor rather than compound this peak. |
 
 ## Deliberately open implementation details
 
 These questions do not block the architecture, but must be settled in their owning phase before public implementation is considered complete:
 
-- Whether the advanced token wrapper is `de.token()` only or also available unqualified inside engine callbacks.
-- The exact shape of condition helpers for self/ancestor/descendant root placement.
-- Whether group-level `$root` ships in the first refactor or follows module-level roots.
 - Whether a one-shot `varRef()` convenience earns its surface beside `customProperty().$var()`.
 - Whether runtime selector strings are supported as a query-once convenience; they must never silently mean stylesheet injection.
-- The supported subset and maturity tier of `light-dark()` optimization versus selector-based scheme emission.
-- The exact public spelling for per-arm scheme locality and acknowledged degraded fallback; D61's semantics are fixed.
 - The minimum initial CSS data-type set beyond color, number, percentage, length, angle, time, resolution, custom-ident, and unknown.
 - How plugins namespace manifest/DTCG data and report nonportable IR nodes.
 

@@ -42,9 +42,12 @@ function moduleRanges(scale: BenchmarkScale): Array<{ count: number, start: numb
 function tokenModuleSource(scale: BenchmarkScale, moduleIndex: number, start: number, count: number): string {
   const entries = Array.from({ length: count }, (_, offset) => {
     const index = start + offset
+    const conditional = offset === 2 && moduleIndex % 10 === 0
     const val = offset === 0
-      ? `de.token({ val: scheme({ light: 'oklch(0.96 0.01 ${index % 360})', dark: 'oklch(0.16 0.01 ${index % 360})' }), description: 'Module ${moduleIndex} anchor' })`
-      : `'${(index % 64) + 1}px'`
+      ? `de.oklch(0.96, 0.01, ${index % 360})`
+      : conditional
+        ? `de.token({ val: de.oklch(0.96, 0.01, ${index % 360}), axes: { scheme: { dark: de.oklch(0.16, 0.01, ${index % 360}) }, density: { compact: de.oklch(0.9, 0.02, ${index % 360}) } }, cases: [{ when: { scheme: 'dark', density: 'compact' }, val: de.oklch(0.22, 0.02, ${index % 360}) }], description: 'Module ${moduleIndex} conditional' })`
+        : `'${(index % 64) + 1}px'`
     const renameMarker = moduleIndex === 0 && offset === 0 ? '/* @rename */' : ''
     return `    ${renameMarker}${tokenName(index)}: ${val},`
   }).join('\n')
@@ -53,7 +56,7 @@ function tokenModuleSource(scale: BenchmarkScale, moduleIndex: number, start: nu
 
 export const ${moduleName(moduleIndex)} = de.defineTokens({
   ${groupName(moduleIndex)}: {
-${entries.replaceAll('scheme(', 'de.scheme(')}
+${entries}
   },
 })
 `
@@ -111,6 +114,7 @@ ${consumers}
 function probeSource(ranges: Array<{ count: number, start: number }>): string {
   const first = ranges[0]!
   const deep = first.start + Math.min(1, first.count - 1)
+  const conditional = first.start + Math.min(2, first.count - 1)
 
   return `${header}import { tokenModule00 } from './modules/module-00.tokens'
 import { ds } from './system.style'
@@ -119,6 +123,8 @@ export const rootProbe = ds.t./* @complete-root */${groupName(0)}
 export const deepProbe = ds.t.${groupName(0)}./* @complete-deep */${tokenName(deep)}
 export const diagnosticProbe = ds.t.${groupName(0)}./* @diagnostic */${tokenName(deep)}
 export const cssProbe = ds.css({ /* @complete-css */padding: ds.t.${groupName(0)}.${tokenName(deep)} })
+export const axisProbe = ds.t.${groupName(0)}.${tokenName(conditional)}.$axes./* @complete-axis */density
+export const caseProbe = ds.t.${groupName(0)}.${tokenName(conditional)}.$case({ /* @complete-case */scheme: 'dark', density: 'compact' })
 export const moduleTokens = ds.tokensOf(tokenModule00)
 export const moduleNames = ds.namesOf(tokenModule00)
 export const moduleVars = ds.varsOf(tokenModule00)
@@ -167,7 +173,18 @@ function filesForScale(scale: BenchmarkScale): Map<string, string> {
   const files = new Map<string, string>()
   const ranges = moduleRanges(scale)
 
-  files.set('src/engine.ts', `${header}import { createEngine } from '@mszr/vane-dux'\n\nexport const de = createEngine()\n`)
+  const optionalAxes = [
+    scale.axes >= 3 ? '  contrast: axis({ modes: { normal: defaultMode(), high: data(\'contrast\', \'high\') } }),' : undefined,
+    scale.axes >= 4 ? '  motion: axis({ modes: { full: defaultMode(), reduced: data(\'motion\', \'reduced\') } }),' : undefined,
+  ].filter(Boolean).join('\n')
+  files.set('src/engine.ts', `${header}import { createEngine } from '@mszr/vane-dux'
+
+export const de = createEngine().axes(({ axis, data, defaultMode, scheme }) => ({
+  scheme: scheme({ locality: 'root' }),
+  density: axis({ modes: { comfortable: defaultMode(), compact: data('density', 'compact') } }),
+${optionalAxes}
+}))
+`)
 
   for (const [index, range] of ranges.entries()) {
     files.set(`src/modules/module-${padded(index, 2)}.tokens.ts`, tokenModuleSource(scale, index, range.start, range.count))

@@ -2,4 +2,9 @@
 
 import { createEngine } from '@mszr/vane-dux'
 
-export const de = createEngine()
+export const de = createEngine().axes(({ axis, data, defaultMode, scheme }) => ({
+  scheme: scheme({ locality: 'root' }),
+  density: axis({ modes: { comfortable: defaultMode(), compact: data('density', 'compact') } }),
+  contrast: axis({ modes: { normal: defaultMode(), high: data('contrast', 'high') } }),
+  motion: axis({ modes: { full: defaultMode(), reduced: data('motion', 'reduced') } }),
+}))

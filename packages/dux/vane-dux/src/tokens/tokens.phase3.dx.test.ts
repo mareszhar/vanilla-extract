@@ -8,7 +8,9 @@ describe('canonical token editor DX', () => {
   it('discovers configuration, typed no-default constructors, handles, and projections', () => {
     const result = project.query`
       import { createEngine } from '@mszr/vane-dux'
-      const de = createEngine()
+      const de = createEngine().axes(({ axis, data }) => ({
+        scheme: axis({ modes: { dark: data('scheme', 'dark') } }),
+      }))
       const colors = de.defineTokens({
         color: {
           brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true, axes: { scheme: { dark: null } } }),
@@ -44,7 +46,9 @@ describe('canonical token editor DX', () => {
   it('keeps trait conflicts local and branch mistakes exact', () => {
     const { errors } = project.check`
       import { createEngine } from '@mszr/vane-dux'
-      const de = createEngine()
+      const de = createEngine().axes(({ axis, data }) => ({
+        scheme: axis({ modes: { dark: data('scheme', 'dark') } }),
+      }))
       de.token({ val: 'red', mutable: true, reference: 'val' })
       const ds = de.createSystem({
         tokens: { color: { accent: de.token({ val: 'red', axes: { scheme: { dark: 'black' } } }) } },

@@ -43,6 +43,8 @@ interface TypeScriptMeasurement {
 
 interface EditorMeasurement {
   completion: {
+    axis: TimedCount
+    case: TimedCount
     css: TimedCount
     deep: TimedCount
     root: TimedCount
@@ -242,6 +244,8 @@ function editorMeasurement(root: string): EditorMeasurement {
 
   return {
     completion: {
+      axis: completion('/* @complete-axis */'),
+      case: completion('/* @complete-case */'),
       css: completion('/* @complete-css */'),
       deep: completion('/* @complete-deep */'),
       root: completion('/* @complete-root */'),

@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target documentation hub — phases 0–3 accepted; phase 4 is next
+status: target documentation hub — phases 0–4 accepted; phase 5 is next
 
 # vane-dux next — documentation hub
 
@@ -37,7 +37,8 @@ When a target document conflicts with a current document, the target document go
 - Phase 1 is accepted: the internal engine kernel, unified typed CSS value IR, standards-aware serializers, public value-extension contracts, and compatibility adapters pass the permanent phase-boundary gates.
 - Phase 2 is accepted: the canonical configurable engine, semantic identity, engine-bound token modules, single-owner system finalization, root/layer emission, and one-import styling surface pass the permanent phase-boundary gates.
 - Phase 3 is accepted: independent token traits, branded configuration, CSS-reactive shorthand, the finalized `$` handle language, exact authored branch addresses, cross-plane restoration, and deterministic token/name/var projections pass their evidence planes.
-- Phase 4 is next: define environmental axes and conditions, sparse case semantics, registrations, roots, and deterministic emission order over the Phase 3 token contracts.
+- Phase 4 is accepted: immutable staged axes, root-anchored trigger locality, exact modes/cases, group roots, registration, deterministic token sublayers, mutable-address reservations, guarded native scheme output, and emission provenance pass their evidence planes.
+- Phase 5 is next: bind mutable token/custom-property addresses to explicit runtime roots, setters, batches, validation, snapshots, SSR, hydration, and HMR reconciliation.
 
 The detailed checklist and acceptance evidence live in the [implementation plan](./dux-implementation-plan.md). The [current baseline](./dux-current-baseline.md) remains the immutable pre-refactor comparison point rather than a rolling description of the new implementation.
 

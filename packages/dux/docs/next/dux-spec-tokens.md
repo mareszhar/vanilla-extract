@@ -1,5 +1,5 @@
 updated: 2026-07-14
-status: target spec — Phase 3 token traits, handles, and projections implemented; Phase 4+ axis emission and interoperability pending
+status: target spec — Phase 4 token axes, roots, registration, and emission implemented; Phase 5 runtime and later interoperability pending
 
 # vane-dux next — spec: tokens
 
@@ -18,7 +18,7 @@ Tokens are named design decisions in a typed dependency graph. They may resolve 
 | `{ light, dark }` manifest values | Replace with declaration provenance across arbitrary axes/cases. |
 | Metadata/checks/graph edges/emitted names | Preserve and generalize. |
 
-Phases 2–3 completed the token-language foundation: `de.defineTokens()` creates immutable engine-bound unfinished modules; semantic engine compatibility governs composition; the system alone finalizes prefix/name identity; raw shorthand and `de.token()` normalize to independent reference/emission/mutability/registration/axis/case traits; canonical `$` handles survive build/app restoration; and `tokensOf`/`namesOf`/`varsOf` project modules or resolved selections without a mirrored registry. Phase 4 now owns axis conditions, sparse-case validation, registrations, roots, and declaration emission.
+Phases 2–4 complete the build-time token language: `de.defineTokens()` creates immutable engine-bound unfinished modules; semantic engine compatibility governs composition; the system alone finalizes prefix/name identity; raw shorthand and `de.token()` normalize to independent traits; canonical `$` handles survive build/app restoration; projections reuse graph identity; and Phase 4 resolves exact axes/cases, registrations, roots, deterministic layers, native/fallback scheme output, mutable reservations, and declaration provenance. Phase 5 binds those semantic addresses to runtime roots.
 
 ## 1. Definition forms
 
@@ -198,7 +198,6 @@ const tokens = {
   color: {
     $description: 'Color decisions',
     $root: '#widget',
-    $axes: {},
 
     brand: token,
   },
@@ -208,8 +207,7 @@ const tokens = {
 Initial group metadata set:
 
 - `$description`;
-- `$axes` if the bulk form survives its implementation fixture;
-- `$root` if group-level roots pass selector-composition/performance tests;
+- `$root`, accepting an absolute selector or an `&`-anchored refinement;
 - axis requirement/exposure metadata in the least magical shape selected during the axis phase.
 
 Do not grow a generic arbitrary `$` bag. Every group key needs a precise manifest and inheritance contract.
@@ -341,7 +339,7 @@ Branch `null` is valid only on a mutable token. On a nonmutable token it has no 
 
 ## 6. Group-level axis bulk form
 
-The transposed form remains a candidate because it matches palette-table authoring:
+The transposed form was prototyped because it matches palette-table authoring:
 
 ```ts
 const tokens = {
@@ -371,7 +369,9 @@ const tokens = {
 }
 ```
 
-It ships only if:
+It does **not** ship in the initial language. Per-token axes provide better completion/error locality, compose directly with cases, and avoid taxing every group with a transposed mapped type. A literal `$axes` group key receives a diagnostic pointing to `de.token({ axes })` rather than being partially interpreted.
+
+Reconsideration requires new evidence that all of these hold:
 
 - exact key totality and metadata merging remain readable;
 - error locality is better than repeated per-token maps;
@@ -413,6 +413,8 @@ token contract/name allocation
 ```
 
 All ordinary declarations live in deterministic system token sublayers.
+
+Nonmutable axis and case branches declare the public custom property directly in those ordered sublayers. This preserves the browser's selector-local cascade for descendant and absolute conditions instead of prematurely substituting a root-bound staging value. Private staging properties are reserved for mutable multi-axis fallback chains, and those bindings obey the effective-root placement invariant above.
 
 ### 8.1 Val-referenced token
 
@@ -457,7 +459,7 @@ Scheme becomes a built-in axis adapter, not a token/color special case.
 
 The adapter may emit native `light-dark()` when:
 
-- the token value type supports it;
+- the token value type is color (`light-dark()` is a CSS `<color>` function);
 - the browser/toolchain target permits it;
 - its condition/override semantics match the requested scheme behavior.
 
@@ -474,7 +476,7 @@ Mutable scheme values compose with slots:
 }
 ```
 
-Selector-based emission remains available where native optimization cannot represent the axis policy.
+Selector/media emission remains available where native optimization cannot represent the axis policy, including every non-color use of the same scheme axis.
 
 ## 10. Overrides
 

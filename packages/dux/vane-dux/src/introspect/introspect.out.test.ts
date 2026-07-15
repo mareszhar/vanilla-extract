@@ -98,6 +98,12 @@ describe('the manifest artifact', () => {
           "color.brand": {
             "css": "oklch(0.58 0.2 285)",
             "description": "the seed",
+            "emission": [
+              {
+                "kind": "base",
+                "root": ":root",
+              },
+            ],
             "file": "src/test-support/prism.style.ts",
             "live": true,
             "mode": "live",
@@ -113,6 +119,12 @@ describe('the manifest artifact', () => {
           },
           "color.brandSoft": {
             "css": "oklch(from var(--vane-color-brand) l c h / 0.12)",
+            "emission": [
+              {
+                "kind": "base",
+                "root": ":root",
+              },
+            ],
             "file": "src/test-support/prism.style.ts",
             "live": false,
             "mode": "derived",
@@ -132,6 +144,12 @@ describe('the manifest artifact', () => {
           },
           "space.sm": {
             "css": "8px",
+            "emission": [
+              {
+                "kind": "base",
+                "root": ":root",
+              },
+            ],
             "file": "src/test-support/prism.style.ts",
             "live": false,
             "mode": "static",

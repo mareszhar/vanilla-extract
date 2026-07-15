@@ -10,6 +10,7 @@
  * the plugin (tests, the emit harness) pay one guarded push at most.
  */
 
+import type { VaneAxisRegistryDescription } from '../system/axes'
 import type { VaneCssFeature } from '../values/protocol'
 import type { VaneTokenMode } from './handle'
 
@@ -47,6 +48,24 @@ export interface VaneTokenRecord extends VaneSourceRecord {
   preview: VaneTokenPreviewRecord
   description?: string
   deprecated?: string
+  /** Every resolved declaration site, including semantic branch provenance. */
+  emission?: readonly VaneTokenEmissionRecord[]
+}
+
+export interface VaneTokenEmissionRecord {
+  readonly kind: 'base' | 'native' | 'axis' | 'case'
+  readonly root: string
+  readonly layer?: string
+  readonly axis?: string
+  readonly mode?: string
+  readonly when?: Readonly<Record<string, string>>
+  readonly mechanism?: string
+  readonly locality?: string
+  readonly placement?: string
+  readonly priority?: number
+  readonly media?: string
+  readonly supports?: string
+  readonly container?: string
 }
 
 export type VaneTokenPreviewRecord
@@ -62,6 +81,7 @@ export interface VaneSystemRecord extends VaneSourceRecord {
   layers: string[]
   /** Condition name → its compiled arms, serialized readably. */
   conditions: Record<string, string>
+  axes?: VaneAxisRegistryDescription
   audit?: VaneAuditConfig
 }
 

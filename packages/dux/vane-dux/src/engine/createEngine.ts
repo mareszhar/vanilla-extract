@@ -1,6 +1,13 @@
 /** Canonical authoring environment: an engine defines one or more systems. */
 
 import type { VaneEngineKernel } from '../internal/engineKernel'
+import type {
+  VaneAxisAuthoringHelpers,
+  VaneAxisDefinitions,
+  VaneAxisName,
+  VaneAxisOrderRestGuard,
+  VaneAxisRegistry,
+} from '../system/axes'
 import type { VaneConditionInput } from '../system/conditions'
 import type {
   VaneDefaultLayers,
@@ -24,6 +31,13 @@ import type { VaneCssSupportTarget, VaneExtensionIdentity } from '../values/prot
 import type { VaneSelfValue } from '../values/types'
 import type { VaneLengthUnit } from '../values/units'
 import { createEngineKernel } from '../internal/engineKernel'
+import {
+  axisAuthoringHelpers,
+  axisSemanticPolicy,
+  EMPTY_AXIS_REGISTRY,
+  normalizeAxisAdditions,
+  reorderAxes,
+} from '../system/axes'
 import { aria, container, data, media, schemeIs, supports } from '../system/conditions'
 import { createSystemForEngine } from '../system/createSystem'
 import { check } from '../tokens/checks'
@@ -75,10 +89,10 @@ export interface VaneEnginePlugin<
   Added extends Readonly<Record<string, unknown>>,
   RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 > extends VaneExtensionIdentity {
-  readonly setup: (engine: VaneEngine<RequiredConstructors, VaneTokenPolicy>) => Added
+  readonly setup: (engine: VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>) => Added
 }
 
-type VaneEngineReserved<Constructors extends object> = keyof Constructors | keyof VaneEngineMethods<Constructors, VaneTokenPolicy> | typeof VANE_SYSTEM_MEMBERS[number]
+type VaneEngineReserved<Constructors extends object> = keyof Constructors | keyof VaneEngineMethods<Constructors, VaneTokenPolicy, VaneAxisDefinitions> | typeof VANE_SYSTEM_MEMBERS[number]
 type VaneExtensionOutput<Constructors extends object, Added> = Added & {
   readonly [Key in Extract<keyof Added, VaneEngineReserved<Constructors>>]: never
 }
@@ -86,6 +100,7 @@ type VaneExtensionOutput<Constructors extends object, Added> = Added & {
 export interface VaneEngineMethods<
   Constructors extends object,
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+  Axes extends VaneAxisDefinitions = Record<never, never>,
 > {
   readonly signature: string
   readonly support: VaneCssSupportTarget
@@ -103,7 +118,7 @@ export interface VaneEngineMethods<
   readonly data: typeof data
   readonly aria: typeof aria
   readonly schemeIs: typeof schemeIs
-  readonly token: VaneTokenFactory
+  readonly token: VaneTokenFactory<Axes>
   readonly defineTokens: <const T extends VaneGraphInput = Record<never, never>>(
     seed?: T,
     options?: VaneTokenModuleOptions,
@@ -117,7 +132,20 @@ export interface VaneEngineMethods<
   >(
     options: VaneEngineSystemOptions<T, C, L, P, B>,
   ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors>
-  readonly compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy>, 'signature'>) => boolean
+  readonly axes: <const Added extends VaneAxisDefinitions>(
+    factory: (
+      context: Omit<VaneEngine<Constructors, TokenPolicy, Axes>, keyof VaneAxisAuthoringHelpers>
+        & VaneAxisAuthoringHelpers,
+    ) => Added & VaneAxisContributionGuard<Axes, Added>,
+  ) => VaneEngine<Constructors, TokenPolicy, Axes & Added>
+  readonly axisOrder: <
+    const First extends VaneAxisName<Axes>,
+    const Rest extends readonly VaneAxisName<Axes>[],
+  >(
+    first: First,
+    ...rest: Rest & VaneAxisOrderRestGuard<Axes, First, Rest>
+  ) => VaneEngine<Constructors, TokenPolicy, Axes>
+  readonly compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy, VaneAxisDefinitions>, 'signature'>) => boolean
   readonly use: <
     const Added extends Readonly<Record<string, unknown>>,
     RequiredConstructors extends object,
@@ -125,28 +153,34 @@ export interface VaneEngineMethods<
     plugin: Constructors extends RequiredConstructors
       ? VaneEnginePlugin<Added, RequiredConstructors>
       : never,
-  ) => VaneEngine<Constructors & Added, TokenPolicy>
+  ) => VaneEngine<Constructors & Added, TokenPolicy, Axes>
   readonly extend: {
     <const Added extends Readonly<Record<string, unknown>>>(
-      extension: (engine: VaneEngine<Constructors, TokenPolicy>) => VaneExtensionOutput<Constructors, Added>,
-    ): VaneEngine<Constructors & Added, TokenPolicy>
+      extension: (engine: VaneEngine<Constructors, TokenPolicy, Axes>) => VaneExtensionOutput<Constructors, Added>,
+    ): VaneEngine<Constructors & Added, TokenPolicy, Axes>
     <const Added extends Readonly<Record<string, unknown>>>(
       identity: VaneExtensionIdentity,
-      extension: (engine: VaneEngine<Constructors, TokenPolicy>) => VaneExtensionOutput<Constructors, Added>,
-    ): VaneEngine<Constructors & Added, TokenPolicy>
+      extension: (engine: VaneEngine<Constructors, TokenPolicy, Axes>) => VaneExtensionOutput<Constructors, Added>,
+    ): VaneEngine<Constructors & Added, TokenPolicy, Axes>
   }
+}
+
+type VaneAxisContributionGuard<Current extends VaneAxisDefinitions, Added extends VaneAxisDefinitions> = {
+  readonly [Name in keyof Added]: Name extends keyof Current ? never : Added[Name]
 }
 
 export type VaneEngine<
   Constructors extends object,
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
-> = Readonly<Constructors> & VaneEngineMethods<Constructors, TokenPolicy>
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> = Readonly<Constructors> & VaneEngineMethods<Constructors, TokenPolicy, Axes>
 
 /** Named zero-config/configured engine surface, kept compact in consumer declarations. */
 export interface VaneCoreEngine<
   DefaultLengthUnit extends VaneLengthUnit = 'px',
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
-> extends VaneCanonicalCoreConstructors<DefaultLengthUnit>, VaneEngineMethods<VaneCanonicalCoreConstructors<DefaultLengthUnit>, TokenPolicy> {}
+  Axes extends VaneAxisDefinitions = Record<never, never>,
+> extends VaneCanonicalCoreConstructors<DefaultLengthUnit>, VaneEngineMethods<VaneCanonicalCoreConstructors<DefaultLengthUnit>, TokenPolicy, Axes> {}
 
 export const VANE_ENGINE = Symbol.for('vane.engine')
 
@@ -154,6 +188,7 @@ interface EnginePrivate<Constructors extends object> {
   readonly [VANE_ENGINE]: {
     readonly kernel: VaneEngineKernel<Constructors>
     readonly requirement: VaneEngineRequirement
+    readonly axes: VaneAxisRegistry<any>
   }
 }
 
@@ -177,6 +212,8 @@ const ENGINE_METHOD_NAMES = new Set<string>([
   'token',
   'defineTokens',
   'createSystem',
+  'axes',
+  'axisOrder',
   'compatibleWith',
   'use',
   'extend',
@@ -194,21 +231,21 @@ export function defineEnginePlugin<
   return Object.freeze({ ...plugin })
 }
 
-export function createEngine(): VaneCoreEngine<'px', VaneDefaultTokenPolicy>
+export function createEngine(): VaneCoreEngine<'px', VaneDefaultTokenPolicy, Record<never, never>>
 export function createEngine<
   const DefaultLengthUnit extends VaneLengthUnit,
   const Reference extends VaneTokenReference = 'var',
   const Emit extends boolean = true,
 >(
   options: VaneEngineOptions<DefaultLengthUnit, Reference, Emit>,
-): VaneCoreEngine<DefaultLengthUnit, VaneTokenPolicy<Reference, Emit>>
+): VaneCoreEngine<DefaultLengthUnit, VaneTokenPolicy<Reference, Emit>, Record<never, never>>
 export function createEngine<
   const DefaultLengthUnit extends VaneLengthUnit = 'px',
   const Reference extends VaneTokenReference = 'var',
   const Emit extends boolean = true,
 >(
   options: VaneEngineOptions<DefaultLengthUnit, Reference, Emit> = {},
-): VaneCoreEngine<DefaultLengthUnit, VaneTokenPolicy<Reference, Emit>> {
+): VaneCoreEngine<DefaultLengthUnit, VaneTokenPolicy<Reference, Emit>, Record<never, never>> {
   const defaultLengthUnit = options.length?.unitless ?? 'px' as DefaultLengthUnit
   const policies = {
     ...(options.policies ?? {}),
@@ -235,24 +272,26 @@ export function createEngine<
 }
 
 export function enginePrivate<Constructors extends object, TokenPolicy extends VaneTokenPolicy>(
-  engine: VaneEngine<Constructors, TokenPolicy>,
+  engine: VaneEngine<Constructors, TokenPolicy, VaneAxisDefinitions>,
 ): EnginePrivate<Constructors>[typeof VANE_ENGINE] {
-  return (engine as VaneEngine<Constructors, TokenPolicy> & EnginePrivate<Constructors>)[VANE_ENGINE]
+  return (engine as VaneEngine<Constructors, TokenPolicy, VaneAxisDefinitions> & EnginePrivate<Constructors>)[VANE_ENGINE]
 }
 
 function materializeEngine<
   Constructors extends object,
   TokenPolicy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+  Axes extends VaneAxisDefinitions = Record<never, never>,
 >(
   kernel: VaneEngineKernel<Constructors>,
-): VaneEngine<Constructors, TokenPolicy> {
+  axes: VaneAxisRegistry<Axes> = EMPTY_AXIS_REGISTRY as unknown as VaneAxisRegistry<Axes>,
+): VaneEngine<Constructors, TokenPolicy, Axes> {
   const requirement: VaneEngineRequirement = Object.freeze({
     protocol: kernel.protocol,
     signature: kernel.signature,
     compatibleSignatures: kernel.compatibleSignatures,
   })
 
-  let engine: VaneEngine<Constructors, TokenPolicy>
+  let engine: VaneEngine<Constructors, TokenPolicy, Axes>
   const extend = ((...args: unknown[]) => {
     const [identity, factory] = typeof args[0] === 'function'
       ? [undefined, args[0]]
@@ -286,8 +325,8 @@ function materializeEngine<
           },
         )
       : kernel.extend(identity, added)
-    return materializeEngine(next)
-  }) as VaneEngineMethods<Constructors, TokenPolicy>['extend']
+    return materializeEngine(next, axes)
+  }) as VaneEngineMethods<Constructors, TokenPolicy, Axes>['extend']
 
   const tokenPolicy = Object.freeze({
     reference: kernel.policies.tokens && typeof kernel.policies.tokens === 'object'
@@ -299,7 +338,7 @@ function materializeEngine<
       ? kernel.policies.tokens.emit as boolean
       : true,
   }) as TokenPolicy
-  const token = createTokenFactory()
+  const token = createTokenFactory(axes)
 
   const common = {
     ...kernel.constructors,
@@ -331,10 +370,39 @@ function materializeEngine<
       P extends string = 'vane',
       B extends boolean = true,
     >(options: VaneEngineSystemOptions<T, C, L, P, B>) => createSystemForEngine(
-      { kernel, requirement, tokenPolicy },
+      { kernel, requirement, tokenPolicy, axes },
       options,
     ),
-    compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy>, 'signature'>) =>
+    axes: <const Added extends VaneAxisDefinitions>(
+      factory: (
+        context: Omit<VaneEngine<Constructors, TokenPolicy, Axes>, keyof VaneAxisAuthoringHelpers>
+          & VaneAxisAuthoringHelpers,
+      ) => Added & VaneAxisContributionGuard<Axes, Added>,
+    ) => {
+      if (typeof factory !== 'function')
+        throw new TypeError('[vane] axes() needs a callback that returns an axis record')
+      const context = Object.freeze({ ...engine, ...axisAuthoringHelpers }) as Omit<
+        VaneEngine<Constructors, TokenPolicy, Axes>,
+        keyof VaneAxisAuthoringHelpers
+      > & VaneAxisAuthoringHelpers
+      const nextAxes = normalizeAxisAdditions(axes, factory(context))
+      return materializeEngine<Constructors, TokenPolicy, Axes & Added>(
+        kernelWithAxes(kernel, nextAxes),
+        nextAxes as unknown as VaneAxisRegistry<Axes & Added>,
+      )
+    },
+    axisOrder: <
+      const First extends VaneAxisName<Axes>,
+      const Rest extends readonly VaneAxisName<Axes>[],
+    >(
+      first: First,
+      ...rest: Rest & VaneAxisOrderRestGuard<Axes, First, Rest>
+    ) => {
+      const order = [first, ...rest] as readonly VaneAxisName<Axes>[]
+      const nextAxes = reorderAxes(axes, order)
+      return materializeEngine<Constructors, TokenPolicy, Axes>(kernelWithAxes(kernel, nextAxes), nextAxes)
+    },
+    compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy, VaneAxisDefinitions>, 'signature'>) =>
       kernel.signature === other.signature,
     use: <
       const Added extends Readonly<Record<string, unknown>>,
@@ -350,7 +418,7 @@ function materializeEngine<
         )
       }
       return extend(plugin, current => plugin.setup(
-        current as unknown as VaneEngine<RequiredConstructors, VaneTokenPolicy>,
+        current as unknown as VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>,
       ) as VaneExtensionOutput<Constructors, Added>)
     },
     extend,
@@ -358,10 +426,22 @@ function materializeEngine<
 
   Object.defineProperty(common, VANE_ENGINE, {
     enumerable: false,
-    value: Object.freeze({ kernel, requirement }),
+    value: Object.freeze({ kernel, requirement, axes }),
   })
-  engine = Object.freeze(common) as VaneEngine<Constructors, TokenPolicy>
+  engine = Object.freeze(common) as VaneEngine<Constructors, TokenPolicy, Axes>
   return engine
+}
+
+function kernelWithAxes<Constructors extends object>(
+  kernel: VaneEngineKernel<Constructors>,
+  axes: VaneAxisRegistry<any>,
+): VaneEngineKernel<Constructors> {
+  return createEngineKernel(kernel.constructors, {
+    support: kernel.support,
+    policies: { ...kernel.policies, axes: axisSemanticPolicy(axes) },
+    extensions: kernel.extensions,
+    ancestors: kernel.compatibleSignatures,
+  })
 }
 
 function validateContribution(

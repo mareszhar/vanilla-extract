@@ -16,4 +16,4 @@ pnpm run bench:baseline        # build SDK and record all current metrics
 
 Machine-readable results go to the ignored `.dux/benchmarks/current.json`. Accepted human baselines live in `docs/next/dux-current-baseline.md`; transient machine and cache noise does not belong in version control.
 
-The current dialect uses the existing scheme/token/module APIs. Generic axes, cases, mutable-slot overhead, and snapshot hydration are added to the same fixture identities when their owning phases implement them, with the old baseline retained as “not representable” rather than fabricated as zero.
+The current dialect uses the canonical engine/token-module APIs and scales from two to four environmental axes. The corpus includes native color-scheme output, color-agnostic axis fixtures, and sparse cross-axis cases at representative module intervals; editor measurements cover axis and case completion alongside token/style paths. Mutable-runtime and snapshot overhead join these same fixture identities in Phase 5, with earlier baselines retained as “not representable” rather than fabricated as zero.
