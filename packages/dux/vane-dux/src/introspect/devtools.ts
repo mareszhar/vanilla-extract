@@ -80,16 +80,30 @@ function isColorish(value) {
 }
 
 function tokenRow(path, token) {
-  const paired = token.value.light !== token.value.dark
-  const value = paired
-    ? swatch(token.value.light) + '<span class="mono">' + esc(token.value.light) + '</span> <span class="dim">/</span> '
-      + swatch(token.value.dark) + '<span class="mono">' + esc(token.value.dark) + '</span>'
-    : (isColorish(token.value.light) ? swatch(token.value.light) : '') + '<span class="mono">' + esc(token.value.light) + '</span>'
+  const resolved = token.preview.status === 'resolved'
+    ? token.preview.val
+    : token.expression.css ?? token.declarations.find((declaration) => declaration.val !== null)?.val
+  const value = resolved
+    ? (isColorish(resolved) ? swatch(resolved) : '') + '<span class="mono">' + esc(resolved) + '</span>'
+    : '<span class="dim">' + esc(token.preview.reason ?? 'no resolved preview') + '</span>'
+
+  const explanation = '<details><summary>' + esc(token.expression.kind) + ' · ' + esc(token.fold.status) + '</summary>'
+    + '<div class="axis">name</div><code>' + esc(token.name ?? 'not emitted') + '</code>'
+    + '<div class="axis">dependencies</div>'
+    + (token.dependencies.length ? token.dependencies.map((edge) => '<span class="chip">' + esc(edge.path ?? edge.name ?? edge.kind) + '</span>').join('') : '<span class="dim">none</span>')
+    + '<div class="axis">contexts</div>'
+    + token.declarations.map((declaration) => '<div><span class="badge">' + esc(declaration.kind) + '</span> <code>'
+      + esc(['root ' + declaration.context.root, declaration.context.layer ? '@layer ' + declaration.context.layer : '', ...declaration.context.atRules, ...declaration.context.selectors].filter(Boolean).join(' '))
+      + '</code></div>').join('') + '</details>'
 
   return '<tr><td><code>' + esc(path) + '</code></td><td>' + value + '</td>'
-    + '<td><span class="badge' + (token.live ? ' live' : '') + '">' + (token.live ? 'live' : esc(token.mode)) + '</span></td>'
+    + '<td><span class="badge' + (token.mutable ? ' live' : '') + '">' + esc(token.type) + '</span> '
+    + '<span class="badge">' + esc(token.reference) + (token.mutable ? ' · mutable' : '') + '</span></td>'
     + '<td class="dim">' + token.usage + '</td>'
-    + '<td class="dim">' + esc(token.description ?? '') + (token.deprecated ? ' <em>deprecated: ' + esc(token.deprecated) + '</em>' : '') + '</td>'
+    + '<td class="dim">' + esc(token.description ?? '')
+    + (token.deprecated ? ' <em>deprecated: ' + esc(token.deprecated) + '</em>' : '')
+    + ' <span class="badge">' + token.declarations.length + ' declarations</span>' + explanation
+    + (token.portability.status === 'nonportable' ? ' <span class="badge">nonportable</span>' : '') + '</td>'
     + '<td>' + fileLink(token.file, token.line, token.column) + '</td></tr>'
 }
 
@@ -125,7 +139,7 @@ function render(manifest) {
 
   sections.push('<h2>Tokens</h2>')
   sections.push(tokens.length
-    ? '<table><tr><th>token</th><th>value (light / dark)</th><th>mode</th><th>usage</th><th></th><th></th></tr>'
+    ? '<table><tr><th>token</th><th>resolved preview</th><th>type / traits</th><th>usage</th><th>provenance</th><th>source</th></tr>'
       + tokens.map(([path, token]) => tokenRow(path, token)).join('') + '</table>'
     : '<div class="empty">no tokens yet</div>')
 

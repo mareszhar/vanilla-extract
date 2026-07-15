@@ -1,5 +1,5 @@
-updated: 2026-07-14
-status: target spec — Phase 2 engine/system foundation, Phase 4 axes/emission, and Phase 5 runtime services implemented; later plugins pending
+updated: 2026-07-15
+status: target spec — engine/system, axes/emission, runtime, public plugins, and interchange implemented through Phase 7
 
 # vane-dux next — spec: engine and system
 
@@ -106,6 +106,27 @@ Object reference identity may be used for process-local caches only. It is never
 Runtime snapshots use a separate deterministic **system schema ID**, derived only from the finalized runtime-addressable contract (token paths/types/branches, prefix/naming policy, and snapshot protocol). Changing an unrelated authoring helper does not invalidate persisted runtime state; changing a mutable address changes the ID. That mismatch triggers the runtime spec's per-entry reconciliation—it is not a wholesale rejection instruction.
 
 No failure may appear later as an undefined helper, missing serializer, or silently different unit/color policy.
+
+### 3.3 Interchange codecs
+
+Opaque public plugin semantics may opt into authored DTCG portability through the plugin definition:
+
+```ts
+defineEnginePlugin({
+  id: 'org.example.editorial',
+  version: 1,
+  setup: engine => ({ /* public constructors */ }),
+  dtcg: [{
+    id: 'org.example.editorial-token',
+    version: 1,
+    extension: 'org.example.editorial',
+    encode: ({ expression, css }) => ({ css }),
+    decode: ({ payload, dependencies, engine }) => ({ /* public engine value */ }),
+  }],
+})
+```
+
+`id`/`version` locate the exact decoder; `extension` names the opaque value semantics the codec makes portable. Encoded payloads must be JSON-safe and are validated before export. Dependencies arrive as restored token handles, and decode returns an ordinary public engine value. The initial codec boundary is one complete plugin-owned value at one base/mode/case address. Core IR wrapped around an opaque leaf, or mixed opaque extensions inside one expression, is diagnosed as nonportable until a recursive codec-tree contract exists; vane does not let one leaf codec falsely claim the surrounding expression. Plugins that lower entirely to core IR need no codec. Missing/mismatched codecs and nonportable opaque nodes fail strict authored import/export with the responsible identity.
 
 ## 4. Axes
 

@@ -2,6 +2,7 @@
 
 import type { VaneCssFunction, VanePropertyAliasCssFunction, VanePropertyAliasMap, VaneStrictPropertyAliasCssFunction } from '../css/types'
 import type { VaneEngineKernel } from '../internal/engineKernel'
+import type { VaneDtcgCodec } from '../internal/interchange'
 import type { VanePropertyAliasContribution, VanePropertyAliasPlugin } from '../plugins/propertyAliases'
 import type {
   VaneAxisAuthoringHelpers,
@@ -92,6 +93,8 @@ export interface VaneEnginePlugin<
   RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 > extends VaneExtensionIdentity {
   readonly setup: (engine: VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>) => Added
+  /** Optional authored-DTCG bridges for opaque values owned by this plugin. */
+  readonly dtcg?: readonly VaneDtcgCodec[]
 }
 
 type VaneEngineReserved<Constructors extends object> = keyof Constructors | keyof VaneEngineMethods<Constructors, VaneTokenPolicy, VaneAxisDefinitions> | typeof VANE_SYSTEM_MEMBERS[number]
@@ -253,6 +256,7 @@ interface EnginePrivate<Constructors extends object> {
     readonly kernel: VaneEngineKernel<Constructors>
     readonly requirement: VaneEngineRequirement
     readonly axes: VaneAxisRegistry<any>
+    readonly dtcg: readonly VaneDtcgCodec[]
   }
 }
 
@@ -293,7 +297,8 @@ export function defineEnginePlugin<
   validateIdentity(plugin)
   if (typeof plugin.setup !== 'function')
     throw new TypeError('[vane] an engine plugin needs a setup(engine) function')
-  return Object.freeze({ ...plugin })
+  const dtcg = normalizeDtcgCodecs(plugin.dtcg)
+  return Object.freeze({ ...plugin, ...(dtcg === undefined ? {} : { dtcg }) })
 }
 
 export function createEngine(): VaneCoreEngine<'px', VaneDefaultTokenPolicy, Record<never, never>>
@@ -349,6 +354,7 @@ function materializeEngine<
 >(
   kernel: VaneEngineKernel<Constructors>,
   axes: VaneAxisRegistry<Axes> = EMPTY_AXIS_REGISTRY as unknown as VaneAxisRegistry<Axes>,
+  dtcg: readonly VaneDtcgCodec[] = [],
 ): VaneEngine<Constructors, TokenPolicy, Axes> {
   const requirement: VaneEngineRequirement = Object.freeze({
     protocol: kernel.protocol,
@@ -390,7 +396,7 @@ function materializeEngine<
           },
         )
       : kernel.extend(identity, added)
-    return materializeEngine(next, axes)
+    return materializeEngine(next, axes, dtcg)
   }) as VaneEngineMethods<Constructors, TokenPolicy, Axes>['extend']
 
   const tokenPolicy = Object.freeze({
@@ -445,7 +451,7 @@ function materializeEngine<
       P,
       B
     >(
-      { kernel, requirement, tokenPolicy, axes },
+      { kernel, requirement, tokenPolicy, axes, dtcg },
       options,
     ),
     axes: <const Added extends VaneAxisDefinitions>(
@@ -464,6 +470,7 @@ function materializeEngine<
       return materializeEngine<Constructors, TokenPolicy, Axes & Added>(
         kernelWithAxes(kernel, nextAxes),
         nextAxes as unknown as VaneAxisRegistry<Axes & Added>,
+        dtcg,
       )
     },
     axisOrder: <
@@ -475,7 +482,7 @@ function materializeEngine<
     ) => {
       const order = [first, ...rest] as readonly VaneAxisName<Axes>[]
       const nextAxes = reorderAxes(axes, order)
-      return materializeEngine<Constructors, TokenPolicy, Axes>(kernelWithAxes(kernel, nextAxes), nextAxes)
+      return materializeEngine<Constructors, TokenPolicy, Axes>(kernelWithAxes(kernel, nextAxes), nextAxes, dtcg)
     },
     compatibleWith: (other: Pick<VaneEngineMethods<object, VaneTokenPolicy, VaneAxisDefinitions>, 'signature'>) =>
       kernel.signature === other.signature,
@@ -492,19 +499,47 @@ function materializeEngine<
           `[vane] extension id "${plugin.id.trim()}" is already installed at version ${installed.version}`,
         )
       }
-      return extend(plugin, current => plugin.setup(
-        current as unknown as VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>,
-      ) as VaneExtensionOutput<Constructors, Added>)
+      const pluginDtcg = normalizeDtcgCodecs(plugin.dtcg) ?? []
+      const nextDtcg = [...dtcg, ...pluginDtcg]
+      validateDtcgCodecs(nextDtcg)
+      const added = plugin.setup(
+        engine as unknown as VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>,
+      ) as VaneExtensionOutput<Constructors, Added>
+      validateContribution(added, kernel.constructors, plugin.id)
+      deepFreeze(added)
+      const next = kernel.extend(plugin, added)
+      return materializeEngine(next, axes, Object.freeze(nextDtcg))
     },
     extend,
   }
 
   Object.defineProperty(common, VANE_ENGINE, {
     enumerable: false,
-    value: Object.freeze({ kernel, requirement, axes }),
+    value: Object.freeze({ kernel, requirement, axes, dtcg }),
   })
   engine = Object.freeze(common) as VaneEngine<Constructors, TokenPolicy, Axes>
   return engine
+}
+
+function validateDtcgCodecs(codecs: readonly VaneDtcgCodec[] | undefined): void {
+  const identities = new Set<string>()
+  for (const codec of codecs ?? []) {
+    const identity = `${codec.id}@${codec.version}`
+    if (!codec.id.trim() || !String(codec.version).trim() || !codec.extension.trim())
+      throw new TypeError('[vane] a DTCG codec needs non-empty id, version, and extension fields')
+    if (typeof codec.encode !== 'function' || typeof codec.decode !== 'function')
+      throw new TypeError(`[vane] DTCG codec '${identity}' needs encode() and decode() functions`)
+    if (identities.has(identity))
+      throw new TypeError(`[vane] duplicate DTCG codec '${identity}'`)
+    identities.add(identity)
+  }
+}
+
+function normalizeDtcgCodecs(codecs: readonly VaneDtcgCodec[] | undefined): readonly VaneDtcgCodec[] | undefined {
+  if (codecs === undefined)
+    return undefined
+  validateDtcgCodecs(codecs)
+  return Object.freeze(codecs.map(codec => Object.freeze({ ...codec })))
 }
 
 function kernelWithAxes<Constructors extends object>(

@@ -119,6 +119,7 @@ Test each data type against:
 - token override class;
 - resolved environment snapshot;
 - manifest and DTCG projections;
+- authored DTCG plugin codecs at base, axis-mode, and case addresses, including branch-only dependency order;
 - resolved expression preview or explicit preview-unavailable reason in manifest/`ds.explain()`.
 
 Root/condition output matrix:
@@ -210,6 +211,12 @@ Initial regression policy:
 - D62 selected separate self/system brands plus focused overloads: at 5,000 mixed expressions the rejected generic used 1.25s TypeScript total time and 339,107 declaration bytes versus 0.77s and 279,177 bytes for the selected encoding.
 
 Store machine-readable results under a generated benchmark artifact path and commit a human summary only when a new baseline is accepted.
+
+### 6.1 Resource hygiene
+
+Full SDK type-tests, production builds, generated benchmarks, browser matrices, and packed fresh-app lifecycles run sequentially on developer machines unless CI assigns isolated workers with explicit memory budgets. A type-level prototype is first measured on the small fixture; recursive growth or a multi-gigabyte compiler heap is a design failure to remove, not a reason to keep rerunning the large corpus. Long-lived dev/browser processes must release watchers, HTTP, and HMR ports before another lifecycle begins. Sandbox-denied browser/Mach-port or watcher failures are rerun in the supported unsandboxed environment, while assertion failures remain red.
+
+The Phase 7 accepted large-fixture baseline is: 2.05s TypeScript total time, 2,217,790 instantiations, 578,146 kB reported memory, 447,372 B declarations, 2.70ms CSS completion, 0.11ms runtime completion, 5.18ms graph rename, and 4.66s production manifest/CSS build. Manifest v2 is 6,265,577 B / 150,057 B gzip for 5,000 tokens; D86 records why that deliberate semantic-artifact increase is accepted and requires later phases not to reintroduce per-token quadratic work.
 
 ## 7. Runtime/browser contract
 

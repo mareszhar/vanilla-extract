@@ -364,4 +364,28 @@ describe('phase 5 mutable runtime', () => {
     expect(manifest.runtime?.system).toMatch(/^vane-runtime-1-/)
     expect(manifest.tokens['color.brand']?.runtime?.addresses).toHaveLength(2)
   })
+
+  it('inspects semantic runtime overrides together with their concrete slot writes', () => {
+    const { ds } = createFixture()
+    const root = new MemoryRoot()
+    const runtime = ds.runtime(root)
+    runtime.t.color.brand.$axes.scheme.dark.$set('rebeccapurple')
+    runtime.setScheme('dark')
+
+    expect(runtime.inspect()).toMatchObject({
+      system: expect.stringMatching(/^vane-runtime-1-/),
+      root: '#app',
+      active: true,
+      modes: { scheme: 'dark' },
+      overrides: [{
+        token: ['color', 'brand'],
+        address: { kind: 'axis', axis: 'scheme', mode: 'dark' },
+        val: 'rebeccapurple',
+        name: '--app-color-brand',
+        slot: expect.stringMatching(/^--app-v-/),
+        tokenRoot: '#app',
+        applied: 'rebeccapurple',
+      }],
+    })
+  })
 })

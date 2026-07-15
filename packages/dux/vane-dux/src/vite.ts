@@ -1008,13 +1008,18 @@ function applyInsertions(source: string, edits: Array<{ at: number, text: string
 
 // ─── Introspection: the manifest and the audits ride the build plane ─────────
 
+export { buildAgentContext, generateAgentContext } from './introspect/agent'
+export type { VaneAgentContext } from './introspect/agent'
 export { audit, formatAuditFindings } from './introspect/audit'
 export type { VaneAuditFinding } from './introspect/audit'
 export { buildManifest } from './introspect/manifest'
 export type {
   VaneManifest,
   VaneManifestContrast,
+  VaneManifestDeclaration,
+  VaneManifestDependency,
   VaneManifestEscape,
+  VaneManifestExpression,
   VaneManifestPort,
   VaneManifestRecipe,
   VaneManifestSource,

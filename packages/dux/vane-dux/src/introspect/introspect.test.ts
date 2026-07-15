@@ -6,10 +6,11 @@
  * the `/vite` plugin drives.
  */
 
-import { createSystem, unsafe } from '@mszr/vane-dux'
+import { createEngine, createSystem, unsafe } from '@mszr/vane-dux'
 import { definePrismSystem, emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
+import { buildAgentContext, generateAgentContext } from './agent'
 import { buildManifest, countVarRefs } from './manifest'
 
 /** Prism plus a representative styled surface, collected as the plugin would. */
@@ -53,7 +54,7 @@ describe('the manifest', () => {
   const { manifest, css } = prismManifest()
 
   it('is versioned and carries the system: layers in order, conditions serialized', () => {
-    expect(manifest.version).toBe(1)
+    expect(manifest.version).toBe(2)
     expect(manifest.layers).toEqual(['reset', 'tokens', 'recipes', 'utilities', 'overrides'])
     expect(manifest.conditions.open).toBe('&[data-state="open"]')
     expect(manifest.conditions.md).toBe('@media (min-width: 768px)')
@@ -63,27 +64,26 @@ describe('the manifest', () => {
     expect(manifest.conditions.dark).toContain('@media (prefers-color-scheme: dark)')
   })
 
-  it('projects every token: var, per-scheme values, mode, liveness, description', () => {
+  it('projects every token: public name, traits, previews, dependencies, and declarations', () => {
     const brand = manifest.tokens['color.brand']
 
-    expect(brand.var).toBe('--vane-color-brand')
-    expect(brand.mode).toBe('live')
-    expect(brand.live).toBe(true)
-    expect(brand.value.light).toBe('oklch(0.58 0.2 285)')
+    expect(brand.name).toBe('--vane-color-brand')
+    expect(brand.reference).toBe('var')
+    expect(brand.mutable).toBe(true)
+    expect(brand.preview).toMatchObject({ status: 'resolved', val: 'oklch(0.58 0.2 285)' })
+    expect(brand.declarations.length).toBeGreaterThan(0)
     expect(brand.description).toBe('Primary brand hue. Marketing owns this.')
 
     // Preset elevation names its live base explicitly, so the surface remains
     // scheme-varied and re-tints when that base changes.
     const surface = manifest.tokens['color.surface']
-    expect(surface.mode).toBe('derived')
-    // `live` means directly writable by applyTheme; derived values remain
-    // read-only even though their emitted CSS re-evaluates from live inputs.
-    expect(surface.live).toBe(false)
-    expect(surface.value.light).not.toBe(surface.value.dark)
+    expect(surface.expression.kind).toBe('color')
+    expect(surface.mutable).toBe(false)
+    expect(surface.fold.status).toBe('preserved')
 
     // A derivation keeps its graph edges visible.
-    expect(manifest.tokens['color.brandSoft'].refs).toEqual(['color.brand'])
-    expect(manifest.tokens['color.onBrand'].refs).toEqual(['color.brand'])
+    expect(manifest.tokens['color.brandSoft'].dependencies.map(edge => edge.path)).toEqual(['color.brand'])
+    expect(manifest.tokens['color.onBrand'].dependencies.map(edge => edge.path)).toEqual(['color.brand'])
   })
 
   it('counts usage from the emitted CSS, graph-internal edges excluded', () => {
@@ -142,5 +142,54 @@ describe('the audit config', () => {
       createSystem({ tokens: { space: { sm: '8px' } }, audit: { unusedTokens: 'error' } })))
 
     expect(buildManifest(records, result.css).audit).toEqual({ unusedTokens: 'error' })
+  })
+})
+
+describe('structured explanation and agent context', () => {
+  it('explains one token from source expression through declarations and runtime slots', () => {
+    const de = createEngine().axes(({ scheme }) => ({ scheme: scheme({ locality: 'root' }) }))
+    const explanation = emit(() => {
+      const ds = de.createSystem({
+        prefix: 'app',
+        tokens: de.defineTokens({
+          color: {
+            brand: de.token({
+              val: de.oklch(0.58, 0.2, 285),
+              mutable: true,
+              axes: { scheme: { dark: de.oklch(0.72, 0.14, 285) } },
+            }),
+          },
+        }),
+      })
+      return ds.explain(ds.t.color.brand)
+    }).returned
+
+    expect(explanation).toMatchObject({
+      path: ['color', 'brand'],
+      name: '--app-color-brand',
+      type: 'color',
+      reference: 'var',
+      mutable: true,
+      expression: { kind: 'color' },
+      runtime: { addresses: expect.arrayContaining([expect.objectContaining({ address: { kind: 'base' } })]) },
+      portability: { status: 'portable' },
+    })
+    expect(explanation.declarations.some(declaration => declaration.kind === 'axis')).toBe(true)
+    expect(explanation.branches).toContainEqual(expect.objectContaining({
+      address: { kind: 'axis', axis: 'scheme', mode: 'dark' },
+    }))
+  })
+
+  it('derives compact machine and prose context from the manifest', () => {
+    const { manifest } = prismManifest()
+    const context = buildAgentContext(manifest)
+    const prose = generateAgentContext(manifest)
+
+    const brand = context.tokens.find(token => token.path === 'color.brand')
+    expect(brand).toBeDefined()
+    expect(brand!.contexts).toContainEqual(expect.stringContaining('root '))
+    expect(context.policy.rawAssertions).toBeGreaterThan(0)
+    expect(prose).toContain('Token vocabulary:')
+    expect(prose).toContain('color.brand')
   })
 })

@@ -9,7 +9,6 @@
  * `version` bumps only on breaking shape changes.
  */
 
-import type { VaneTokenMode } from '../internal/handle'
 import type {
   VaneAuditConfig,
   VaneEscapeForm,
@@ -21,7 +20,6 @@ import type {
   VaneTokenRecord,
 } from '../internal/inspect'
 import type { VaneAxisRegistryDescription } from '../system/axes'
-import type { VaneCssFeature } from '../values/protocol'
 
 // ─── The format ──────────────────────────────────────────────────────────────
 
@@ -31,33 +29,37 @@ export interface VaneManifestSource {
   column?: number
 }
 
+export type VaneManifestDeclaration = VaneTokenRecord['semantic']['declarations'][number]
+export type VaneManifestDependency = VaneTokenRecord['semantic']['dependencies'][number]
+export type VaneManifestExpression = VaneTokenRecord['semantic']['expression']
+
 export interface VaneManifestToken extends VaneManifestSource {
-  /** The emitted custom property: `--vane-color-brand`. */
-  var: string
-  /** Effective selector/layer that owns the declaration. */
-  root?: string
-  layer?: string
-  /** The built value per scheme — equal strings when the token is scheme-blind. */
-  value: { light: string, dark: string }
-  /** The emitted CSS value — the live expression when the token stays live. */
-  css: string
-  mode: VaneTokenMode
-  /** Whether `applyTheme` can write it at runtime. */
-  live: boolean
+  /** Stable semantic address, independent of the current naming policy. */
+  path: readonly string[]
+  /** The public custom property, absent only for a genuinely nonemitted value token. */
+  name?: `--${string}`
+  type: VaneTokenRecord['semantic']['type']
+  reference: 'val' | 'var'
+  emit: boolean
+  mutable: boolean
+  hasDefault: boolean
   /** References in the emitted CSS outside the token graph itself. */
   usage: number
-  /** Token paths this token derives from — the graph edges. */
-  refs?: string[]
-  /** CSS capabilities the emitted expression requires from the support target. */
-  requirements?: VaneCssFeature[]
-  /**
-   * `value` is the proven resolved preview. This marker is present only when
-   * no such preview exists, avoiding duplicate data for ordinary tokens.
-   */
-  preview?: { status: 'unavailable', reason: string }
+  expression: VaneManifestExpression
+  inference: VaneTokenRecord['semantic']['inference']
+  fold: VaneTokenRecord['semantic']['fold']
+  dependencies: readonly VaneManifestDependency[]
+  support: Omit<VaneTokenRecord['semantic']['support'], 'target'>
+  declarations: readonly VaneManifestDeclaration[]
+  branches?: VaneTokenRecord['semantic']['branches']
+  registration?: VaneTokenRecord['semantic']['registration']
+  portability: VaneTokenRecord['semantic']['portability']
+  preview:
+    | { status: 'resolved', val: string, environment?: Readonly<Record<string, string>>, caveats?: readonly string[] }
+    | { status: 'unavailable', reason: string }
+  metadata?: Readonly<Record<string, unknown>>
   description?: string
   deprecated?: string
-  emission?: VaneTokenRecord['emission']
   runtime?: VaneTokenRecord['runtime']
 }
 
@@ -111,11 +113,13 @@ export interface VaneManifestStyle extends VaneManifestSource {
 }
 
 export interface VaneManifest {
-  version: 1
+  version: 2
   /** Final system identity and ordinary token emission location. */
   root?: string
   tokenLayer?: string
   engine?: string
+  /** CSS support target inherited by token support records. */
+  supportTarget?: string
   runtime?: {
     readonly protocol: number
     readonly system: string
@@ -127,6 +131,8 @@ export interface VaneManifest {
   conditions: Record<string, string>
   /** Environmental vocabulary, precedence, and per-trigger locality. */
   axes?: VaneAxisRegistryDescription
+  /** Environment inherited by resolved previews that omit an override. */
+  previewEnvironment?: Readonly<Record<string, string>>
   /** Token path (`color.brand`) → the token. */
   tokens: Record<string, VaneManifestToken>
   /** Export name → the recipe or anatomy (anatomies carry `parts`). */
@@ -150,7 +156,7 @@ export interface VaneManifest {
  */
 export function buildManifest(records: readonly VaneInspectRecord[], css: string): VaneManifest {
   const manifest: VaneManifest = {
-    version: 1,
+    version: 2,
     layers: [],
     conditions: {},
     tokens: {},
@@ -164,8 +170,6 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
   const tokenRecords: VaneTokenRecord[] = []
   const styleRecords: VaneStyleRecord[] = []
   let audit: VaneAuditConfig | undefined
-  let systemRoot: string | undefined
-  let systemTokenLayer: string | undefined
 
   for (const record of records) {
     switch (record.kind) {
@@ -176,14 +180,14 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
           manifest.axes = record.axes
         if (record.root !== undefined) {
           manifest.root = record.root
-          systemRoot = record.root
         }
         if (record.tokenLayer !== undefined) {
           manifest.tokenLayer = record.tokenLayer
-          systemTokenLayer = record.tokenLayer
         }
         if (record.engine !== undefined)
           manifest.engine = record.engine
+        if (record.supportTarget !== undefined)
+          manifest.supportTarget = record.supportTarget
         if (record.runtime !== undefined)
           manifest.runtime = record.runtime
         if (record.audit)
@@ -229,38 +233,53 @@ export function buildManifest(records: readonly VaneInspectRecord[], css: string
   // Usage: references in the emitted CSS, minus the graph's own edges — the
   // token values (and contrast upgrades) re-reference their inputs in `:root`.
   const internal = new Map<string, number>()
+  const pathsByVar = new Map(tokenRecords.map(token => [token.var, token.path]))
+  const cssReferences = countAllVarRefs(css)
+  const previewEnvironment = defaultPreviewEnvironment(manifest.axes)
+  if (Object.keys(previewEnvironment).length > 0)
+    manifest.previewEnvironment = previewEnvironment
 
-  for (const token of tokenRecords) {
-    for (const other of tokenRecords) {
-      const inValues = countVarRefs(`${other.css} ${other.upgrade ?? ''}`, token.var)
-
-      if (inValues > 0)
-        internal.set(token.path, (internal.get(token.path) ?? 0) + inValues)
+  for (const other of tokenRecords) {
+    for (const [name, count] of countAllVarRefs(`${other.css} ${other.upgrade ?? ''}`)) {
+      const path = pathsByVar.get(name)
+      if (path !== undefined)
+        internal.set(path, (internal.get(path) ?? 0) + count)
     }
   }
 
   for (const token of tokenRecords) {
+    const semantic = token.semantic
+    const support: VaneManifestToken['support'] = {
+      requirements: semantic.support.requirements,
+      ...(semantic.support.fallback === undefined ? {} : { fallback: semantic.support.fallback }),
+      ...(semantic.support.enhancement === undefined ? {} : { enhancement: semantic.support.enhancement }),
+    }
     manifest.tokens[token.path] = {
-      var: token.var,
-      ...(token.root === undefined || token.root === systemRoot ? {} : { root: token.root }),
-      ...(token.layer === undefined || token.layer === systemTokenLayer ? {} : { layer: token.layer }),
-      value: { light: token.light, dark: token.dark },
-      css: token.css,
-      mode: token.mode,
-      live: token.mode === 'live',
-      usage: Math.max(0, countVarRefs(css, token.var) - (internal.get(token.path) ?? 0)),
-      ...(token.refs.length === 0 ? {} : { refs: token.refs }),
-      ...(token.requirements.length === 0 ? {} : { requirements: token.requirements }),
-      ...(token.preview.status === 'available' ? {} : { preview: token.preview }),
+      path: token.path.split('.'),
+      ...(semantic.emit || semantic.reference === 'var' ? { name: token.var as `--${string}` } : {}),
+      type: semantic.type,
+      reference: semantic.reference,
+      emit: semantic.emit,
+      mutable: semantic.mutable,
+      hasDefault: semantic.hasDefault,
+      usage: Math.max(0, (cssReferences.get(token.var) ?? 0) - (internal.get(token.path) ?? 0)),
+      expression: semantic.expression,
+      inference: semantic.inference,
+      fold: semantic.fold,
+      dependencies: semantic.dependencies,
+      support,
+      declarations: semantic.declarations,
+      ...(semantic.branches.length === 0 ? {} : { branches: semantic.branches }),
+      ...(semantic.registration === undefined ? {} : { registration: semantic.registration }),
+      portability: semantic.portability,
+      preview: manifestPreview(token, manifest.axes),
+      ...(Object.keys(semantic.metadata).length === 0 ? {} : { metadata: semantic.metadata }),
       ...(token.description === undefined ? {} : { description: token.description }),
       ...(token.deprecated === undefined ? {} : { deprecated: token.deprecated }),
-      ...(token.emission === undefined || token.emission.length === 0 ? {} : { emission: token.emission }),
       ...(token.runtime === undefined ? {} : { runtime: token.runtime }),
       ...manifestSource(token),
     }
   }
-
-  const pathsByVar = new Map(tokenRecords.map(token => [token.var, token.path]))
 
   for (const style of styleRecords) {
     manifest.styles[style.class] = {
@@ -316,19 +335,67 @@ function manifestSource(record: VaneSourceRecord): VaneManifestSource {
   }
 }
 
-/** Occurrences of `var(--name)` / `var(--name,` — the parenthesis keeps prefixes apart. */
-export function countVarRefs(text: string, name: string): number {
-  let count = 0
-
-  for (const terminator of [')', ',']) {
-    const needle = `var(${name}${terminator}`
-    let index = text.indexOf(needle)
-
-    while (index !== -1) {
-      count++
-      index = text.indexOf(needle, index + needle.length)
+function manifestPreview(
+  token: VaneTokenRecord,
+  axes: VaneAxisRegistryDescription | undefined,
+): VaneManifestToken['preview'] {
+  const environment = defaultPreviewEnvironment(axes)
+  let selected: string | number | undefined = token.preview.status === 'available'
+    ? (environment.scheme === 'dark' ? token.preview.dark : token.preview.light)
+    : undefined
+  for (const axis of axes?.order ?? []) {
+    const mode = environment[axis]
+    const branch = token.semantic.branches.find(entry => entry.address.kind === 'axis'
+      && entry.address.axis === axis && entry.address.mode === mode)
+    if (branch && branch.val !== null)
+      selected = branch.val
+  }
+  for (const branch of token.semantic.branches) {
+    if (branch.address.kind === 'case'
+      && Object.entries(branch.address.when).every(([axis, mode]) => environment[axis] === mode)
+      && branch.val !== null) {
+      selected = branch.val
     }
   }
+  if (selected === undefined)
+    return token.preview.status === 'unavailable' ? token.preview : { status: 'unavailable', reason: 'no value in the default environment' }
+  if (String(selected).includes('var(')) {
+    return {
+      status: 'unavailable',
+      reason: 'the selected environment contains a runtime token/custom-property dependency',
+    }
+  }
+  const scheme = environment.scheme
+  const val = String(selected)
+  const caveats = token.preview.status !== 'available' || token.preview.light === token.preview.dark
+    ? undefined
+    : scheme === undefined
+      ? ['the legacy color preview has scheme branches; selected light because the axis has no declared default']
+      : undefined
 
-  return count
+  return {
+    status: 'resolved',
+    val,
+    ...(caveats === undefined ? {} : { caveats }),
+  }
+}
+
+function defaultPreviewEnvironment(axes: VaneAxisRegistryDescription | undefined): Readonly<Record<string, string>> {
+  return Object.freeze(Object.fromEntries(Object.entries(axes?.definitions ?? {}).flatMap(([axis, definition]) =>
+    definition.defaultMode === undefined ? [] : [[axis, definition.defaultMode]],
+  )))
+}
+
+/** Occurrences of `var(--name)` / `var(--name,` — the parenthesis keeps prefixes apart. */
+export function countVarRefs(text: string, name: string): number {
+  return countAllVarRefs(text).get(name) ?? 0
+}
+
+function countAllVarRefs(text: string): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const match of text.matchAll(/var\((--[-\w]+)/g)) {
+    const name = match[1]!
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+  return counts
 }

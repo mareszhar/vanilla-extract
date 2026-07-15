@@ -34,6 +34,14 @@ export interface VaneSystemContext {
 export function bindCss(system: VaneSystemContext): VanePropertyAliasCssFunction<string, string, VanePropertyAliasMap> {
   const emit = (rule: object, debugId?: string, standard = false): string => {
     const file = requireStyleModule('css')
+    if (standard && system.propertyAliases?.expose === 'aliases-only') {
+      record({
+        kind: 'escape',
+        form: 'css.standard',
+        file,
+        detail: debugId ?? (Object.keys(rule).slice(0, 3).join(', ') || 'css.standard()'),
+      })
+    }
     const compiled = compileRule(rule, {
       ...system,
       ...(standard ? { propertyAliases: undefined } : {}),

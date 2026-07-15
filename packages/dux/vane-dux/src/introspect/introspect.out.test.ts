@@ -101,72 +101,197 @@ describe('the manifest artifact', () => {
         },
         "tokens": {
           "color.brand": {
-            "css": "oklch(0.58 0.2 285)",
-            "description": "the seed",
-            "emission": [
+            "declarations": [
               {
+                "context": {
+                  "atRules": [],
+                  "root": ":root",
+                  "selectors": [],
+                },
                 "kind": "base",
-                "root": ":root",
+                "val": "oklch(0.58 0.2 285)",
               },
             ],
-            "file": "src/test-support/prism.style.ts",
-            "live": true,
-            "mode": "live",
-            "requirements": [
-              "color-level-4",
-            ],
-            "usage": 1,
-            "value": {
-              "dark": "oklch(0.58 0.2 285)",
-              "light": "oklch(0.58 0.2 285)",
+            "dependencies": [],
+            "description": "the seed",
+            "emit": true,
+            "expression": {
+              "detail": {
+                "c": 0.2,
+                "h": 285,
+                "l": 0.58,
+                "operation": "oklch",
+              },
+              "kind": "color",
+              "type": "color",
             },
-            "var": "--vane-color-brand",
+            "file": "src/test-support/prism.style.ts",
+            "fold": {
+              "reason": "browser-reactive color semantics",
+              "status": "preserved",
+            },
+            "hasDefault": true,
+            "inference": {
+              "emit": "engine-default",
+              "reasons": [
+                "legacy-policy",
+              ],
+              "reference": "engine-default",
+            },
+            "mutable": true,
+            "name": "--vane-color-brand",
+            "path": [
+              "color",
+              "brand",
+            ],
+            "portability": {
+              "status": "portable",
+            },
+            "preview": {
+              "status": "resolved",
+              "val": "oklch(0.58 0.2 285)",
+            },
+            "reference": "var",
+            "support": {
+              "requirements": [
+                "color-level-4",
+              ],
+            },
+            "type": "color",
+            "usage": 1,
           },
           "color.brandSoft": {
-            "css": "oklch(from var(--vane-color-brand) l c h / 0.12)",
-            "emission": [
+            "declarations": [
               {
+                "context": {
+                  "atRules": [],
+                  "root": ":root",
+                  "selectors": [],
+                },
                 "kind": "base",
-                "root": ":root",
+                "val": "oklch(from var(--vane-color-brand) l c h / 0.12)",
               },
             ],
-            "file": "src/test-support/prism.style.ts",
-            "live": false,
-            "mode": "derived",
-            "refs": [
-              "color.brand",
+            "dependencies": [
+              {
+                "kind": "token",
+                "name": "--vane-color-brand",
+                "path": "color.brand",
+                "resolution": "system",
+                "type": "color",
+              },
             ],
-            "requirements": [
-              "color-level-4",
-              "relative-color",
-            ],
-            "usage": 1,
-            "value": {
-              "dark": "oklch(0.58 0.2 285 / 0.12)",
-              "light": "oklch(0.58 0.2 285 / 0.12)",
+            "emit": true,
+            "expression": {
+              "children": [
+                {
+                  "detail": {
+                    "operation": "ref",
+                    "path": "color.brand",
+                  },
+                  "kind": "color",
+                  "type": "color",
+                },
+              ],
+              "detail": {
+                "amount": 0.12,
+                "operation": "alpha",
+              },
+              "kind": "color",
+              "type": "color",
             },
-            "var": "--vane-color-brand-soft",
+            "file": "src/test-support/prism.style.ts",
+            "fold": {
+              "reason": "browser-reactive color semantics",
+              "status": "preserved",
+            },
+            "hasDefault": true,
+            "inference": {
+              "emit": "engine-default",
+              "reasons": [
+                "legacy-policy",
+              ],
+              "reference": "engine-default",
+            },
+            "mutable": false,
+            "name": "--vane-color-brand-soft",
+            "path": [
+              "color",
+              "brandSoft",
+            ],
+            "portability": {
+              "status": "portable",
+            },
+            "preview": {
+              "status": "resolved",
+              "val": "oklch(0.58 0.2 285 / 0.12)",
+            },
+            "reference": "var",
+            "support": {
+              "requirements": [
+                "color-level-4",
+                "relative-color",
+              ],
+            },
+            "type": "color",
+            "usage": 1,
           },
           "space.sm": {
-            "css": "8px",
-            "emission": [
+            "declarations": [
               {
+                "context": {
+                  "atRules": [],
+                  "root": ":root",
+                  "selectors": [],
+                },
                 "kind": "base",
-                "root": ":root",
+                "val": "8px",
               },
             ],
-            "file": "src/test-support/prism.style.ts",
-            "live": false,
-            "mode": "static",
-            "usage": 1,
-            "value": {
-              "dark": "8px",
-              "light": "8px",
+            "dependencies": [],
+            "emit": true,
+            "expression": {
+              "detail": {
+                "val": "8px",
+              },
+              "kind": "literal",
+              "type": "unknown",
             },
-            "var": "--vane-space-sm",
+            "file": "src/test-support/prism.style.ts",
+            "fold": {
+              "status": "folded",
+              "val": "8px",
+            },
+            "hasDefault": true,
+            "inference": {
+              "emit": "engine-default",
+              "reasons": [
+                "legacy-policy",
+              ],
+              "reference": "engine-default",
+            },
+            "mutable": false,
+            "name": "--vane-space-sm",
+            "path": [
+              "space",
+              "sm",
+            ],
+            "portability": {
+              "status": "portable",
+            },
+            "preview": {
+              "status": "resolved",
+              "val": "8px",
+            },
+            "reference": "var",
+            "support": {
+              "requirements": [],
+            },
+            "type": "unknown",
+            "usage": 1,
           },
         },
-        "version": 1,
+        "version": 2,
       }
     `)
   })

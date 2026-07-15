@@ -1,9 +1,11 @@
-updated: 2026-07-09
-status: spec — contracts settled, implemented (phase 8)
+updated: 2026-07-15
+status: transitional current spec — Phase 7 manifest v2 implemented; canonical-doc promotion remains Phase 9
 
 # vane-dux — spec: introspection
 
 The system explains itself: provenance from pixels back to decisions, a machine-readable manifest, and audits that keep the system honest. Phase 8 of the roadmap. The rationale is [dux-patterns.md §11](./dux-patterns.md#11-agent-legibility): agents and 11pm-you want the same thing.
+
+> **Transition notice.** Phase 7 of the semantic-foundation refactor has implemented manifest v2, structured `ds.explain()`, runtime inspection, semantic audit lanes, DTCG interchange, plugin codecs, and manifest-derived agent context. The normative transitional contract is now [next/dux-spec-tokens.md §§12–14](./next/dux-spec-tokens.md#12-manifest-and-explanation) plus [next/dux-decisions.md D83–D86](./next/dux-decisions.md#implementation-readiness-resolutions). The v1 manifest shape and “agent generator deferred” statements retained below are historical until Phase 9 rewrites/promotes the canonical docs; they no longer describe the implementation.
 
 ## Implementation status
 

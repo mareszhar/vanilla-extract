@@ -157,6 +157,23 @@ export interface VaneRuntimeRootProps {
   readonly attributes: Readonly<Record<string, string>>
 }
 
+export interface VaneRuntimeInspection {
+  readonly system: string
+  readonly root: string
+  readonly active: boolean
+  readonly modes: Readonly<Record<string, string>>
+  readonly overrides: readonly {
+    readonly token: readonly string[]
+    readonly address: VaneSemanticTokenAddress
+    readonly val: string
+    readonly name: `--${string}`
+    readonly slot: `--${string}`
+    readonly tokenRoot: string
+    readonly applied?: string
+  }[]
+  readonly diagnostics: readonly VaneRuntimeDiagnostic[]
+}
+
 export interface VaneRuntimeOptions {
   readonly initial?: unknown
   /** App-plane Standard Schema implementations keyed by token.validate.id. */
@@ -241,6 +258,8 @@ interface VaneBoundRuntimeCore<T, Axes extends VaneAxisDefinitions> {
   ) => void
   readonly clearMode: (axis: keyof Axes & string) => void
   readonly snapshot: () => VaneRuntimeSnapshotV1
+  /** Inspect semantic overrides together with the concrete slots they write. */
+  readonly inspect: () => VaneRuntimeInspection
 }
 
 export type VaneBoundRuntime<T, Axes extends VaneAxisDefinitions = VaneAxisDefinitions>
@@ -456,7 +475,37 @@ function bindRuntime<T, Axes extends VaneAxisDefinitions>(
     clearMode,
     setScheme: (mode: string) => setMode('scheme', mode),
     snapshot: () => snapshotOf(contract, state),
+    inspect: () => inspectRuntime(contract, state),
   }) as unknown as VaneBoundRuntime<T, Axes>
+}
+
+function inspectRuntime(contract: VaneRuntimeContract, state: RuntimeState): VaneRuntimeInspection {
+  const snapshot = snapshotOf(contract, state)
+  return Object.freeze({
+    system: contract.system,
+    root: contract.root,
+    active: state.active,
+    modes: snapshot.modes,
+    overrides: Object.freeze(snapshot.overrides.flatMap((override) => {
+      const token = tokenByPath(contract, override.token)
+      if (!token)
+        return []
+      const slot = slotFor(token, override.address)
+      if (!slot)
+        return []
+      const applied = state.root.style.getPropertyValue?.(slot)
+      return [Object.freeze({
+        token: override.token,
+        address: override.address,
+        val: override.val,
+        name: token.name,
+        slot: slot as `--${string}`,
+        tokenRoot: token.root,
+        ...(applied === undefined ? {} : { applied }),
+      })]
+    })),
+    diagnostics: Object.freeze([...state.diagnostics]),
+  })
 }
 
 function runtimeTree(

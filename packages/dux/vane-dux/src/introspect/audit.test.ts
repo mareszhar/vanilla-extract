@@ -4,7 +4,7 @@
  * escape inventory, scale strays. Advisory by default, promotable per system.
  */
 
-import { createSystem, defineTokens, legibleOn, oklch, unsafe } from '@mszr/vane-dux'
+import { createEngine, createSystem, defineEnginePlugin, defineTokens, legibleOn, oklch, propertyAliases, unsafe } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
@@ -122,6 +122,19 @@ describe('the escape inventory', () => {
     // body is ordinary global styling, not an escape.
     expect(messages.some(message => message.includes('\'body\''))).toBe(false)
   })
+
+  it('separates typed raw assertions and aliases-only standard escapes into actionable lanes', () => {
+    const { manifest, css } = built(() => {
+      const de = createEngine().use(propertyAliases({ py: 'paddingBlock' }, { expose: 'aliases-only' }))
+      const ds = de.createSystem({ tokens: de.defineTokens({}) })
+      void ds.css.raw`h2 { padding-block: 1rem; }`
+      return ds.css.standard({ paddingBlock: '2rem' }, 'platform-spelling')
+    })
+    const findings = audit(manifest, css)
+
+    expect(findings).toContainEqual(expect.objectContaining({ kind: 'rawAssertions', message: expect.stringContaining('css.raw') }))
+    expect(findings).toContainEqual(expect.objectContaining({ kind: 'aliasEscapes', message: expect.stringContaining('css.standard') }))
+  })
 })
 
 describe('scale strays', () => {
@@ -148,6 +161,81 @@ describe('scale strays', () => {
     })
 
     expect(audit(manifest, css).filter(finding => finding.kind === 'scaleStrays')).toEqual([])
+  })
+})
+
+describe('semantic provenance lanes', () => {
+  it('audits owning/condition specificity, ambiguous arms, mutable roots, and nonportable values', () => {
+    const specific = built(() => createEngine().createSystem({
+      root: '#application#widget',
+      tokens: { space: { sm: '8px' } },
+    }))
+    expect(audit(specific.manifest, specific.css)).toContainEqual(expect.objectContaining({
+      kind: 'specificityContexts',
+      message: expect.stringContaining('#application#widget'),
+    }))
+
+    const ambiguousEngine = createEngine().axes(({ axis, condition }) => ({
+      state: axis({
+        modes: {
+          on: condition({ arms: [{ selector: '&[data-a]' }, { selector: '&[data-b]' }] }),
+        },
+      }),
+    }))
+    const ambiguous = built(() => ambiguousEngine.createSystem({
+      tokens: { color: { brand: ambiguousEngine.token({ val: 'red', axes: { state: { on: 'blue' } } }) } },
+    }))
+    expect(audit(ambiguous.manifest, ambiguous.css)).toContainEqual(expect.objectContaining({
+      kind: 'ambiguousAxes',
+      message: expect.stringContaining('state.on'),
+    }))
+
+    const mutableEngine = createEngine()
+    const mutable = built(() => mutableEngine.createSystem({
+      root: '#application',
+      tokens: {
+        color: {
+          brand: mutableEngine.token({ val: 'red', mutable: true }),
+        },
+      },
+    }))
+    const mutableToken = mutable.manifest.tokens['color.brand']!
+    const hazardousManifest = {
+      ...mutable.manifest,
+      tokens: {
+        ...mutable.manifest.tokens,
+        'color.brand': {
+          ...mutableToken,
+          declarations: mutableToken.declarations.map((declaration, index) => index === 0
+            ? { ...declaration, context: { ...declaration.context, selectors: ['#portal[data-open]'] } }
+            : declaration),
+        },
+      },
+    }
+    expect(audit(hazardousManifest, mutable.css)).toContainEqual(expect.objectContaining({
+      kind: 'mutableRootHazards',
+      message: expect.stringContaining('#portal[data-open]'),
+    }))
+
+    const opaquePlugin = defineEnginePlugin({
+      id: 'org.example.audit-opaque',
+      version: 1,
+      setup: engine => ({
+        mystery: engine.defineCssValue({
+          type: 'length',
+          extension: { id: 'org.example.audit-opaque', version: 1 },
+          create: (value: number) => ({ serialize: () => `${value}px` }),
+        }),
+      }),
+    })
+    const opaqueEngine = createEngine().use(opaquePlugin)
+    const opaque = built(() => opaqueEngine.createSystem({
+      tokens: { space: { mystery: opaqueEngine.token({ val: opaqueEngine.mystery(7) }) } },
+    }))
+    expect(audit(opaque.manifest, opaque.css)).toContainEqual(expect.objectContaining({
+      kind: 'nonportableValues',
+      message: expect.stringContaining('space.mystery'),
+    }))
   })
 })
 

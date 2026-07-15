@@ -4,9 +4,16 @@
  * tools can build on.
  */
 
-import type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from '@mszr/vane-dux'
+import type {
+  VaneAuditConfig,
+  VaneAuditKind,
+  VaneAuditLevel,
+  VaneDtcgDocument,
+  VaneRuntimeInspection,
+  VaneTokenExplanation,
+} from '@mszr/vane-dux'
 import type { VaneManifest, VaneManifestToken } from '@mszr/vane-dux/vite'
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine, createSystem, exportDesignTokens, importDesignTokens } from '@mszr/vane-dux'
 import { describe, expectTypeOf, it } from 'vitest'
 
 describe('the audit config', () => {
@@ -33,7 +40,18 @@ describe('the audit config', () => {
 
   it('kinds and levels are closed unions', () => {
     expectTypeOf<VaneAuditKind>().toEqualTypeOf<
-      'unusedTokens' | 'nearDuplicates' | 'contrast' | 'escapes' | 'scaleStrays' | 'focusVisibility'
+      | 'unusedTokens'
+      | 'nearDuplicates'
+      | 'contrast'
+      | 'escapes'
+      | 'scaleStrays'
+      | 'focusVisibility'
+      | 'specificityContexts'
+      | 'rawAssertions'
+      | 'nonportableValues'
+      | 'ambiguousAxes'
+      | 'mutableRootHazards'
+      | 'aliasEscapes'
     >()
     expectTypeOf<VaneAuditLevel>().toEqualTypeOf<'off' | 'warn' | 'error'>()
   })
@@ -41,9 +59,22 @@ describe('the audit config', () => {
 
 describe('the manifest format', () => {
   it('is versioned and shaped as documented', () => {
-    expectTypeOf<VaneManifest['version']>().toEqualTypeOf<1>()
+    expectTypeOf<VaneManifest['version']>().toEqualTypeOf<2>()
     expectTypeOf<VaneManifest['tokens']>().toEqualTypeOf<Record<string, VaneManifestToken>>()
-    expectTypeOf<VaneManifestToken['value']>().toEqualTypeOf<{ light: string, dark: string }>()
-    expectTypeOf<VaneManifestToken['live']>().toEqualTypeOf<boolean>()
+    expectTypeOf<VaneManifestToken['declarations']>().toEqualTypeOf<VaneManifestToken['declarations']>()
+    expectTypeOf<VaneManifestToken['mutable']>().toEqualTypeOf<boolean>()
+  })
+
+  it('types explanations, runtime inspection, and DTCG interchange', () => {
+    const de = createEngine()
+    const ds = de.createSystem({ tokens: de.defineTokens({ space: { sm: de.token({ val: de.length.rem(1) }) } }) })
+    expectTypeOf(ds.explain(ds.t.space.sm)).toEqualTypeOf<VaneTokenExplanation>()
+    expectTypeOf(ds.runtime().inspect()).toEqualTypeOf<VaneRuntimeInspection>()
+    expectTypeOf(exportDesignTokens(ds)).toEqualTypeOf<VaneDtcgDocument>()
+    expectTypeOf(importDesignTokens({ space: { sm: { $type: 'dimension', $value: { value: 1, unit: 'rem' } } } }, { engine: de }))
+      .toMatchTypeOf<object>()
+
+    // @ts-expect-error — export mode is a closed semantic choice
+    void exportDesignTokens(ds, { mode: 'flattened' })
   })
 })

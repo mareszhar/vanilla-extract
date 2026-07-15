@@ -12,7 +12,8 @@
 
 import type { VanePortMeta } from '../ports/types'
 import type { VaneAxisRegistryDescription } from '../system/axes'
-import type { VaneCssFeature } from '../values/protocol'
+import type { VaneCssFeature, VaneExpressionKind, VaneExtensionIdentity, VaneSource } from '../values/protocol'
+import type { VaneCssDataType } from '../values/types'
 import type { VaneSemanticTokenAddress, VaneTokenMode } from './handle'
 
 // ─── Records ─────────────────────────────────────────────────────────────────
@@ -60,6 +61,89 @@ export interface VaneTokenRecord extends VaneSourceRecord {
       readonly slot: string
     }[]
   }
+  /** Phase-7 semantic projection; unlike the legacy fields above, this is axis-agnostic. */
+  semantic: VaneTokenSemanticRecord
+}
+
+export interface VaneTokenSemanticRecord {
+  readonly type: VaneCssDataType
+  readonly reference: 'val' | 'var'
+  readonly emit: boolean
+  readonly mutable: boolean
+  readonly hasDefault: boolean
+  readonly expression: VaneTokenExpressionRecord
+  readonly inference: {
+    readonly reference: 'explicit' | 'engine-default' | 'capability'
+    readonly emit: 'explicit' | 'engine-default' | 'capability'
+    readonly reasons: readonly string[]
+  }
+  readonly fold: {
+    readonly status: 'folded' | 'preserved' | 'unavailable'
+    readonly val?: string | number
+    readonly reason?: string
+  }
+  readonly dependencies: readonly VaneTokenDependencyRecord[]
+  readonly support: {
+    readonly target?: string
+    readonly requirements: readonly VaneCssFeature[]
+    readonly fallback?: string
+    readonly enhancement?: string
+  }
+  readonly declarations: readonly VaneTokenDeclarationRecord[]
+  /** Authored branch addresses include triggerless defaults and null reservations. */
+  readonly branches: readonly {
+    readonly address: VaneSemanticTokenAddress
+    readonly val: string | number | null
+    /** Present when an opaque plugin codec needs this branch's own semantic node. */
+    readonly expression?: VaneTokenExpressionRecord
+  }[]
+  readonly registration?: {
+    readonly syntax: string
+    readonly inherits: boolean
+    readonly initialVal?: string
+  }
+  readonly portability: {
+    readonly status: 'portable' | 'codec' | 'nonportable'
+    readonly extension?: VaneExtensionIdentity
+    readonly reason?: string
+  }
+  readonly metadata: Readonly<Record<string, unknown>>
+}
+
+export interface VaneTokenExpressionRecord {
+  readonly kind: VaneExpressionKind | 'color' | 'contrast' | 'none'
+  readonly type: VaneCssDataType
+  readonly css?: string
+  readonly source?: VaneSource
+  readonly extension?: VaneExtensionIdentity
+  readonly detail?: Readonly<Record<string, string | number | boolean | null>>
+  readonly children?: readonly VaneTokenExpressionRecord[]
+}
+
+export interface VaneTokenDependencyRecord {
+  readonly kind: 'token' | 'custom-property' | 'plugin'
+  readonly path?: string
+  readonly name?: `--${string}`
+  readonly type: VaneCssDataType
+  readonly resolution: 'self' | 'system'
+  readonly extension?: VaneExtensionIdentity
+}
+
+export interface VaneTokenDeclarationRecord {
+  readonly kind: 'base' | 'axis' | 'case' | 'override' | 'slot'
+  /** Omitted when the declaration writes the token's public `name`. */
+  readonly name?: `--${string}`
+  readonly val: string | number | null
+  readonly axis?: string
+  readonly mode?: string
+  readonly when?: Readonly<Record<string, string>>
+  readonly context: {
+    readonly root: string
+    readonly selectors: readonly string[]
+    readonly atRules: readonly string[]
+    readonly layer?: string
+  }
+  readonly source?: VaneSourceRecord
 }
 
 export interface VaneTokenEmissionRecord {
@@ -88,6 +172,7 @@ export interface VaneSystemRecord extends VaneSourceRecord {
   root?: string
   tokenLayer?: string
   engine?: string
+  supportTarget?: string
   layers: string[]
   /** Condition name → its compiled arms, serialized readably. */
   conditions: Record<string, string>
@@ -120,7 +205,7 @@ export interface VanePortRecord extends VaneSourceRecord {
   meta: VanePortMeta
 }
 
-export type VaneEscapeForm = 'css.raw' | 'unsafe' | 'globalCss' | 'overrides'
+export type VaneEscapeForm = 'css.raw' | 'css.standard' | 'unsafe' | 'globalCss' | 'overrides'
 
 export interface VaneEscapeRecord extends VaneSourceRecord {
   kind: 'escape'
@@ -167,7 +252,19 @@ export type VaneInspectRecord
 
 // ─── Audit configuration (recorded by the system, applied by the audit) ──────
 
-export type VaneAuditKind = 'unusedTokens' | 'nearDuplicates' | 'contrast' | 'escapes' | 'scaleStrays' | 'focusVisibility'
+export type VaneAuditKind
+  = | 'unusedTokens'
+    | 'nearDuplicates'
+    | 'contrast'
+    | 'escapes'
+    | 'scaleStrays'
+    | 'focusVisibility'
+    | 'specificityContexts'
+    | 'rawAssertions'
+    | 'nonportableValues'
+    | 'ambiguousAxes'
+    | 'mutableRootHazards'
+    | 'aliasEscapes'
 
 export type VaneAuditLevel = 'off' | 'warn' | 'error'
 

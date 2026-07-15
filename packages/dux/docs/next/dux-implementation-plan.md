@@ -1,5 +1,5 @@
-updated: 2026-07-14
-status: active migration ledger — phases 0–6 complete; phase 7 ready
+updated: 2026-07-15
+status: active migration ledger — phases 0–7 complete; phase 8 ready
 
 # vane-dux next — implementation plan
 
@@ -44,7 +44,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | 4 | Axes, cases, roots, conditions, registrations, and emission order | ☑ |
 | 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☑ |
 | 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☑ |
-| 7 | Manifest, explain, audits, DTCG, and plugin portability | ☐ |
+| 7 | Manifest, explain, audits, DTCG, and plugin portability | ☑ |
 | 8 | Full integration matrix, packaging, documentation, and new flagship demo | ☐ |
 | 9 | Canonical-doc promotion, cleanup, release rehearsal, and alpha decision | ☐ |
 
@@ -413,6 +413,7 @@ Acceptance evidence:
 - The full SDK passes 70 files / 513 tests with zero type errors. SDK and both demos typecheck; the generated benchmark corpus matches its source-controlled generator.
 - At 5,000 tokens, TypeScript total time is 2.17s, instantiations 2,217,780, reported memory 583,562 kB, declarations 447,372 B, CSS completion 2.83ms, runtime completion 0.11ms, and graph rename 5.51ms—effectively level with Phase 5. Application output remains 206,918 B CSS / 20,863 B gzip, 12,877 B JavaScript / 2,775 B gzip, and a 2,418,729 B manifest.
 - The build-only root is 276,493 B and the framework-free runtime is 42,689 B; both remain within the accepted Phase 5 capability budgets while adding the Phase 6 surfaces.
+- The maintainer independently confirmed the production browser fixture (6/6) and packed fresh Nuxt smoke on the accepted Phase 6 tree before Phase 7 began.
 
 Phase 7 is unblocked.
 
@@ -420,32 +421,45 @@ Phase 7 is unblocked.
 
 ### Manifest/explain
 
-- [ ] Replace `{ light, dark }` manifest shapes with declaration provenance.
-- [ ] Record data types, expressions, fold decisions, reference inference, axes/cases, roots, layers, registrations, mutable slots, and portability.
-- [ ] Record emitted feature requirements, fallback/enhancement path, and resolved preview or preview-unavailable reason.
-- [ ] Implement `ds.explain(token)` structured output and devtools projection.
-- [ ] Add specificity/context audits and runtime override inspection.
-- [ ] Preserve exact class/style-call/source/token provenance.
+- [x] Replace `{ light, dark }` manifest shapes with declaration provenance.
+- [x] Record data types, expressions, fold decisions, reference inference, axes/cases, roots, layers, registrations, mutable slots, and portability.
+- [x] Record emitted feature requirements, fallback/enhancement path, and resolved preview or preview-unavailable reason.
+- [x] Implement `ds.explain(token)` structured output and devtools projection.
+- [x] Add specificity/context audits and runtime override inspection.
+- [x] Preserve exact class/style-call/source/token provenance.
 
 ### DTCG
 
-- [ ] Implement `importDesignTokens` and `exportDesignTokens`.
-- [ ] Implement resolved environment snapshots.
-- [ ] Define `com.mszr.vane-dux` authored extension schema/version.
-- [ ] Preserve unknown extensions and aliases where representable.
-- [ ] Add optional plugin codecs and strict lossless failure for nonportable nodes.
-- [ ] Keep external network reference resolution opt-in.
+- [x] Implement `importDesignTokens` and `exportDesignTokens`.
+- [x] Implement resolved environment snapshots.
+- [x] Define `com.mszr.vane-dux` authored extension schema/version.
+- [x] Preserve unknown extensions and aliases where representable.
+- [x] Add optional plugin codecs and strict lossless failure for nonportable nodes.
+- [x] Keep external network reference resolution opt-in.
 
 ### Agent/docs tooling
 
-- [ ] Generate capability/manifest context suitable for agents without duplicating specs.
-- [ ] Update audits for raw assertions, nonportable plugins, ambiguous axes, mutable root hazards, and alias escapes.
+- [x] Generate capability/manifest context suitable for agents without duplicating specs.
+- [x] Update audits for raw assertions, nonportable plugins, ambiguous axes, mutable root hazards, and alias escapes.
 
 ### Exit gate
 
 - Every emitted/runtime value is explainable from source to context.
 - Vane-authored portable systems round-trip semantically.
 - Standard resolved DTCG snapshots interoperate without claiming unsupported modes.
+
+Accepted 2026-07-15. Manifest v2 replaces scheme-shaped inspection with one semantic record from authored source through expression/inference/fold/support decisions to every emitted declaration context. The same records power structured `ds.explain()`, devtools details, runtime override inspection, audits, and generated agent context. Standard DTCG export is an honest single-environment projection; the versioned Vane extension restores portable authored traits, axes/cases/reservations, registrations, metadata, aliases, and public plugin semantics.
+
+Acceptance evidence:
+
+- Runtime/type/output fixtures cover manifest v2 source and class provenance; expressions and dependency edges; inference reasons and fold refusals; support fallback/enhancement; owning roots versus condition selectors/queries/layers; branch reservations; registration and mutable slots; preview availability; `ds.explain()`; runtime override-to-slot/public-property inspection; devtools and agent projections.
+- DTCG fixtures cover resolved color/dimension/duration environments, exact aliases, authored portable round trips under a new prefix, axes and `null` reservations, unknown root/group/token extensions, disabled/explicit external resolution, alias cycles/unknown targets, strict nonportable failure/lossy marking, and public plugin codec encode/decode at both base and axis addresses. The implementation follows the DTCG 2025.10 Format and Resolver contracts without claiming that Vane-only semantics are standard fields.
+- Audit fixtures cover specificity contexts, raw/unsafe assertions, nonportable plugin values, equally ranked axis arms, mutable trigger roots, and `css.standard` alias-policy escapes. The representative fixture audit is clean.
+- The full SDK passes 71 files / 529 tests with zero type errors. Lint, SDK and demo typechecks/builds, the generated-fixture check, production Playwright (6/6), dev Playwright (1/1), two Nuxt HTTP/HMR lifecycle cycles, and the packed strict Vite/Nuxt fresh-app smoke are green. The first sandboxed browser/watcher attempts failed on macOS Mach-port/file-descriptor restrictions; the required unsandboxed gates passed without code changes.
+- At 5,000 tokens, TypeScript total time is 2.05s, instantiations 2,217,790, reported memory 578,146 kB, declarations 447,372 B, CSS completion 2.70ms, runtime completion 0.11ms, and graph rename 5.18ms. CSS/JS output is unchanged at 206,918 B / 20,863 B gzip and 12,877 B / 2,775 B gzip.
+- D86 records the deliberate manifest capability cost: 6,265,577 B / 150,057 B gzip for 5,000 fully explained tokens, generated in 4.66s after replacing quadratic reference scans with one-pass indexes. The build-only root is 323,889 B (+17.1% from Phase 6) and runtime 43,528 B (+2.0%), both inside the permanent budget.
+
+Phase 8 is unblocked.
 
 ## 12. Phase 8 — integration, packaging, docs, and demo
 

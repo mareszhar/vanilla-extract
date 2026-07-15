@@ -99,6 +99,33 @@ describe('the canonical design engine', () => {
       setup: () => ({ once: {} }),
     })
     expect(() => de.use(plugin).use(plugin)).toThrow(/already installed/)
+
+    const codecPlugin = defineEnginePlugin({
+      id: 'com.example.codec-one',
+      version: 1,
+      setup: () => ({ codecOne: {} }),
+      dtcg: [{
+        id: 'com.example.shared-codec',
+        version: 1,
+        extension: 'com.example.opaque',
+        encode: () => null,
+        decode: () => 0,
+      }],
+    })
+    const duplicateCodecPlugin = defineEnginePlugin({
+      id: 'com.example.codec-two',
+      version: 1,
+      setup: () => ({ codecTwo: {} }),
+      dtcg: [{
+        id: 'com.example.shared-codec',
+        version: 1,
+        extension: 'com.example.other-opaque',
+        encode: () => null,
+        decode: () => 0,
+      }],
+    })
+    expect(Object.isFrozen(codecPlugin.dtcg?.[0])).toBe(true)
+    expect(() => de.use(codecPlugin).use(duplicateCodecPlugin)).toThrow(/duplicate DTCG codec/)
   })
 
   it('composes equivalent and parent-engine modules but rejects changed semantics', () => {
@@ -208,9 +235,12 @@ describe('engine-owned system finalization', () => {
       tokenLayer: 'app.tokens',
       tokens: {
         'color.brand': {
-          var: '--app-color-brand',
-          root: '#widget',
-          layer: 'app.tokens.components',
+          name: '--app-color-brand',
+          path: ['color', 'brand'],
+          declarations: [{
+            kind: 'base',
+            context: { root: '#widget', layer: 'app.tokens.base.components' },
+          }],
         },
       },
     })

@@ -1,4 +1,4 @@
-updated: 2026-07-14
+updated: 2026-07-15
 status: target cross-cutting law — every next spec and implementation domain must follow these patterns
 
 # vane-dux next — patterns
@@ -214,7 +214,7 @@ const manifestToken = {
 }
 ```
 
-`ds.explain(token)` should answer value source, dependencies, reference choice, folding decision, emission context, runtime slots, and portability.
+`ds.explain(token)` answers value source, dependencies, reference choice, folding decision, emission context, runtime slots, and portability from that same graph record.
 
 ## 16. Performance is part of DX
 

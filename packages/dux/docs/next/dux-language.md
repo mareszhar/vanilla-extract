@@ -1,4 +1,4 @@
-updated: 2026-07-14
+updated: 2026-07-15
 status: target language — public vocabulary and canonical shapes for the next architecture
 
 # vane-dux next — language
@@ -526,9 +526,9 @@ ds.css.raw`padding-block: 1rem;`
 | `token.name` | `token.$name` |
 | `token.var` | `token.$var()` |
 | `token.value` | `token.$val` |
-| `theme()` | Token-override class creation; final spelling pending fixture |
-| `applyTheme()` | Runtime token-override batch; final spelling pending fixture |
-| `setScheme()` | General `setMode()` plus built-in scheme convenience |
+| `theme()` | `ds.tokenOverride()`; retained only as D66's migration adapter |
+| `applyTheme()` | `runtime.applyTokenOverrides()` |
+| `setScheme()` | `runtime.setMode(axis, mode)` plus `runtime.setScheme(mode)` on engines with the scheme adapter |
 | `rawVar()` proposal | `customProperty(name).$var(fallback?)` |
 | `fromGroup()` proposal | `fromTokenGroup()` |
 | Generic “scope” | `root`, `condition`, `selector`, or `emission context`; `scope` reserved for `@scope` |

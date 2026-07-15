@@ -66,9 +66,22 @@ export {
 } from './engine/reservations'
 export type { VaneBuiltinConstructorName, VaneSystemMember } from './engine/reservations'
 export type { VaneAuditConfig, VaneAuditKind, VaneAuditLevel } from './internal/inspect'
-export { propertyAliases } from './plugins/propertyAliases'
+export type { VaneDtcgCodec, VaneJsonValue } from './internal/interchange'
+export { exportDesignTokens, importDesignTokens, VANE_DTCG_EXTENSION, VANE_DTCG_EXTENSION_VERSION } from './introspect/dtcg'
 
-// ─── Introspection: the audit config the system carries (phase 8) ────────────
+// ─── Introspection and design-token interchange (phase 7) ──────────────────
+
+export type {
+  VaneDtcgAuthoredExtension,
+  VaneDtcgAuthoredToken,
+  VaneDtcgDocument,
+  VaneDtcgEncodedValue,
+  VaneDtcgExportMode,
+  VaneDtcgExportOptions,
+  VaneDtcgImportOptions,
+} from './introspect/dtcg'
+export type { VaneTokenExplanation } from './introspect/explain'
+export { propertyAliases } from './plugins/propertyAliases'
 
 export type {
   VanePropertyAliasConfig,
@@ -168,6 +181,7 @@ export type {
   VaneRuntimeDiagnosticCode,
   VaneRuntimeFactory,
   VaneRuntimeInput,
+  VaneRuntimeInspection,
   VaneRuntimeOptions,
   VaneRuntimeReconciliation,
   VaneRuntimeRootProps,

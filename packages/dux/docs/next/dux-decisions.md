@@ -1,4 +1,4 @@
-updated: 2026-07-14
+updated: 2026-07-15
 status: accepted architecture decisions — change only with new evidence recorded here
 
 # vane-dux next — decisions
@@ -116,6 +116,10 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D80 | Elevation and base-scale em ship as optional preset plugins that receive no private privileges. | `elevationPlugin()` and `bemPlugin()` add exact constructors through `defineEnginePlugin()`/`.use()`, reappear on `ds`, carry semantic fingerprints, and use only public engine values. A custom elevation curve requires a stable ID. |
 | D81 | Layout patterns return memoized classes; declaration utilities return plain fragments. | `stack`/`sidebar`/peers remain patterns. `circle`, `square`, `truncate`, and `visuallyHidden` remain composable utilities. Phase 6 adds only use cases proven by fixtures and introduces no mixin runtime or new custom-property primitive. |
 | D82 | Property aliases finalize typed engine configuration after axes and other plugins. | Exact both/aliases-only completion otherwise recursively instantiates the full CSS grammar through every later engine chain and exceeded the 4 GB compiler heap in the Phase 6 prototype. Installing the vocabulary policy last keeps ordinary engines at baseline cost; the resulting engine still exposes all constructors and `createSystem()`, and runtime normalization remains an ordinary public plugin contribution. |
+| D83 | Manifest v2 is the one stable semantic inspection contract. | A token records its data type, traits, expression, inference reasons, fold decision, dependencies, support path, exact declarations, authored branches, registration, runtime slots, portability, preview, metadata, and source. Declaration contexts separate the owning root from condition selectors/at-rules/layers. System-wide support targets, default preview environment, and inherited token source are stored once and omitted from children. |
+| D84 | `com.mszr.vane-dux` authored interchange is version 1 and complements rather than masquerades as standard DTCG. | Resolved export emits only honest standard values for one environment. Authored export carries Vane traits, branches/reservations, registrations, metadata, expressions, and portable dependency addresses. Plugin codecs declare stable `id`, `version`, extension identity, and JSON payloads; unknown DTCG extensions survive import/export; external resolution is explicit and synchronous. |
+| D85 | Explanation, runtime inspection, audits, devtools, and agent context are projections of the same semantic records. | `ds.explain(handle)` and `runtime.inspect()` expose no parallel provenance registry. Agent machine/prose context is derived from manifest v2. Audit lanes cover specificity contexts, raw assertions, nonportable values, ambiguous axis arms, mutable-root hazards, and alias-policy escapes. |
+| D86 | Phase 7 accepts a measured manifest-artifact increase for complete per-token semantics, while preserving type/editor/runtime budgets. | At 5,000 tokens manifest v2 is 6,265,577 B (150,057 B gzip) versus Phase 6's 2,418,729 B. This buys exact expression/inference/fold/support/declaration/branch/runtime/portability evidence. One-pass reference indexes removed the initial quadratic build path; production generation is 4.66s. TypeScript total time is 2.05s, instantiations 2,217,790, declarations 447,372 B, CSS completion 2.70ms, runtime completion 0.11ms, and rename 5.18ms. The build-only root grows 17.1% to 323,889 B and runtime 2.0% to 43,528 B, both inside the 20% gate. |
 
 ## Deliberately open implementation details
 
@@ -123,6 +127,5 @@ These questions do not block the architecture, but must be settled in their owni
 
 - Whether a one-shot `varRef()` convenience earns its surface beside `customProperty().$var()`.
 - The minimum initial CSS data-type set beyond color, number, percentage, length, angle, time, resolution, custom-ident, and unknown.
-- How plugins namespace manifest/DTCG data and report nonportable IR nodes.
 
 Each item must be decided with API fixtures and emitted-output examples, not implementation convenience alone.

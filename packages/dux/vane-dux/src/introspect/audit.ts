@@ -45,6 +45,12 @@ export function audit(manifest: VaneManifest, css: string, config?: VaneAuditCon
     escapes: 'warn',
     scaleStrays: 'warn',
     focusVisibility: 'warn',
+    specificityContexts: 'warn',
+    rawAssertions: 'warn',
+    nonportableValues: 'warn',
+    ambiguousAxes: 'warn',
+    mutableRootHazards: 'warn',
+    aliasEscapes: 'warn',
     ...manifest.audit,
     ...config,
   }
@@ -59,6 +65,12 @@ export function audit(manifest: VaneManifest, css: string, config?: VaneAuditCon
     escapes: () => escapes(manifest),
     scaleStrays: () => scaleStrays(manifest, declarations),
     focusVisibility: () => focusVisibility(manifest, declarations),
+    specificityContexts: () => specificityContexts(manifest),
+    rawAssertions: () => rawAssertions(manifest),
+    nonportableValues: () => nonportableValues(manifest),
+    ambiguousAxes: () => ambiguousAxes(manifest),
+    mutableRootHazards: () => mutableRootHazards(manifest),
+    aliasEscapes: () => aliasEscapes(manifest),
   }
 
   for (const [kind, run] of Object.entries(lanes) as Array<[VaneAuditKind, () => VaneAuditFinding[]]>) {
@@ -110,7 +122,7 @@ function unusedTokens(manifest: VaneManifest): VaneAuditFinding[] {
       continue
 
     used.add(path)
-    queue.push(...manifest.tokens[path]?.refs ?? [])
+    queue.push(...(manifest.tokens[path]?.dependencies.flatMap(edge => edge.path ?? []) ?? []))
   }
 
   return Object.entries(manifest.tokens)
@@ -147,7 +159,7 @@ function parseColorish(value: string): VaneOklch | undefined {
 /** A raw color within a perceptual epsilon of an existing token — suggest the token. */
 function nearDuplicates(manifest: VaneManifest, declarations: Declaration[]): VaneAuditFinding[] {
   const tokens = Object.entries(manifest.tokens)
-    .map(([path, token]) => ({ path, color: parseColorish(token.value.light) }))
+    .map(([path, token]) => ({ path, color: parseColorish(token.preview.status === 'resolved' ? token.preview.val : '') }))
     .filter((entry): entry is { path: string, color: VaneOklch } => entry.color !== undefined)
 
   if (tokens.length === 0)
@@ -240,6 +252,8 @@ function escapes(manifest: VaneManifest): VaneAuditFinding[] {
           ...location,
         })
         break
+      case 'css.standard':
+        break
       case 'unsafe':
         findings.push({
           kind: 'escapes',
@@ -299,7 +313,7 @@ function targetsForeignDom(selector: string): boolean {
  */
 function scaleStrays(manifest: VaneManifest, declarations: Declaration[]): VaneAuditFinding[] {
   const lanes = new Map<string, { tokenized: number, strays: Declaration[] }>()
-  const graphVars = new Set(Object.values(manifest.tokens).map(token => token.var))
+  const graphVars = new Set(Object.values(manifest.tokens).flatMap(token => token.name ?? []))
 
   for (const declaration of declarations) {
     const lane = lanes.get(declaration.property) ?? { tokenized: 0, strays: [] }
@@ -399,6 +413,118 @@ function suppliesOutline({ property, value }: Declaration): boolean {
     || (property === 'outline-width' && !/^0(?:px|rem|em)?$/i.test(value.trim()))
 }
 
+// ─── Semantic/provenance lanes ─────────────────────────────────────────────
+
+function specificityContexts(manifest: VaneManifest): VaneAuditFinding[] {
+  const findings: VaneAuditFinding[] = []
+  const seen = new Set<string>()
+  for (const [path, token] of Object.entries(manifest.tokens)) {
+    for (const declaration of token.declarations) {
+      const selectors = declaration.context.selectors.length === 0
+        ? [declaration.context.root]
+        : declaration.context.selectors
+      for (const selector of selectors) {
+        const ids = (selector.match(/#[\w-]+/g) ?? []).length
+        const key = `${path}\0${selector}`
+        if (ids < 2 || seen.has(key))
+          continue
+        seen.add(key)
+        findings.push({
+          kind: 'specificityContexts',
+          level: 'warn',
+          message: `${path} emits into '${selector}', whose ${ids} id selectors make ordinary override contexts difficult`,
+          fix: 'lower the token root/condition specificity, usually with one stable root or :where()',
+          ...(token.file === undefined ? {} : { file: token.file }),
+        })
+      }
+    }
+  }
+  return findings
+}
+
+function rawAssertions(manifest: VaneManifest): VaneAuditFinding[] {
+  return manifest.escapes
+    .filter(escape => escape.form === 'css.raw' || escape.form === 'unsafe')
+    .map(escape => ({
+      kind: 'rawAssertions' as const,
+      level: 'warn' as const,
+      message: `${escape.form} bypasses one or more typed CSS assertions — ${escape.detail}`,
+      fix: 'prefer a typed value/helper when one can express the same platform syntax',
+      ...(escape.file === undefined ? {} : { file: escape.file }),
+    }))
+}
+
+function nonportableValues(manifest: VaneManifest): VaneAuditFinding[] {
+  return Object.entries(manifest.tokens)
+    .filter(([, token]) => token.portability.status === 'nonportable')
+    .map(([path, token]) => ({
+      kind: 'nonportableValues' as const,
+      level: 'warn' as const,
+      message: `${path} cannot round-trip through authored DTCG: ${token.portability.reason ?? 'nonportable expression'}`,
+      fix: 'lower the value to core IR or install a plugin DTCG codec',
+      ...(token.file === undefined ? {} : { file: token.file }),
+    }))
+}
+
+function ambiguousAxes(manifest: VaneManifest): VaneAuditFinding[] {
+  const findings: VaneAuditFinding[] = []
+  for (const [axis, definition] of Object.entries(manifest.axes?.definitions ?? {})) {
+    for (const [mode, configured] of Object.entries(definition.modes)) {
+      const seen = new Map<string, string>()
+      for (const arm of configured.arms) {
+        const key = `${arm.mechanism}:${arm.priority}:${arm.locality}`
+        const prior = seen.get(key)
+        if (prior !== undefined && prior !== arm.when) {
+          findings.push({
+            kind: 'ambiguousAxes',
+            level: 'warn',
+            message: `${axis}.${mode} has equally-ranked ${arm.mechanism} arms ('${prior}' and '${arm.when}')`,
+            fix: 'give fallback/explicit arms distinct priorities or collapse equivalent conditions',
+          })
+        }
+        seen.set(key, arm.when)
+      }
+    }
+  }
+  return findings
+}
+
+function mutableRootHazards(manifest: VaneManifest): VaneAuditFinding[] {
+  const findings: VaneAuditFinding[] = []
+  for (const [path, token] of Object.entries(manifest.tokens)) {
+    if (!token.mutable || token.runtime === undefined)
+      continue
+    const roots = new Set(token.declarations.flatMap(declaration => [
+      declaration.context.root,
+      ...declaration.context.selectors,
+    ]))
+    for (const root of roots) {
+      if (manifest.root === undefined || root === manifest.root || root.includes(manifest.root))
+        continue
+      findings.push({
+        kind: 'mutableRootHazards',
+        level: 'warn',
+        message: `${path} has a mutable binding at '${root}', outside system root '${manifest.root}'`,
+        fix: 'bind the runtime at or above every trigger substitution point, or keep mutable conditions under the token root',
+        ...(token.file === undefined ? {} : { file: token.file }),
+      })
+    }
+  }
+  return findings
+}
+
+function aliasEscapes(manifest: VaneManifest): VaneAuditFinding[] {
+  return manifest.escapes
+    .filter(escape => escape.form === 'css.standard')
+    .map(escape => ({
+      kind: 'aliasEscapes' as const,
+      level: 'warn' as const,
+      message: `css.standard bypasses the configured aliases-only vocabulary — ${escape.detail}`,
+      fix: 'use the configured alias when this is not an intentional platform-spelling escape',
+      ...(escape.file === undefined ? {} : { file: escape.file }),
+    }))
+}
+
 // ─── The report ──────────────────────────────────────────────────────────────
 
 const LANE_TITLES: Record<VaneAuditKind, string> = {
@@ -408,6 +534,12 @@ const LANE_TITLES: Record<VaneAuditKind, string> = {
   escapes: 'escape inventory',
   scaleStrays: 'scale strays',
   focusVisibility: 'focus visibility',
+  specificityContexts: 'specificity and declaration contexts',
+  rawAssertions: 'raw assertions',
+  nonportableValues: 'nonportable values',
+  ambiguousAxes: 'ambiguous axis triggers',
+  mutableRootHazards: 'mutable root hazards',
+  aliasEscapes: 'property-alias escapes',
 }
 
 /** Grouped, deep-linked findings — what `pnpm run audit` prints. */

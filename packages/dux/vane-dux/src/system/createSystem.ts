@@ -11,6 +11,8 @@ import type { VaneAtomsFactory } from '../atoms/types'
 import type { VaneCssFunction, VaneCssPropertyName, VaneFontFaceFunction, VaneGlobalCssFunction, VaneKeyframesFunction } from '../css/types'
 import type { VaneEngineKernel } from '../internal/engineKernel'
 import type { VaneAuditConfig } from '../internal/inspect'
+import type { VaneDtcgCodec } from '../internal/interchange'
+import type { VaneTokenExplanation } from '../introspect/explain'
 import type { VanePortFactory, VanePortInput } from '../ports/types'
 import type { VaneAnatomyFactory, VaneRecipeFactory } from '../recipes/types'
 import type { VaneTokenPhaseLayers } from '../tokens/graph'
@@ -24,6 +26,7 @@ import type {
   VaneResolvedTokens,
   VaneThemeOverrides,
   VaneTokenBuilder,
+  VaneTokenHandleAny,
   VaneTokenModule,
   VaneTokenOverrides,
   VaneTokenPolicy,
@@ -45,7 +48,9 @@ import { diagnosticSource, VaneError } from '../diagnostics'
 import { checkSelector } from '../internal/cssParser'
 import { isHandle } from '../internal/handle'
 import { record } from '../internal/inspect'
+import { VANE_SYSTEM_INTERCHANGE } from '../internal/interchange'
 import { requireStyleModule } from '../internal/styleModule'
+import { explainToken } from '../introspect/explain'
 import { VANE_PROPERTY_ALIASES } from '../plugins/propertyAliases'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
@@ -132,7 +137,7 @@ export type VaneEngineSystemOptions<
   P extends string,
   B extends boolean,
 > = Omit<VaneSystemOptions<T, C, L, P, B>, 'tokens'> & {
-  tokens: T & (T extends VaneTokenModule<infer _Graph> ? unknown : T extends VaneGraphInput ? unknown : never)
+  tokens: T & (T extends VaneTokenModule<infer _Graph, infer _ModulePolicy> ? unknown : T extends VaneGraphInput ? unknown : never)
 }
 
 export type VaneSystemConditionName<C, B extends boolean>
@@ -179,6 +184,8 @@ export interface VaneBoundSystem<
   ) => VaneVarsOf<VaneTokensFromDefinition<T, Selection>>
   /** Serialize a portable value with this system's finalized reference map. */
   readonly serialize: (value: VaneValue) => string
+  /** Explain one token from authored expression through every emitted context. */
+  readonly explain: (token: VaneTokenHandleAny) => VaneTokenExplanation
   /** Read-only normalized authoring context for integrations and inspection. */
   readonly conditions: Readonly<Record<C, string>>
   readonly layers: readonly L[]
@@ -202,6 +209,7 @@ export interface VaneSystemEngineBinding<
   readonly requirement: VaneEngineRequirement
   readonly tokenPolicy: TokenPolicy
   readonly axes: VaneAxisRegistry<Axes>
+  readonly dtcg: readonly VaneDtcgCodec[]
 }
 
 /** @deprecated Use `createEngine().createSystem()`; removed at target-doc promotion. */
@@ -376,6 +384,7 @@ function createSystemInternal<
       ...(binding === undefined ? {} : { serializeValue: (value: VaneCssValue) => binding.kernel.serializeValue(value) }),
       ...(binding === undefined ? {} : { support: binding.kernel.support }),
       ...(binding === undefined ? {} : { axes: binding.axes }),
+      ...(binding === undefined ? {} : { dtcgCodecIds: new Set(binding.dtcg.map(codec => codec.extension)) }),
       ...(phaseLayers === undefined ? {} : { phaseLayers }),
       ...(qualifiedTokenLayer === undefined ? {} : { layer: qualifiedTokenLayer }),
       ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
@@ -425,6 +434,7 @@ function createSystemInternal<
     root,
     ...(qualifiedTokenLayer === undefined ? {} : { tokenLayer: qualifiedTokenLayer }),
     ...(binding === undefined ? {} : { engine: binding.kernel.signature }),
+    ...(binding === undefined ? {} : { supportTarget: binding.kernel.support.id }),
     layers: [...layers],
     conditions: describeConditions(conditions),
     ...(binding === undefined || binding.axes.order.length === 0 ? {} : { axes: describeAxisRegistry(binding.axes) }),
@@ -537,6 +547,7 @@ function createSystemInternal<
     tokensOf: buildPlane('tokensOf', projectTokens as Bound['tokensOf']),
     namesOf: buildPlane('namesOf', ((selection: object) => project(selection, 'name')) as Bound['namesOf']),
     varsOf: buildPlane('varsOf', ((selection: object) => project(selection, 'var')) as Bound['varsOf']),
+    explain: buildPlane('explain', ((token: VaneTokenHandleAny) => explainToken(resolvedGraph, token)) as Bound['explain']),
     runtime: appPlane(runtimeServices.runtime, 'restoreRuntimeFactory', runtimeContract),
     reconcileRuntimeSnapshot: appPlane(runtimeServices.reconcileRuntimeSnapshot, 'restoreRuntimeReconciler', runtimeContract),
     runtimeStyle: appPlane(runtimeServices.runtimeStyle, 'restoreRuntimeStyle', runtimeContract),
@@ -545,6 +556,11 @@ function createSystemInternal<
     conditions: describedConditions,
     layers: Object.freeze([...layers]) as readonly L[number][],
   }
+
+  Object.defineProperty(bound, VANE_SYSTEM_INTERCHANGE, {
+    enumerable: false,
+    value: Object.freeze({ graph: resolvedGraph, codecs: Object.freeze([...(binding?.dtcg ?? [])]) }),
+  })
 
   return Object.freeze(bound) as Bound
 }

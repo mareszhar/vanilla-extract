@@ -202,8 +202,8 @@ export function exercise() {
 
     const manifest = JSON.parse(await readFile(join(root, '.vane', 'manifest.json'), 'utf-8'))
 
-    expect(manifest.version).toBe(1)
-    expect(manifest.tokens['color.brand'].var).toBe('--vane-color-brand')
+    expect(manifest.version).toBe(2)
+    expect(manifest.tokens['color.brand'].name).toBe('--vane-color-brand')
     expect(manifest.tokens['color.brand']).toMatchObject({
       file: 'system.style.ts',
       line: 7,
@@ -429,7 +429,7 @@ describe('hmr', () => {
       const { port } = httpServer.address() as AddressInfo
       const manifest = await (await fetch(`http://localhost:${port}/__vane/manifest.json`)).json()
 
-      expect(manifest.version).toBe(1)
+      expect(manifest.version).toBe(2)
       expect(Object.keys(manifest.ports)).toContain('progress.fraction')
 
       const page = await (await fetch(`http://localhost:${port}/__vane/`)).text()

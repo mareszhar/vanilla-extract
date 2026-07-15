@@ -1,5 +1,5 @@
-updated: 2026-07-14
-status: target spec — Phase 4 token language/emission and Phase 5 mutable runtime implemented; later interoperability pending
+updated: 2026-07-15
+status: target spec — token language, emission, runtime, introspection, and interchange implemented through Phase 7
 
 # vane-dux next — spec: tokens
 
@@ -525,9 +525,27 @@ interface VaneManifestToken {
   name?: `--${string}`
   type: string
   reference: 'val' | 'var'
+  emit: boolean
   mutable: boolean
+  hasDefault: boolean
+  expression: VaneManifestExpression
+  inference: {
+    reference: 'explicit' | 'engine-default' | 'capability'
+    emit: 'explicit' | 'engine-default' | 'capability'
+    reasons: readonly string[]
+  }
+  fold: { status: 'folded' | 'preserved' | 'unavailable', val?: string | number, reason?: string }
   declarations: readonly VaneManifestDeclaration[]
   dependencies: readonly VaneManifestEdge[]
+  support: {
+    requirements: readonly string[]
+    fallback?: string
+    enhancement?: string
+  }
+  branches?: readonly VaneManifestBranch[]
+  registration?: { syntax: string, inherits: boolean, initialVal?: string }
+  portability: { status: 'portable' | 'codec' | 'nonportable', extension?: { id: string, version: string | number }, reason?: string }
+  runtime?: VaneRuntimeTokenMetadata
   preview:
     | {
       status: 'resolved'
@@ -539,7 +557,7 @@ interface VaneManifestToken {
       status: 'unavailable'
       reason: string
     }
-  metadata: Record<string, unknown>
+  metadata?: Record<string, unknown>
 }
 
 interface VaneManifestDeclaration {
@@ -552,11 +570,13 @@ interface VaneManifestDeclaration {
     root: string
     selectors: readonly string[]
     atRules: readonly string[]
-    layer: string
+    layer?: string
   }
   source?: VaneSource
 }
 ```
+
+Manifest v2 stores system-wide `supportTarget` and `previewEnvironment` once. A token preview may omit its environment when it inherits that default. Declaration `source` is omitted when it inherits the token's source; a declaration `name` is omitted when it writes the public token property. These are stable inheritance rules, not missing provenance. `context.root` is the owning token root, while `selectors` contains any additional effective condition selector; at-rules and layer complete the exact emission context.
 
 `ds.explain(token)` returns or renders:
 
@@ -576,8 +596,13 @@ interface VaneManifestDeclaration {
 ## 13. DTCG
 
 ```ts
-importDesignTokens(document, options)
-exportDesignTokens(dsOrModule, options)
+const snapshot = exportDesignTokens(ds, {
+  mode: 'resolved',
+  environment: { scheme: 'dark', density: 'compact' },
+})
+
+const authored = exportDesignTokens(ds, { mode: 'authored' })
+const tokens = importDesignTokens(authored, { engine: de })
 ```
 
 Export modes:
@@ -585,9 +610,13 @@ Export modes:
 1. **Resolved snapshot** — select an environment and emit broadly interoperable DTCG values/aliases/types where representable.
 2. **Authored vane document** — include `com.mszr.vane-dux` extension data for axes, cases, graph operations, emission, registration, and metadata.
 
-Vane-authored round trips are semantically lossless when every node is portable or has a plugin codec. Unknown DTCG extensions are preserved. Nonportable arbitrary TypeScript closures cannot be reconstructed; strict lossless export fails rather than lying.
+The implementation targets the [DTCG Format Module 2025.10](https://www.designtokens.org/TR/2025.10/format/) and [Resolver Module 2025.10](https://www.designtokens.org/TR/2025.10/resolver/). Initial standard snapshot/import support is deliberately exact: finite numbers, dimensions in `px`/`rem`, durations in `ms`/`s`, structured colors, curly/JSON-Pointer aliases, inherited `$type`, descriptions, and extensions. An unsupported/unresolved standard projection fails instead of flattening one environment ambiguously.
 
-External reference/network resolution is opt-in and separately secured.
+The authored extension is `com.mszr.vane-dux`, version `1`. It records final system prefix/root/axis order and per-token type, reference/emission/mutability, base and branch values including no-default reservations, registration, metadata, expression evidence, dependencies, and a token-level loss marker. Every encoded base/mode/case value may carry its own codec identity/payload, so a complete opaque plugin-owned value round-trips at any authored address rather than only at the base. Core/mixed expressions that merely contain an opaque leaf are diagnosed as nonportable in v1; a leaf codec cannot claim the surrounding core expression. Vane-authored round trips are semantically lossless when every node is portable or has an applicable plugin codec. A codec declares stable `id`, `version`, the extension identity it handles, and a JSON-safe payload. Missing codecs and nonportable arbitrary TypeScript closures fail strict export/import rather than lying; `strict: false` is an explicit lossy authored-document escape.
+
+Unknown DTCG extensions at document, group, and token level are preserved. Standard `$root` tokens import only when the corresponding Vane path can be a leaf; a DTCG node that is simultaneously a `$root` token and a group cannot map to Vane's leaf-or-group path model and receives an exact diagnostic.
+
+External reference/network resolution is disabled by default. `resolveExternal(reference)` is an explicit synchronous capability; callers resolve asynchronous documents before import. Unknown aliases, cycles, non-finite channels, unsupported units/spaces, and mismatched authored axis orders receive distinct diagnostics.
 
 ## 14. Checks
 
