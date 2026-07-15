@@ -4,12 +4,16 @@
  * escape inventory, scale strays. Advisory by default, promotable per system.
  */
 
-import { createEngine, createSystem, defineEnginePlugin, defineTokens, legibleOn, oklch, propertyAliases, unsafe } from '@mszr/vane-dux'
+import { createEngine, defineEnginePlugin, propertyAliases, unsafe } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
 import { audit, formatAuditFindings } from './audit'
 import { buildManifest } from './manifest'
+
+const core = createEngine()
+const createSystem = core.createSystem
+const defineTokens = core.defineTokens
 
 /** Build a manifest + CSS from a style-module body, exactly as the plugin would. */
 function built(body: () => unknown) {
@@ -37,10 +41,10 @@ describe('unused tokens', () => {
       const { t, css: style } = createSystem({
         tokens: defineTokens({
           color: {
-            seed: oklch(0.58, 0.2, 285).live(),
-            retired: oklch(0.5, 0.1, 100).deprecated('use color.seed'),
+            seed: core.token({ val: core.oklch(0.58, 0.2, 285), mutable: true }),
+            retired: core.token({ val: core.oklch(0.5, 0.1, 100), deprecated: { reason: 'use color.seed' } }),
           },
-        }).derive(({ color }) => ({ color: { tint: color.seed.alpha(0.12) } })),
+        }).derive(({ color }) => ({ color: { tint: core.alpha(color.seed, 0.12) } })),
       })
       return style({ background: t.color.tint }, 'card')
     })
@@ -82,8 +86,8 @@ describe('contrast acceptances', () => {
   it('surfaces a consciously-accepted threshold so it stays a decision', () => {
     const { manifest, css } = built(() => {
       const { t, css: style } = createSystem({
-        tokens: defineTokens({ color: { mid: oklch(0.6, 0.02, 285) } })
-          .derive(({ color }) => ({ color: { onMid: legibleOn(color.mid, { minLc: 40 }) } })),
+        tokens: defineTokens({ color: { mid: core.oklch(0.6, 0.02, 285) } })
+          .derive(({ color }) => ({ color: { onMid: core.legibleOn(color.mid, { minLc: 40 }) } })),
       })
       return style({ color: t.color.onMid, background: t.color.mid }, 'chip')
     })

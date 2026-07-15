@@ -1,9 +1,9 @@
 updated: 2026-07-15
-status: active migration ledger — phases 0–8 complete; phase 9 ready
+status: completed semantic-foundation implementation record
 
-# vane-dux next — implementation plan
+# vane-dux — semantic-foundation implementation record
 
-This is the single execution ledger for the semantic-foundation refactor. It replaces the dated release initiative/review trackers. The target specs define behavior; this file defines safe order, preservation obligations, and completion evidence.
+This is the completed execution ledger for the semantic-foundation refactor. It replaces the dated release initiative/review trackers. The canonical specs define behavior; this file preserves safe order, preservation obligations, and completion evidence as implementation history.
 
 ## 1. Status language
 
@@ -16,18 +16,18 @@ This is the single execution ledger for the semantic-foundation refactor. It rep
 
 A phase may begin behind internal seams before its predecessor is fully promoted, but no public target API is considered complete while a dependency gate is red.
 
-## 2. Migration rules
+## 2. Historical migration rules
 
 1. **No compatibility burden.** The package is unpublished; target API quality outranks preserving current spellings.
 2. **Preserve proven behavior.** Existing graph typing, CSS reach, recipes, ports, browser integration, diagnostics, and provenance remain regression obligations unless explicitly replaced.
 3. **Characterize before replacing.** Snapshot behavior worth preserving before changing its implementation.
 4. **One semantic core.** Do not create parallel color/value/token runtimes that must be reconciled later.
 5. **Dogfood public extensions.** Built-ins migrate through the same APIs promised to users.
-6. **Keep current and target docs distinct.** Current docs remain implementation truth until promotion; target docs govern new work.
+6. **Keep current and target docs distinct during migration.** The promoted canonical docs became the single truth only at Phase 9.
 7. **No silent transitional public surface.** Internal adapters are allowed. Temporary public aliases require an explicit removal task and are avoided by default.
 8. **Evidence moves with code.** A phase includes its type/editor/output/browser/introspection work.
 9. **Do not rebuild the flagship demo early.** Focused fixtures validate architecture; the showcase follows stable capabilities.
-10. **No publication during the transition.** Release gates reopen only after promotion.
+10. **No publication during the transition.** Release gates reopened only after promotion.
 11. **Preserve anti-mincho.** Every phase is an independently verifiable vertical slice; current tests, typecheck, build, demos, packaging, and maintained fresh-app smoke remain green at each phase boundary.
 12. **Foundations use their final home.** Internal phase-1 value work is built on the engine kernel that phase 2 will expose, not on another temporary constructor architecture.
 
@@ -46,7 +46,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☑ |
 | 7 | Manifest, explain, audits, DTCG, and plugin portability | ☑ |
 | 8 | Full integration matrix, packaging, documentation, and new flagship demo | ☑ |
-| 9 | Canonical-doc promotion, cleanup, release rehearsal, and alpha decision | ☐ |
+| 9 | Canonical-doc promotion, cleanup, release rehearsal, and alpha decision | ☑ |
 
 ## 4. Phase 0 — foundation freeze and baselines
 
@@ -65,7 +65,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 
 ### Characterization
 
-- [x] Record current public export/build/test snapshots for intentional comparison in `dux-current-baseline.md`.
+- [x] Record the pre-refactor public export/build/test snapshots for intentional comparison in `dux-benchmarks.md`.
 - [x] Map existing characterization fixtures for current color IR, graph modes, theme/applyTheme, schemes, token manifest, roots/layers, ports, and system serialization.
 - [x] Identify behavior to preserve versus architecture/API spellings intentionally replaced.
 - [x] Capture current packed Vite/Nuxt smoke result and current production/dev/HMR/process matrix.
@@ -83,7 +83,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 - Performance regression budgets have real baseline numbers.
 - No implementation refactor has begun under an unsettled semantic model.
 
-Accepted 2026-07-14. The human baseline is recorded in `dux-current-baseline.md`; Phase 1 is unblocked.
+Accepted 2026-07-14. The human baseline is recorded in `dux-benchmarks.md`; Phase 1 was unblocked.
 
 ## 5. Phase 1 — unified CSS value foundation
 
@@ -469,7 +469,7 @@ Phase 8 is unblocked.
 - [x] Parse every next-doc TypeScript fence and semantically compile complete canonical package-backed examples for every public authoring domain.
 - [x] Update Vue/Nuxt/public README guidance to the canonical engine → system setup.
 - [x] Rebuild the flagship demo from the later maintainer prototype/brief rather than refactoring the current color-picker concept.
-- [x] Follow `dux-demo-brief.md`: a polished Prism design-system studio with live monochromatic hue/palette, light/dark/system scheme, radius, density, scheme+density shadows, elevation, fonts, and none/subtle/springy motion.
+- [x] Follow `dux-demo.md`: a polished Prism design-system studio with live monochromatic hue/palette, light/dark/system scheme, radius, density, scheme+density shadows, elevation, fonts, and none/subtle/springy motion.
 - [x] Demonstrate axes, cases, non-color mutability, media/container queries, responsive composition, ports, plugins, raw CSS reach, provenance, SSR persistence, and custom-property integration.
 - [x] Keep Pug as the demo workspace convention if still desired.
 - [x] Rebuild the comparison demo around a smaller parity-friendly concept, then re-run maintained peer comparisons using current official sources.
@@ -490,24 +490,54 @@ Acceptance evidence:
 - `pnpm run validate` is green: lint; SDK/demo types and builds; 99 parsed next-doc TypeScript fences plus 7 complete package-backed domain fixtures; 71 SDK files / 531 tests / zero type errors; clean audit; optimizer survival; production Playwright 6/6; development/HMR Playwright 1/1; and two Nuxt start/stop cycles releasing HTTP and HMR listeners.
 - `pnpm run fresh:smoke` packs the actual 18-file, 199.8 kB tarball and passes strict TypeScript 5.8 Vite and Nuxt installs, typechecks, production builds, HTTP, HMR, and cleanup with no workspace alias. The desktop sandbox reproduced its known native-watcher `EMFILE` constraint; the required unsandboxed gate passed, and maintained polling/dynamic-port discovery prevents ordinary duplicate-watcher/port pressure.
 - `pnpm run bench:baseline` verifies all three generated fixtures. The Phase-8 large graph remains inside the permanent budget at 2.22s cold typecheck, 2,217,790 instantiations, 579,740 kB reported memory, 447,372 B declarations, 2.84ms CSS completion, 0.11ms runtime completion, 5.40ms rename, and 4.95s build. CSS/JS/manifest output sizes and runtime/root bundles remain effectively unchanged from the accepted Phase-7 baseline.
-- The permanent 15-moment evidence map lives in `dux-testing.md`; the implemented showcase contract and exact browser/HMR artifacts live in `dux-demo-brief.md`. Public README and Vue/Nuxt guidance teach only the canonical engine → system, bound-runtime, token-override/custom-property vocabulary.
+- The permanent 15-moment evidence map lives in `dux-testing.md`; the implemented showcase contract and exact browser/HMR artifacts live in `dux-demo.md`. Public README and Vue/Nuxt guidance teach only the canonical engine → system, bound-runtime, token-override/custom-property vocabulary.
 
 Phase 9 is unblocked.
 
 ## 13. Phase 9 — promotion and cleanup
 
-- [ ] Reconcile/copy unchanged current domain spec details into the target set.
-- [ ] Replace canonical vision/language/patterns/specs with the implemented target docs.
-- [ ] Remove superseded old sections and all temporary compatibility notes.
-- [ ] Remove `docs/next/` by promoting its contents and updating links.
-- [ ] Remove the historical ideation note or archive it outside normative docs according to maintainer preference.
-- [ ] Verify no status table claims more than tests prove.
-- [ ] Run complete release rehearsal without publishing.
-- [ ] Decide alpha timing from evidence and desired API feedback.
+- [x] Reconcile/copy unchanged current domain spec details into the target set.
+- [x] Replace canonical vision/language/patterns/specs with the implemented target docs.
+- [x] Remove superseded old sections and all temporary compatibility notes.
+- [x] Remove `docs/next/` by promoting its contents and updating links.
+- [x] Remove the historical ideation note after its complete resolution map was preserved below.
+- [x] Verify no status table claims more than tests prove.
+- [x] Run complete release rehearsal without publishing.
+- [x] Decide alpha timing from evidence and desired API feedback.
 
-## 14. Current-document migration map
+Accepted 2026-07-15. The promoted [documentation hub](./README.md) is the
+single canonical entry point; `docs/next/` and the historical ideation note are
+removed. Package-root authoring shortcuts and primitive theme/runtime aliases
+are absent, with a negative declaration test protecting the one-dialect
+contract. Maintained presets, demos, examples, and fresh consumers author
+through `createEngine()` → `de.createSystem()`.
 
-| Current document | Migration |
+Acceptance evidence:
+
+- `pnpm run publish:sdk:dry-run` passed on the promoted tree without publishing:
+  lint, SDK/demo typechecks and builds, 136 parsed canonical TypeScript fences,
+  seven package-backed documentation fixtures, 61 SDK files / 429 tests / zero
+  type errors, clean audit, optimizer survival, six production browser tests,
+  the development/HMR browser test, two Nuxt lifecycle cycles, packed strict
+  Vite/Nuxt type/build/dev/HTTP/HMR smoke, and `npm pack --dry-run`.
+- The packed `@mszr/vane-dux@0.0.0` rehearsal contains 18 files, 195.9 kB
+  compressed / 783.8 kB unpacked, with no workspace aliases or transitional
+  entrypoints. The version remains unchanged because Phase 9 does not publish.
+- `pnpm run bench:baseline` verified all generated fixtures. The final large
+  graph measured 2.18 s TypeScript time, 2,217,814 instantiations, 583,069 kB
+  reported memory, 447,372 B declarations, 2.69 ms CSS completion, 0.12 ms
+  runtime completion, 5.02 ms rename, and 4.87 s build—inside the permanent
+  budgets and without the recursive property-alias blow-up.
+
+**Alpha decision.** The package is technically alpha-ready. The recommended
+first public version is `0.1.0-alpha.1` after maintainer review of this Phase 9
+diff. Publication is deliberately deferred to that explicit maintainer action;
+the release command was not run and no commit, tag, push, mirror update, or npm
+mutation occurred.
+
+## 14. Canonical-document promotion record
+
+| Former/current document | Promoted outcome |
 | --- | --- |
 | `dux-vision.md` | Replace product framing with TypeScript harness for CSS; preserve compiler/fork/plane/framework rationale; update gauntlet and domains. |
 | `dux-language.md` | Replace root free-function and theme/liveness vocabulary; preserve naming discipline, anatomy/port/recipe terms, and CSS-aligned mapping practice. |
@@ -609,4 +639,4 @@ This table makes the July 14, 2026 plan-polish review auditable rather than rely
 | 20 | Base no-default runtime reservation was only implicit | Token spec §§1.3/5.5; testing §4; explicit typed base form, `@property initial-value` interaction, and phase-3/5 fixtures. |
 | 21 | Reserved branch plus native scheme output was untested | Testing §4; phases 4/5; native `light-dark()` and selector fallback-chain fixtures. |
 | 22 | Introspection spelling drifted from the reserved system surface | D59; token/value/pattern/testing specs; `ds.explain()` is canonical. |
-| 23 | Demo migration could preserve the obsolete concept by accident | D63; `dux-demo-brief.md`; Phase 8 is a deliberate flagship/comparison rebuild. |
+| 23 | Demo migration could preserve the obsolete concept by accident | D63; `dux-demo.md`; Phase 8 is a deliberate flagship/comparison rebuild. |

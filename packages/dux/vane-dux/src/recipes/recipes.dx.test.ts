@@ -21,16 +21,17 @@ function expectNoLeak(messages: Array<Diagnostic | string>): void {
 }
 
 const defineSystem = `
-import { createSystem, media, oklch } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 
-const { t, css, recipe, anatomy, port } = createSystem({
+const de = createEngine()
+const { t, css, recipe, anatomy, port } = de.createSystem({
   tokens: {
-    color: { brand: oklch(0.58, 0.2, 285).live() },
+    color: { brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }) },
     space: { xs: '4px', sm: '8px', md: '16px' },
   },
   conditions: {
     open: '&[data-state="open"]',
-    md: media('(min-width: 768px)'),
+    md: de.media('(min-width: 768px)'),
   },
 })
 

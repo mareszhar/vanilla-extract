@@ -1,4 +1,4 @@
-updated: 2026-07-10
+updated: 2026-07-15
 status: maintainer manual — layout, tooling, testing, fork hygiene, publishing
 
 # vane-dux — workspace
@@ -10,9 +10,9 @@ The maintainer manual: how the dux workspace is laid out, built, linted, tested,
 | Phase | Scope | Status |
 | --- | --- | --- |
 | W0 | Workspace scaffold: orchestrator manifest, tooling, package skeleton, outer-repo exclusions, docs | ☑ |
-| W1 | Test foundations: Vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots, Playwright browser checks | ◐ dev matrix pending |
+| W1 | Test foundations: Vitest planes, selenita wiring, Prism fixtures, CSS-output snapshots, Playwright browser checks | ☑ |
 | W2 | Per-domain suites land with each roadmap phase | ☑ |
-| W3 | Sandbox: Nuxt demo + comparison matrix | ◐ dev matrix pending |
+| W3 | Sandbox: Nuxt demo + comparison matrix | ☑ |
 | W4 | Publishing pipeline: subtree to `mareszhar/vane-dux`, `@mszr` scope | ☑ |
 
 ---
@@ -93,13 +93,18 @@ Two runners, **five assertion planes**, one fixture set (Prism). No integration 
 
 | Plane | Suffix | Asserts | Tool |
 | --- | --- | --- | --- |
-| Runtime | `*.test.ts` | evaluation results, recipe resolution, port setters, `applyTheme`, theme scoping | Vitest |
-| Type shapes | `*.test-d.ts` | token graph inference, `VaneProps`, condition typing, liveness honesty (`applyTheme` rejecting static keys) | Vitest `--typecheck` |
+| Runtime | `*.test.ts` | evaluation results, recipe resolution, port setters, bound token overrides, snapshots, and mode selection | Vitest |
+| Type shapes | `*.test-d.ts` | token graph inference, `VaneProps`, condition typing, branch addressing, and mutable/nonmutable runtime honesty | Vitest `--typecheck` |
 | Editor DX | `*.dx.test.ts` | completions and diagnostics land on the intended key with the intended message; hovers stay readable; `VANE_*` codes stable | [selenita](https://github.com/mareszhar/selenita) on Vitest |
 | Output | `*.out.test.ts` | the emitted CSS: liveness compilation (`light-dark()`, relative color), layer order, condition compilation, debug names, build-vs-live color-math agreement | Vitest snapshot over the compiler |
 | Browser integration | `tests/*.spec.ts` | production Nuxt/Vite loading, failed requests and console errors, real interactions/geometry, live computed-style changes | Playwright Chromium |
 
 The output plane is this project's addition to the house methodology: **the emitted CSS is a public contract** (principle 6 — boring CSS is the artifact consumers keep), so it gets locked like one. Diagnostic messages are a quality contract per [dux-patterns.md §10](./dux-patterns.md#10-diagnostics-are-a-contract): exactly one diagnostic, at the offending key, naming the fix.
+
+The complete permanent matrix, evidence map, performance budgets, packed-app
+smoke, and phase-boundary requirements live in
+[dux-testing.md](./dux-testing.md). This section is the workspace-level summary,
+not a second testing policy.
 
 SDK tests collocate beside the code they exercise; browser tests live in `tests/`. Prism fixtures live once in `vane-dux/src/test-support/` with the larger app-shaped scenarios in `sandbox/fixtures/`. Fewer tests, higher confidence: assert contracts, never implementation details.
 
@@ -154,6 +159,8 @@ Run from `packages/dux/`.
 | `pnpm run sdk:build` | build `@mszr/vane-dux` → `dist` |
 | `pnpm run sdk:typecheck` | `tsc --noEmit` for the package |
 | `pnpm run sdk:test` / `sdk:test:watch` | Vitest, all four planes |
+| `pnpm run bench:baseline` | verify generated benchmark fixtures and record the ignored protocol result |
+| `pnpm run docs:examples` | parse every TypeScript fence and typecheck canonical package-backed doc fixtures |
 | `pnpm run audit` | the introspection audits over a real plugin build of the fixture app — point it at any app with `pnpm run audit -- <dir>` ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)) |
 | `pnpm run demo:main` | the Prism Nuxt demo, dev mode |
 | `pnpm run demo:comparisons` | the comparison matrix |

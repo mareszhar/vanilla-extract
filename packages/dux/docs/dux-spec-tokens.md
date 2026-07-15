@@ -1,280 +1,632 @@
-updated: 2026-07-10
-status: spec — contracts settled, implemented (phase 1)
+updated: 2026-07-15
+status: canonical implemented specification
 
 # vane-dux — spec: tokens
 
-The token graph: how design decisions are defined, related, compiled, checked, and themed. This is the product's foundation — components are downstream of tokens — and phase 1 of the roadmap, deliberately shippable against plain vanilla-extract before any other domain exists.
+Tokens are named design decisions in a typed dependency graph. They may resolve to CSS values, custom-property references, environmental variants, runtime-addressable slots, metadata, and interchange projections without conflating those capabilities.
 
-Each entry is **contract-driven**: the desired behavior and why it matters, the intended usage, then a proposed implementation. Vocabulary: [dux-language.md §1](./dux-language.md#1-vocabulary). Cross-cutting law: [dux-patterns.md §3](./dux-patterns.md#3-liveness).
+`de.defineTokens()` creates immutable engine-bound unfinished modules; semantic engine compatibility governs composition; the system alone finalizes prefix/name identity. Raw shorthand and `de.token()` normalize to independent traits, canonical `$` handles survive build/app restoration, projections reuse graph identity, axes/cases emit in deterministic layers, and runtime bindings address the same semantic branches.
 
-## Implementation status
+## 1. Definition forms
 
-| # | Contract | Status |
-| --- | --- | --- |
-| 1 | `defineTokens` — the graph in plain TS | ☑ |
-| 1a | Token modules and composition | ☑ |
-| 2 | Liveness compilation | ☑ |
-| 3 | Schemes | ☑ |
-| 4 | Elevation | ☑ |
-| 5 | Contrast and checks | ☑ |
-| 6 | Composite tokens | ☑ |
-| 7 | Themes: `theme()` and `applyTheme` | ☑ |
-| 8 | Metadata | ☑ (hover/manifest surfacing lands with the manifest) |
-| 9 | Emitted names | ☑ |
+### 1.1 Shorthand leaf
 
-Snippets use the Prism fixture design system ([dux-workspace.md §2](./dux-workspace.md#2-sandbox)).
+```ts
+brand: de.oklch(0.58, 0.2, 285)
+space: '1rem'
+factor: 1.25
+```
 
----
+The engine infers data type/expression. The zero-config policy normalizes shorthand to:
 
-## 1. `defineTokens` — the graph in plain TS
+```ts
+de.token({
+  val: authoredVal,
+  reference: 'var',
+  emit: true,
+})
+```
 
-**Why.** Tokens elsewhere are flat bags of strings, relationships frozen into literals by a preprocessor, maintained per scheme by hand. Making tokens a typed *graph* — values, pairs, and derivations — is what turns the TypeScript language server into the design system's tooling: autocomplete knows a token the instant it's typed, find-references lists every consumer, deleting one turns every usage red. No YAML, no config file, no codegen step, no CLI to keep in sync.
+Therefore a plain token graph emits inspectable custom properties and ordinary handle consumption uses `var()`. Graph edges are CSS-reactive by default: overriding an input custom property updates downstream expressions that have a CSS representation. This preserves vane's public custom-property contract and keeps design tokens open to consumer CSS without per-leaf ceremony.
 
-**Usage.**
+Projects may deliberately choose another policy once:
 
-```TS
-// design/tokens.style.ts
-import { alpha, defineTokens, legibleOn, oklch, scale, scheme } from '@mszr/vane-dux'
-import { elevation } from '@mszr/vane-dux/preset'
-
-export const t = defineTokens({
-  color: {
-    brand: oklch(0.58, 0.2, 285).live(),                  // runtime input — user-themeable
-    canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
+```ts
+const de = createEngine({
+  tokens: {
+    reference: 'val',
+    emit: false,
   },
-  space: scale.linear({ unit: 4, steps: { xs: 1, sm: 2, md: 4, lg: 6, xl: 10 } }),
-  radius: { sm: '4px', md: '8px', pill: '999px' },
-  duration: { fast: '120ms', normal: '200ms' },
 })
+```
+
+The engine policy applies both to raw shorthand and omitted fields in `de.token({ val })`. Explicit per-token fields win unless they violate a capability invariant. Choosing `reference: 'val'` is the deliberate build-folded/inline path; it is never inferred merely because today's input happens to be foldable.
+
+The var default also means downstream derivations prefer living platform expressions—relative color, `color-mix()`, `calc()`, and peers—over folded literals. That is deliberate: ordinary overrides rederive by default and “boring CSS” includes inspectable standards-track functions, not only primitives. It does **not** permit silently emitting above the configured support target; the value support policy must provide an equivalent fallback/enhancement or diagnose the edge with the explicit `reference: 'val'` alternative.
+
+### 1.2 Configured token
+
+```ts
+brand: de.token({
+  val: de.oklch(0.58, 0.2, 285),
+  reference: 'var',
+  emit: true,
+  mutable: true,
+  axes: {/* ... */},
+  cases: [/* ... */],
+  register: {/* ... */},
+  description: 'Primary brand color',
+  deprecated: { use: 'color.accent' },
+  validate: {/* runtime setter policy */},
+})
+```
+
+### 1.3 No-default token
+
+```ts
+fill: null
+fill: de.token.color()
+fill: de.token.color({ mutable: true })
+```
+
+The token receives a path/name/handle but no ordinary value declaration. Bare null is unknown-typed; typed constructors preserve runtime/property validation. A typed no-default constructor accepts the configured-token traits that remain meaningful without `val`, including `mutable`, `register`, description, deprecation, and runtime validation.
+
+### 1.4 Known nonemitted value
+
+```ts
+wide: de.token({
+  val: de.length.rem(64),
+  reference: 'val',
+  emit: false,
+})
+```
+
+This supports compile-known design constants such as query thresholds. It is not the same as a no-default custom property.
+
+## 2. Token traits and inference
+
+Each token independently records:
+
+- data type;
+- expression/dependencies;
+- default reference (`val`/`var`);
+- emission behavior;
+- custom-property registration;
+- axes and cases;
+- runtime mutability;
+- checks and metadata.
+
+Inference rules:
+
+- axes require a var reference and an emitted public binding;
+- mutability requires a var reference, an emitted public binding, and stable emitted slots;
+- an explicit `reference: 'val'` or `emit: false` conflicting with axes/mutability is diagnosed at that field rather than silently rewritten;
+- no-default tokens imply a custom-property identity with `reference: 'var'` and no ordinary declaration unless axes/mutability require a binding;
+- references to mutable/axed inputs remain runtime-dependent;
+- runtime dependence does not necessarily require JS recomputation; CSS expressions remain preferred;
+- explicit incompatible configuration fails at the config key with a suggested correction.
+
+`reference: 'val'` means use the resolved CSS expression, not “guaranteed primitive folded literal.”
+
+The defaults are intentionally configurable, but never inferred from whether one literal happened to fold in the current compiler. That keeps CSS output stable across optimizer improvements.
+
+### 2.1 Token and branch handles
+
+The resolved token is the public-property handle. Its `$name`, `$var()`, `$val`, and default serialization follow the token contract.
+
+An axis mode or case is a **branch handle** on every plane:
+
+```ts
+const dark = ds.t.color.brand.$axes.scheme.dark
+
+dark.$val
+
+const compactDark = ds.t.shadow.card.$case({
+  scheme: 'dark',
+  density: 'compact',
+})
+
+compactDark.$val
+```
+
+Branch handles expose authored value/condition/provenance metadata. When used directly as a value, a branch handle serializes as its authored `$val`; it never inherits the parent token's default `var` projection. They do not expose `$name`/`$var()` because the branch is not another consumer-facing token property. Internal mutable-slot names remain opaque.
+
+`runtime.t` preserves the same tree and branch-handle shape, adding `$set()`/`$unset()` only for mutable addresses. Generic traversal can therefore move between `ds.t` and `runtime.t` without changing whether `$axes` yields a value or a handle.
+
+Branch typing is exact:
+
+- `$axes` contains only modes explicitly authored on that token, including explicit no-default reservations—not every mode known to the engine;
+- `$case(when)` accepts only the literal case intersections authored/reserved on that token;
+- an omitted partial mode or unauthored case has no handle, no private slot, and cannot be passed to `$set()`;
+- every mutable token still has its uniform base address; mode/case addresses remain pay-for-what-you-author.
+
+## 3. Modules and graph derivation
+
+```ts
+export const colors = de
+  .defineTokens({
+    color: {
+      brand: de.oklch(0.58, 0.2, 285),
+    },
+  })
   .derive(({ color }) => ({
     color: {
-      surface: elevation(color.brand, 0.03), // explicit base + plane position
-      ink: elevation(color.brand, 0.94),
-      brandSoft: alpha(color.brand, 0.12),   // derivation — a graph edge
-      brandHover: color.brand.lighten(0.06),
-      onBrand: legibleOn(color.brand),       // guaranteed-legible pairing
+      brandSoft: de.alpha(color.brand, 0.12),
     },
   }))
-  .build()
 ```
 
-**Contract details.**
+Contracts preserved from the current graph:
 
-- `t` is an ordinary typed export; token references are property accesses, never string paths. Hovering a token reads as facts — its mode and emitted variable name are literal types (`VaneColorToken<'live', 'vane-color-brand'>`), and plain value leaves carry their resolved literal (`VaneValueToken<'4px', …>`).
-- **Derivations are explicit topological stages.** Each `.derive()` callback receives the exact graph accumulated by earlier stages: property completions are exhaustive, a typo errors at that property access, `noUncheckedIndexedAccess` adds no `undefined`, and a stage's own output becomes visible only to the next stage. Forward references and cycles are unrepresentable instead of runtime-detected.
-- **Definitions are modules without a second abstraction.** Every `defineTokens()` builder is independently buildable and composable. `defineTokens().compose(colors).compose(metrics)` preserves each module's internal stage order, exact type graph, and rename identity; integration `.derive()` stages see the combined graph. Overlapping groups merge, while a repeated leaf fails at the `.compose(module)` argument and names its dot path. Composition is immutable, so a shared module can branch into multiple designs safely.
-- `.build({ prefix, checks })` resolves and emits the finished graph once. `createSystem({ tokens: builder })` accepts an unfinished builder and finalizes it automatically, so the one-file app path pays no extra ceremony.
-- TypeScript's native language service does not connect object-literal keys through an inferred mapped handle type for rename-symbol. `@mszr/vane-dux/typescript` supplies the missing graph-aware locations, scoped by graph origin and literal token path; Nuxt enables it automatically. Plain TypeScript projects opt in with one `compilerOptions.plugins` entry. Completions, diagnostics, hovers, and every non-rename operation remain TypeScript's own.
-- Plain strings/numbers are valid leaves — the graph machinery is opt-in per token (principle 10).
-- `scale.*` generators (`linear`, `modular`, …) are ordinary functions producing token subtrees; nothing about them is special-cased.
-- The dedicated tokens file is the *library-authoring* form. An app that wants one design file passes the same graph to `createSystem({ tokens: { … } })` and receives `t` back bound ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)) — the split is available, never required.
+- exact accumulated typing per stage;
+- cycle/missing/duplicate diagnostics;
+- immutable branching;
+- deterministic composition order;
+- graph-aware editor rename across definitions, derivations, composed modules, and consumers;
+- separate graph identity preventing unrelated rename crossover;
+- public metadata and deprecation propagation;
+- checks evaluated with the same dependency graph.
 
-**Implementation.** `defineTokens` stores an immutable ordered contribution list—seed modules and derivation stages—without emitting. `.compose()` concatenates definitions without executing them; `.build()` walks each seed, executes each stage against the current exact handle tree, then classifies liveness and registers one global-theme emission through the vanilla-extract substrate (`createGlobalThemeContract` + `createGlobalTheme` internally; never re-exported). Duplicate leaves fail both at the returned value or compose argument and as a runtime diagnostic if types were escaped. Each handle carries its literal path, `var(--…)` reference, mode, folded value where one exists, and metadata; handles serialize across the build/app boundary through `/runtime`'s `restoreToken`.
+New requirements:
 
-### Token modules
+- module semantic engine requirements/signature;
+- data-type compatibility on graph edges;
+- reference/mutability propagation explanations;
+- portable versus plugin-owned node identity;
+- module/root/layer provenance;
+- module-local structure introspection without fake final names.
 
-```TS
-// design/palette.tokens.ts
-export const palette = defineTokens({
-  color: { brand: oklch(0.58, 0.2, 285).live() },
-}).derive(({ color }) => ({
-  color: { brandSoft: alpha(color.brand, 0.12) },
-}))
+## 4. Group metadata
 
-// design/foundations.tokens.ts
-export const foundations = defineTokens({
-  space: scale.linear({ unit: 4, steps: { sm: 2, md: 4 } }),
-  radius: { sm: '6px' },
-})
+Vane keys inside user structure use `$`:
 
-// design/tokens.style.ts — integration + one emission
-export const t = defineTokens()
-  .compose(palette)
-  .compose(foundations)
-  .derive(({ color, space }) => ({
-    control: { quiet: { color: color.brandSoft.var, gap: space.sm.var } },
-  }))
-  .build()
-```
+```ts
+const tokens = {
+  color: {
+    $description: 'Color decisions',
+    $root: '#widget',
 
-`palette.build()` remains valid on its own. Composing it does not mutate it or eagerly emit CSS; the final graph owns one prefix, one check pass, one manifest projection, and one deterministic emission order.
-
----
-
-## 2. Liveness compilation
-
-**Why.** hail-styl's most valuable idea — a color's lightness as a *formula* over semantic elevation, alive in the browser — died in every TS token system because tokens were static value maps. Liveness generalizes it: derivations survive to runtime **as CSS**, so one variable write re-derives the world with zero JS recomputation.
-
-**Usage → emitted.**
-
-```TS
-const t = defineTokens({ color: { brand: oklch(0.58, 0.2, 285).live() } })
-  .derive(({ color }) => ({
-    color: {
-      brandSoft: alpha(color.brand, 0.12),
-      brandHover: color.brand.lighten(0.06),
-    },
-  }))
-  .build()
-```
-
-```css
-:root {
-  --vane-color-brand: oklch(0.58 0.2 285);
-  --vane-color-brand-soft: oklch(from var(--vane-color-brand) l c h / 0.12);
-  --vane-color-brand-hover: oklch(from var(--vane-color-brand) calc(l + 0.06) c h);
+    brand: token,
+  },
 }
 ```
 
-**Contract details.**
+Initial group metadata set:
 
-- Classification per [dux-patterns.md §3](./dux-patterns.md#3-liveness): all-static inputs fold at build; any live input compiles the derivation to relative color syntax, `color-mix()`, `calc()`, or `light-dark()`.
-- **The color-handle surface is finite and documented.** Color handles carry: `alpha`, `lighten`, `darken`, `saturate`, `desaturate`, `rotate` (hue), and `mix(other, amount)`; each exists both as a method (`color.brand.lighten(0.06)`) and a standalone helper (`alpha(color.brand, 0.12)`). `oklch.from(base, channels)` is the general relative-color form; typed `channel.set/add/subtract/multiply/divide` operations fold over static inputs and serialize to relative OKLCH over live inputs. Constructors cover OKLCH, OKLab, LCH, Lab, HSL, sRGB, and Display-P3; `color(css)` remains the universal CSS-color escape.
-- Build-time color math and emitted CSS color math must agree to the rounding digit, or static and live ramps diverge subtly. This is a locked test fixture, not a hope.
-- A derivation the compiler cannot express as CSS is a build diagnostic at the derivation. The closed helper set makes this structurally absent today — every helper serializes — and it stays the law for any future addition. String-template derivations need no special case: an embedded token interpolates as its `var()` reference, which is live by construction.
+- `$description`;
+- `$root`, accepting an absolute selector or an `&`-anchored refinement;
+- axis requirement/exposure metadata in the least magical shape selected during the axis phase.
 
-**Implementation.** Color helpers (`oklch`, `alpha`, `lighten`, `mix`, …) build a tiny expression tree rather than computing eagerly. The compiler either evaluates the tree (culori for parsing/conversion, the operations themselves defined *as* their CSS formulas) or serializes it to CSS, choosing per liveness; anonymous static subtrees inside a live expression fold, graph edges stay `var()` references, so the emitted CSS is as boring as it can be.
+Do not grow a generic arbitrary `$` bag. Every group key needs a precise manifest and inheritance contract.
 
----
+## 5. Axes
 
-## 3. Schemes
+### 5.1 Complete single-axis values
 
-**Why.** "Add dark mode" must touch token definitions only (gauntlet moment 2). A scheme is a value pair inside one token — never a parallel palette — and switching is native: `color-scheme` + `light-dark()`, no JS, no flash-prone class swap for the preference-following default.
-
-**Usage.**
-
-```TS
-canvas: scheme({ light: oklch(0.99, 0.005, 285), dark: oklch(0.14, 0.006, 285) }),
-surface: ({ color }) => elevation(color.brand, 0.03), // preset composition; explicit graph edge
+```ts
+accent: de.token({
+  axes: {
+    scheme: {
+      light: de.color('red'),
+      dark: de.color('darkred'),
+    },
+  },
+})
 ```
 
-```css
-:root { color-scheme: light dark; }
-:root { --vane-color-canvas: light-dark(oklch(0.99 0.005 285), oklch(0.14 0.006 285)); }
+A complete map for one axis may omit a base `val` when exactly one mode is always active or the axis explicitly permits no default declaration.
+
+### 5.2 Base with partial modes
+
+```ts
+accent: de.token({
+  val: de.color('red'),
+  axes: {
+    scheme: {
+      dark: de.color('darkred'),
+    },
+  },
+})
 ```
 
-**Contract details.**
+Unspecified modes use the base value.
 
-- Scheme-dependent tokens compile live by definition (§2 applies downstream). They are not runtime *inputs*: both values are build-known, so `legibleOn` over them stays a checked guarantee, and `applyTheme` rejects them — chain `.live()` (`scheme({ … }).live()`) to make one user-themeable.
-- Forcing a scheme (user toggle) is standard CSS: the system emits `[data-scheme='light']`/`[data-scheme='dark']` scopes that pin `color-scheme`; `/runtime` ships a two-line `setScheme(el, scheme)` and the Nuxt module documents the SSR cookie dance ([dux-spec-vue.md §5](./dux-spec-vue.md#5-ssr-and-hmr)) — no zero-runtime system escapes it, so we ship the recipe instead of pretending.
-- Custom scheme axes beyond light/dark (high-contrast brand modes) are themes ([§7](#7-themes-theme-and-applytheme)), not schemes — the scheme axis is the one the platform natively pairs.
+### 5.3 Multiple independent axes
 
----
+```ts
+shadow: de.token({
+  val: baseShadow,
 
-## 4. Elevation
+  axes: {
+    scheme: {
+      light: lightShadow,
+      dark: darkShadow,
+    },
 
-**Why.** The single strongest idea in hail-styl: express surfaces, borders, and inks as *positions between the background and foreground planes* (0–1), and derive per-scheme lightness from position. Light/dark falls out automatically; a new elevation token is one number, not two colors.
-
-**Usage.**
-
-```TS
-surface: ({ color }) => elevation(color.brand, 0.03),
-surfaceRaised: ({ color }) => elevation(color.brand, 0.08),
-border: ({ color }) => elevation(color.brand, 0.20),
-inkMuted: ({ color }) => elevation(color.brand, 0.62),
-ink: ({ color }) => elevation(color.brand, 0.94),
+    density: {
+      cozy: cozyShadow,
+      compact: compactShadow,
+    },
+  },
+})
 ```
 
-**Contract details.**
+When multiple modes match, declarations resolve in engine axis order. This is allowed and introspectable; the compiler should warn only when policy identifies likely accidental overwrites, not prohibit deliberate precedence.
 
-- `elevation(base, n)` maps `n` to lightness per scheme (rising = lighter in dark, darker in light), then tints that neutral plane from the explicit `base`. A live base keeps the result live.
-- Elevation is a **preset composition, not a core axiom**: its implementation uses the public `scheme()` and `mix()` helpers. The core has no hidden hue, chroma, or elevation controls; replacing the helper costs nothing (principle 10).
-- The curve (how positions map to lightness) is a system option with a perceptually-tuned default.
+### 5.4 Sparse cases
 
----
+```ts
+shadow: de.token({
+  val: baseShadow,
+  axes: {/* ... */},
 
-## 5. Contrast and checks
-
-**Why.** Accessibility pairings are usually an audit nobody re-runs. The graph knows both endpoints of every pairing — including both scheme values — so legibility becomes a build diagnostic with a fix-it (principle 7). The derivation is named for what it *produces* — a color legible on its target — not for the check it happens to carry; `onBrand: legibleOn(…brand)` reads as the relationship it is.
-
-**Usage.**
-
-```TS
-onBrand: ({ color }) => legibleOn(color.brand),
+  cases: [
+    {
+      when: {
+        scheme: 'dark',
+        density: 'compact',
+      },
+      val: darkCompactShadow,
+    },
+  ],
+})
 ```
+
+“Sparse” means only exceptional intersections are authored. No Cartesian table is generated or required.
+
+Case contracts:
+
+- `when` keys/modes autocomplete from the engine;
+- at least two axes are required unless a one-axis case has a separately justified use;
+- duplicate/intersecting equivalent cases are diagnosed;
+- cases emit after single-axis declarations;
+- a case may be mutable and receives an addressable runtime slot when the token is mutable;
+- manifest provenance records the complete `when` object.
+
+### 5.5 No-default runtime reservations
+
+An author may reserve a mutable base or branch without giving it a build-time value:
+
+```ts
+const reservations = {
+  fill: de.token.color({
+    mutable: true,
+  }),
+
+  accent: de.token({
+    val: baseAccent,
+    mutable: true,
+
+    axes: {
+      scheme: {
+        dark: null,
+      },
+    },
+
+    cases: [
+      {
+        when: {
+          scheme: 'dark',
+          density: 'compact',
+        },
+        val: null,
+      },
+    ],
+  }),
+}
+```
+
+`fill` has a public binding and an addressable base slot, but no initial slot declaration. It is CSS-invalid until set unless `@property` registration supplies an `initial-value`; in that registered form, the platform initial value is the effective default and `$unset()` restores it.
+
+For `accent`, `dark` and the dark/compact case are authored addresses, so they appear in branch-handle types and receive runtime slots, but no initial slot declaration is emitted. Until `$set()` supplies a value, each binding falls through to the expression that would have won without that reserved branch. `$unset()` restores that same fallback.
+
+The compiler serializes the prior effective expression into the slot fallback chain; it must not create a self-referential public-property cycle. If no prior effective value exists, the branch remains CSS-invalid until set and ordinary consumer `$var(fallback)` behavior remains available.
+
+Branch `null` is valid only on a mutable token. On a nonmutable token it has no public property identity of its own and is diagnosed; omission is the correct partial-axis form. The token's data type supplies the reserved branch type, so an additional untyped value sentinel is unnecessary.
+
+## 6. Group-level axis bulk form
+
+The transposed form was prototyped because it matches palette-table authoring:
+
+```ts
+const tokens = {
+  color: {
+    $axes: {
+      scheme: {
+        light: {
+          canvas: lightCanvas,
+          ink: lightInk,
+        },
+
+        dark: {
+          canvas: darkCanvas,
+          ink: darkInk,
+        },
+      },
+    },
+
+    canvas: de.token({
+      description: 'Application canvas',
+    }),
+
+    ink: de.token({
+      description: 'Primary text',
+    }),
+  },
+}
+```
+
+It does **not** ship in the initial language. Per-token axes provide better completion/error locality, compose directly with cases, and avoid taxing every group with a transposed mapped type. A literal `$axes` group key receives a diagnostic pointing to `de.token({ axes })` rather than being partially interpreted.
+
+Reconsideration requires new evidence that all of these hold:
+
+- exact key totality and metadata merging remain readable;
+- error locality is better than repeated per-token maps;
+- TypeScript completion/diagnostic performance meets the large-graph budget;
+- it normalizes to the same canonical graph as per-token axes;
+- it does not complicate cases or module composition disproportionately.
+
+Per-token axes remain the canonical internal representation.
+
+## 7. Roots and declaration contexts
+
+Every token declaration resolves an effective root. Axis selector conditions must state their relation to it.
+
+For root `#widget`:
+
+```ts
+condition('&[data-scheme="dark"]')
+// #widget[data-scheme="dark"]
+
+condition('[data-scheme="dark"] &')
+// [data-scheme="dark"] #widget
+```
+
+Mutable token bindings should match the effective root so internal slot substitution sees values written on that root. Descendant/absolute placements that break this invariant produce a diagnostic or require a separately bound runtime root.
+
+At-rule conditions wrap the declaration root.
+
+## 8. Emission
+
+Conceptual order:
 
 ```text
-✖ VANE_TOKENS_CONTRAST  color.onBrand / color.brand fails APCA Lc 60 in scheme "dark"
-    target (dark) → oklch(0.68 0.2 285); best pairing white = Lc 47.2
-    at design/tokens.style.ts
-  fix: adjust the target color, or accept explicitly: legibleOn(…, { minLc: 47 })
+token contract/name allocation
+→ optional @property registrations
+→ base declarations
+→ axis declarations in engine order
+→ cases
+→ token override classes
 ```
 
-**Contract details.**
+All ordinary declarations live in deterministic system token sublayers.
 
-- `legibleOn(target)` yields the legible pairing for a target color, checked at build against both schemes (APCA by default; WCAG2 selectable per system, once one exists). It takes the color itself, so inside a derivation it reads like every other graph reference — one way to reference the graph, everywhere.
-- Over a **live** target the guarantee cannot be total: the emitted value uses `contrast-color()` where supported plus a computed fallback, and the handle types as `VaneContrastToken<'live'>`, never `'checked'` — honest limits, stated in types ([dux-patterns.md §3](./dux-patterns.md#3-liveness)). Scheme and elevation targets stay checked — both values are build-known.
-- Standalone assertions cover pairings the graph doesn't own, as a thunk over the same refs derivations receive: `checks: ({ color }) => [check.textContrast(color.ink, color.canvas).aa()]` in `defineTokens` options.
-- Checks are diagnostics with fix-its, never hard gates you can't consciously accept — an explicit threshold override is always available and shows up in the audit ([dux-spec-introspection.md §3](./dux-spec-introspection.md#3-audits)).
+Nonmutable axis and case branches declare the public custom property directly in those ordered sublayers. This preserves the browser's selector-local cascade for descendant and absolute conditions instead of prematurely substituting a root-bound staging value. Private staging properties are reserved for mutable multi-axis fallback chains, and those bindings obey the effective-root placement invariant above.
 
----
+### 8.1 Val-referenced token
 
-## 6. Composite tokens
+May emit no custom property when no other capability needs one. Consumers serialize the resolved expression.
 
-**Why.** Some design decisions are multi-property (a text style: size + line height + weight; a focus ring). hail-styl called these token assignments; they must spread as ordinary declarations, no unwrap ceremony.
+### 8.2 Var-referenced token
 
-**Usage.**
+Emits a public custom property unless `emit: false`/no-default semantics deliberately omit it. Consumers serialize `var(--name)`.
 
-```TS
-text: {
-  body: { fontSize: '1rem', lineHeight: 1.5, fontWeight: 400 },
-  title: { fontSize: '1.375rem', lineHeight: 1.25, fontWeight: 600 },
-},
+### 8.3 Mutable token
+
+Emits internal inheritable value slots and a public binding:
+
+```css
+:root {
+  --app-brand--slot-base: oklch(...);
+  --app-brand: var(--app-brand--slot-base);
+}
 ```
 
-```TS
-export const heading = css({ ...t.text.title, color: t.color.ink })
+The `--slot-*` spelling is illustrative only. Axed/case slots use opaque stable identifiers carried by runtime metadata. Their exact names are not a public consumer contract and are never returned as a branch `$name`.
+
+### 8.4 Registered token
+
+The public custom property may emit `@property`. Internal slots remain unregistered/inheritable unless a future proven requirement changes that policy.
+
+Registration validates platform requirements, including syntax and initial-value constraints. A no-default token cannot silently synthesize an invalid initial value.
+
+Typed registration also changes computed-value timing. An unregistered custom property retains an unresolved token stream, while a registered property substitutes as its computed value. For `<color>`, that means `light-dark()` selects against the declaring element's color scheme before the result inherits. See [CSS Properties and Values API §2.4](https://www.w3.org/TR/css-properties-values-api-1/#calculation-of-computed-values) and [CSS Color 5 §7](https://drafts.csswg.org/css-color-5/#light-dark).
+
+Consequently:
+
+- the built-in scheme adapter defaults to **element-local** selection, preserving descendant `color-scheme` overrides;
+- element-local native scheme output plus a typed registered public property is an error, because registration would freeze selection at the broader declaration root;
+- an explicit universal (`syntax: '*'`) registration follows unregistered custom-property computation and may preserve element-local token-stream semantics, but it does not promise typed interpolation;
+- an author may explicitly choose **root-bound** scheme semantics, after which typed registration and root computation are compatible;
+- selector emission may replace native output only when it preserves the declared scheme semantics; it is not an excuse for a silent downgrade.
+
+## 9. Schemes
+
+Scheme becomes a built-in axis adapter, not a token/color special case.
+
+The adapter may emit native `light-dark()` when:
+
+- the token value type is color (`light-dark()` is a CSS `<color>` function);
+- the browser/toolchain target permits it;
+- its condition/override semantics match the requested scheme behavior.
+
+Mutable scheme values compose with slots:
+
+```css
+:root {
+  --app-brand--slot-scheme-light: oklch(...);
+  --app-brand--slot-scheme-dark: oklch(...);
+  --app-brand: light-dark(
+    var(--app-brand--slot-scheme-light),
+    var(--app-brand--slot-scheme-dark)
+  );
+}
 ```
 
-**Contract details.** A composite token is a declaration fragment whose values may themselves be tokens or derivations; it participates in liveness per member. Spreading is the whole consumption API.
+Selector/media emission remains available where native optimization cannot represent the axis policy, including every non-color use of the same scheme axis.
 
----
+## 10. Overrides
 
-## 7. Themes: `theme()` and `applyTheme`
+The build-time grouped override primitive replaces `theme()` terminology:
 
-**Why.** A theme is a scoped set of token overrides — brand sections, white-labeling, user preference. The same concept exists at build time (a class scoping overridden variables) and at runtime (writing live variables); naming them as a pair keeps one mental model.
-
-**Usage.**
-
-```TS
-// build time — any tokens; standalone form (phase 1, before the system exists)
-export const midnight = theme(t, { color: { brand: oklch(0.45, 0.15, 250) } }) // → class
-
-// runtime — live tokens only, from /runtime; `t` is inert data, importable anywhere
-applyTheme(document.documentElement, t, { color: { brand: userPicked } })
+```ts
+const compactClass = ds.tokenOverride({
+  size: {
+    control: '28px',
+  },
+})
 ```
 
-Both standalone forms take the graph — that is what types the overrides (`applyTheme` rejecting a static key needs to know which keys are live) and what carries custom prefixes to the runtime. Once a system exists, `createSystem` binds the tokens and the bound forms drop the argument: `theme({ color: { brand } })` ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)).
+It must preserve the current valuable behavior:
 
-**Contract details.**
+- exact tree typing and typo diagnostics;
+- override only named token inputs;
+- re-resolve/re-emit downstream build-folded values where necessary;
+- let CSS-dependent expressions continue to derive in the cascade;
+- return an ordinary class in the system override layer;
+- record provenance and overridden paths.
 
-- `theme()` accepts overrides for any token and emits a class scoping the re-declared variables; derivations downstream re-derive automatically (live ones via CSS; static ones re-folded at build within the theme scope, legibility re-checked — a `legibleOn` pick may flip). An override changes a token's *value*, never its liveness.
-- `applyTheme()` accepts **live tokens only** — the graph's declared runtime inputs. A static, scheme, or derived key is a type error at that key ([dux-patterns.md §3](./dux-patterns.md#3-liveness)): writing a derived variable would half-clobber its derivation, so the honest API is to theme the input and let the cascade re-derive every downstream surface, hover, and pairing — gauntlet moment 3.
-- Themes nest by DOM scoping, exactly like the custom properties they are.
+The canonical name is `ds.tokenOverride()`; `theme` is retired as the mechanism name.
 
----
+## 11. Projections and public naming
 
-## 8. Metadata
+Final names are deterministic from system prefix and kebab token path unless an explicit stable naming policy overrides them.
 
-**Why.** Tokens are read by hovers, docs, audits, and agents; the definition site is where intent lives.
-
-**Usage.**
-
-```TS
-brand: oklch(0.58, 0.2, 285).live().describe('Primary brand hue. Marketing owns this.'),
-legacyBlue: oklch(0.6, 0.15, 250).deprecated('use color.brand'),
+```ts
+ds.tokensOf(colors)
+ds.namesOf(colors)
+ds.varsOf(colors)
 ```
 
-**Contract details.** `describe` and `deprecated` ride the handle (`t.color.brand.description`) — readable by tools today, projected into the manifest when it ships ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)). Editor strikethrough for `deprecated` waits on the manifest-driven tooling: TypeScript's `@deprecated` machinery attaches to declarations, and mapped-type properties cannot carry it — a limit we state rather than paper over.
+Projections must work from config/plugin contexts without running style emission. This is required for SVG/icon pipelines and other TS configuration integration.
 
----
+`$var(fallback?)` serializes a valid CSS `var()` expression and validates fallback data-type compatibility.
 
-## 9. Emitted names
+## 12. Manifest and explanation
 
-**Why.** The emitted variables are a public, consumer-facing API (themes, devtools, third-party CSS reading our tokens); their names must be predictable and collision-safe.
+The token manifest no longer hardcodes `{ light, dark }`:
 
-**Contract details.**
+```ts
+interface VaneManifestToken {
+  path: readonly string[]
+  name?: `--${string}`
+  type: string
+  reference: 'val' | 'var'
+  emit: boolean
+  mutable: boolean
+  hasDefault: boolean
+  expression: VaneManifestExpression
+  inference: {
+    reference: 'explicit' | 'engine-default' | 'capability'
+    emit: 'explicit' | 'engine-default' | 'capability'
+    reasons: readonly string[]
+  }
+  fold: { status: 'folded' | 'preserved' | 'unavailable', val?: string | number, reason?: string }
+  declarations: readonly VaneManifestDeclaration[]
+  dependencies: readonly VaneManifestEdge[]
+  support: {
+    requirements: readonly string[]
+    fallback?: string
+    enhancement?: string
+  }
+  branches?: readonly VaneManifestBranch[]
+  registration?: { syntax: string, inherits: boolean, initialVal?: string }
+  portability: { status: 'portable' | 'codec' | 'nonportable', extension?: { id: string, version: string | number }, reason?: string }
+  runtime?: VaneRuntimeTokenMetadata
+  preview:
+    | {
+      status: 'resolved'
+      val: string
+      environment: Record<string, string>
+      caveats?: readonly string[]
+    }
+    | {
+      status: 'unavailable'
+      reason: string
+    }
+  metadata?: Record<string, unknown>
+}
 
-- Path-derived kebab names under the system prefix: `t.color.brandSoft` → `--vane-color-brand-soft`; prefix configurable (`defineTokens(graph, { prefix: 'prism' })` — later `createSystem({ prefix: 'prism' })` — → `--prism-*`), and literal in the types: the emitted name is readable in the hover.
-- Names are stable across builds (no content hashing for tokens — they are the *intended* public surface, unlike style classes).
-- The full name map ships in the manifest ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)).
+interface VaneManifestDeclaration {
+  kind: 'base' | 'axis' | 'case' | 'override' | 'slot'
+  val: string | number | null
+  axis?: string
+  mode?: string
+  when?: Record<string, string>
+  context: {
+    root: string
+    selectors: readonly string[]
+    atRules: readonly string[]
+    layer?: string
+  }
+  source?: VaneSource
+}
+```
+
+Manifest v2 stores system-wide `supportTarget` and `previewEnvironment` once. A token preview may omit its environment when it inherits that default. Declaration `source` is omitted when it inherits the token's source; a declaration `name` is omitted when it writes the public token property. These are stable inheritance rules, not missing provenance. `context.root` is the owning token root, while `selectors` contains any additional effective condition selector; at-rules and layer complete the exact emission context.
+
+`ds.explain(token)` returns or renders:
+
+- authored source/module;
+- data type and expression kind;
+- dependency edges;
+- reference/emission inference and reasons;
+- fold result/refusal;
+- resolved preview for the selected build environment, or an explicit reason one cannot be computed;
+- emitted-expression browser-support requirement and any fallback/enhancement path;
+- axes/cases and final order;
+- public name and mutable slots;
+- registration;
+- DTCG portability;
+- every emitted declaration context.
+
+## 13. DTCG
+
+```ts
+const snapshot = exportDesignTokens(ds, {
+  mode: 'resolved',
+  environment: { scheme: 'dark', density: 'compact' },
+})
+
+const authored = exportDesignTokens(ds, { mode: 'authored' })
+const tokens = importDesignTokens(authored, { engine: de })
+```
+
+Export modes:
+
+1. **Resolved snapshot** — select an environment and emit broadly interoperable DTCG values/aliases/types where representable.
+2. **Authored vane document** — include `com.mszr.vane-dux` extension data for axes, cases, graph operations, emission, registration, and metadata.
+
+The implementation targets the [DTCG Format Module 2025.10](https://www.designtokens.org/TR/2025.10/format/) and [Resolver Module 2025.10](https://www.designtokens.org/TR/2025.10/resolver/). Initial standard snapshot/import support is deliberately exact: finite numbers, dimensions in `px`/`rem`, durations in `ms`/`s`, structured colors, curly/JSON-Pointer aliases, inherited `$type`, descriptions, and extensions. An unsupported/unresolved standard projection fails instead of flattening one environment ambiguously.
+
+The authored extension is `com.mszr.vane-dux`, version `1`. It records final system prefix/root/axis order and per-token type, reference/emission/mutability, base and branch values including no-default reservations, registration, metadata, expression evidence, dependencies, and a token-level loss marker. Every encoded base/mode/case value may carry its own codec identity/payload, so a complete opaque plugin-owned value round-trips at any authored address rather than only at the base. Core/mixed expressions that merely contain an opaque leaf are diagnosed as nonportable in v1; a leaf codec cannot claim the surrounding core expression. Vane-authored round trips are semantically lossless when every node is portable or has an applicable plugin codec. A codec declares stable `id`, `version`, the extension identity it handles, and a JSON-safe payload. Missing codecs and nonportable arbitrary TypeScript closures fail strict export/import rather than lying; `strict: false` is an explicit lossy authored-document escape.
+
+Unknown DTCG extensions at document, group, and token level are preserved. Standard `$root` tokens import only when the corresponding Vane path can be a leaf; a DTCG node that is simultaneously a `$root` token and a group cannot map to Vane's leaf-or-group path model and receives an exact diagnostic.
+
+External reference/network resolution is disabled by default. `resolveExternal(reference)` is an explicit synchronous capability; callers resolve asynchronous documents before import. Unknown aliases, cycles, non-finite channels, unsupported units/spaces, and mismatched authored axis orders receive distinct diagnostics.
+
+## 14. Checks
+
+Current graph checks, contrast guarantees, unused-token findings, scale audits, and metadata remain. They generalize over the new value/axis model:
+
+- checks may resolve a specified environment snapshot;
+- checks over mutable/live values report runtime guarantees or uncertainty honestly;
+- axis totality/case conflicts/root placement/runtime slot issues have stable diagnostics;
+- raw assertions and alias/policy escapes remain auditable.
+
+## 15. Evidence
+
+Completion requires:
+
+- migration tests proving current graphs preserve intended output where semantics are unchanged;
+- exact token config/type fixtures including null and typed no-default forms;
+- all axis/base/partial/multi-axis/case combinations;
+- exact authored/reserved branch handles and mutable `null` reservation fallback/reset;
+- root-anchored selector and at-rule output;
+- layer order independent of imports;
+- mutable slot output and public registration interaction;
+- graph rename and module isolation;
+- module/name/var projections outside compiler execution;
+- manifest/explain snapshots;
+- DTCG standard snapshot and vane semantic round-trip fixtures;
+- large graph completion/diagnostic/declaration budgets.

@@ -1,7 +1,7 @@
 updated: 2026-07-14
-status: recorded implementation baseline — compare refactor phases against this evidence, not its API spellings
+status: accepted historical and current performance baselines
 
-# vane-dux next — current baseline
+# vane-dux — benchmark baselines
 
 This document records the implementation immediately before the semantic-foundation refactor. It is a preservation aid, not a target API specification.
 

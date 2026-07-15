@@ -6,7 +6,7 @@
  * the `/vite` plugin drives.
  */
 
-import { createEngine, createSystem, unsafe } from '@mszr/vane-dux'
+import { createEngine, unsafe } from '@mszr/vane-dux'
 import { definePrismSystem, emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
@@ -139,7 +139,7 @@ describe('the manifest', () => {
 describe('the audit config', () => {
   it('rides the system record into the manifest', () => {
     const { records, result } = collectInspection(() => emit(() =>
-      createSystem({ tokens: { space: { sm: '8px' } }, audit: { unusedTokens: 'error' } })))
+      createEngine().createSystem({ tokens: { space: { sm: '8px' } }, audit: { unusedTokens: 'error' } })))
 
     expect(buildManifest(records, result.css).audit).toEqual({ unusedTokens: 'error' })
   })

@@ -1,138 +1,516 @@
-updated: 2026-07-09
-status: settled law — referenced by every spec; changes here ripple everywhere
+updated: 2026-07-15
+status: canonical public language
 
 # vane-dux — language
 
-The words: vocabulary, naming rules, and doc style that make every vane-dux surface read like one library. [dux-vision.md](./dux-vision.md) principles 4 and 5 are the *why* — self-documenting, predictable, learn one and know the rest; this doc is the *what*. The behavioral patterns this vocabulary describes live in [dux-patterns.md](./dux-patterns.md).
+One term has one meaning. CSS terms retain their platform meaning; vane terms name concepts CSS does not provide by itself.
 
-Every name we add answers three questions: does it say what the thing **is** (not what an ancestor called it), is it **technically accurate**, and is it used **consistently** everywhere the concept appears? Where CSS, the web platform, or the ecosystem already has a precise word, we keep it — renaming for sport is its own kind of boilerplate. Where the inherited word is wrong for our context (vanilla-extract's "theme contract", the ecosystem's "slot recipe"), we rename and record the mapping ([§4](#4-the-naming-map)).
+## 1. The canonical sentence
 
-- [0. House style](#0-house-style)
-- [1. Vocabulary](#1-vocabulary)
-- [2. Values vs types](#2-values-vs-types)
-- [3. Naming collisions we refuse](#3-naming-collisions-we-refuse)
-- [4. The naming map](#4-the-naming-map)
+> **An engine defines your system; a system styles your things.**
 
----
+```ts
+export const de = createEngine()
 
-## 0. House style
+export const tokens = de.defineTokens(/* ... */)
 
-The style for every vane-dux doc — specs, vision, and READMEs alike.
+export const ds = de.createSystem({
+  tokens,
+})
+```
 
-- **Precise, not padded.** One concept, one term; synonyms signal different things. Use the technical word when the domain calls for it. Write to lower the reader's effort, not to sound thorough.
-- **Decisions, not deliberations.** State the current answer, not the path to it. Imperative or declarative ("use X", "X is Y"), never "you might consider X". Dropped alternatives and exploratory reasoning are omitted.
-- **Rationale earns its place.** Explain a choice when the reason is non-obvious, frames intent, or guards a known trap — otherwise let the rule stand clean. The test isn't "is this interesting?" but "does this help someone apply the rule correctly, or understand why it matters?" The two failure modes are equal: commentary that buries the rule, and terseness that makes it feel arbitrary. Directness is the default; rationale is the deliberate exception.
-- **No hedging.** Drop *generally*, *usually*, *try to* unless a real exception needs surfacing — then state it.
-- **DRY.** A fact lives in one doc; the others link to it instead of restating it.
-- **Tone is audience-scoped.** Specs are technical and authoritative. The vision is deliberate and aspirational. READMEs are warmer — a new reader's first contact — but still precise: friendly without filler.
-- **Specs are contract-driven.** Each entry headlines the desired behavior and why it matters, then proposes an implementation. If reality teaches a better implementation, the proposal moves; the contract above it stays. Micro snippets are collocated with the contract they illustrate — show the usage, not just the abstraction.
-- **Code fences: `TS`, not `ts`.** Markdown TypeScript blocks open with <code>```TS</code>. Doc snippets are illustrations — often partial, teaching-ordered, deliberately incomplete — and the uppercase tag keeps the markdown-lint/ESLint pipeline from treating them as compilable source while editors still highlight them.
+The `de` name is a recommended local convention for a design engine, not a required export. `ds` remains the recommended name for the resolved design system.
 
-### Name your token graphs and recipes at export
+## 2. Vocabulary
 
-A house convention for userland, modeled by every demo and doc: export the system's bound functions once (`export const { css, recipe, anatomy, port } = createSystem(…)`) and export styles as named `const`s. Named exports are what make gauntlet moments 1 and 9 free — rename-symbol and dead-export detection only work on names the module graph can see.
-
----
-
-## 1. Vocabulary
-
-These words carry exactly these meanings across every entrypoint, doc, diagnostic, and test.
-
-| Term | Means |
+| Term | Exact meaning |
 | --- | --- |
-| **token** | one named design decision in the graph (`t.color.brand`, `t.space.md`) — a typed export, never a string key |
-| **derivation** | a token defined as a function of other tokens (`({ color }) => alpha(color.brand, 0.12)`) — a real dependency edge in the graph |
-| **stage** | one topological `.derive()` step in a token definition — it sees every earlier token; its output becomes visible to the next stage |
-| **token module** | an independently buildable token definition composed into a larger graph with `.compose()` — internal stages and source identity stay intact |
-| **live token** | a token whose value can change in the browser — marked `.live()` or scheme-dependent. Liveness propagates: any derivation of a live token compiles to a live CSS expression instead of a build-time constant ([dux-patterns.md §3](./dux-patterns.md#3-liveness)) |
-| **scheme** | the light/dark (or custom) rendering mode axis. A scheme is a *value pair inside one token* (`scheme({ light, dark })` → `light-dark()`), never a parallel palette |
-| **elevation** | a preset derivation mapping a 0–1 foreground/background plane position to scheme-aware lightness — the hail-styl model, generalized ([dux-spec-tokens.md §4](./dux-spec-tokens.md#4-elevation)) |
-| **theme** | a scoped set of token overrides: build-time `theme(overrides)` → a class; runtime `applyTheme(el, overrides)` → live-variable writes. A theme overrides tokens; a scheme switches modes — the two are orthogonal |
-| **check** | a build-time design guarantee (contrast pairing, focus replacement) that fails as a diagnostic, not an audit finding |
-| **system** | the bound design contract: `createSystem({ tokens, conditions, layers })`. Source of every typed authoring function; one per app or design system |
-| **condition** | a named, typed circumstance under which declarations apply — pseudo, media, container, scheme, data/ARIA state. Bare keys in style objects (`hover:`, `md:`), one definition in the system |
-| **layer** | a CSS `@layer`, declared once in the system; every emitted rule belongs to one |
-| **style** | the unit `css()` returns — a scoped class whose rules compiled away |
-| **recipe** | a variant-compressed component style: `base` + `variants` + `toggles` + `compound`; calling it resolves variant props to classes |
-| **variant** | one named visual axis of a recipe (`intent`, `size`) with enumerated values |
-| **toggle** | a boolean variant (`pill: { … }` under `toggles:`) — on or off, no value enum |
-| **anatomy** | a multi-part recipe: named **parts** styled as one unit, variants applying across parts ([dux-spec-recipes.md §3](./dux-spec-recipes.md#3-anatomy--parts-styled-as-one-unit)) |
-| **part** | one named element of an anatomy (`root`, `trigger`, `content`) — *never* "slot" ([§3](#3-naming-collisions-we-refuse)) |
-| **port** | a declared, typed, defaulted CSS custom property that a style exposes as its public runtime interface — the only way values cross the build/runtime wall ([dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port)) |
-| **atoms** | the preset's strict utility lane: token-bound property→value styling at call sites, dynamic values riding through ports ([dux-spec-preset.md §3](./dux-spec-preset.md#3-atoms)) |
-| **escape** | a deliberate step off the typed path — a raw selector key, `css.raw`, an `unsafe` value with a reason. Always validated, always scoped, always auditable |
-| **manifest** | the machine-readable projection of a system — tokens, recipes, ports, conditions with metadata — emitted at build for tools and agents |
-| **provenance** | the trail from a rendered rule back to its source: debug class names, source maps, token attribution |
-| **style module** | a `*.style.ts` file — evaluated at build time, emitting CSS; its exports are classes, ports, and recipes |
+| **engine** | The configured authoring environment used to define token modules and systems: values, plugins, axes, graph semantics, and policy. |
+| **system** | One finalized token graph plus its bound styling, emission, introspection, and runtime APIs. |
+| **CSS data type** | A platform value category such as `<color>`, `<length>`, or `<angle>`. |
+| **expression** | A typed CSS-producing value: literal, function, calculation, reference, operation, or raw syntax. |
+| **token** | A named design decision in the graph. A token is not synonymous with a custom property. |
+| **token module** | An unfinished, independently composed token graph created by one engine. |
+| **val reference** | Using a token's resolved CSS expression directly. |
+| **var reference** | Using a token through `var(--custom-property)`. |
+| **custom property** | A CSS property in the `--*` family. Never shortened to CCP in public API names. |
+| **axis** | A mutually exclusive environmental dimension such as scheme, density, brand, or contrast. |
+| **mode** | One value of an axis, such as `dark` or `compact`. |
+| **case** | An explicit value for an intersection of two or more axis modes. |
+| **condition** | A reusable circumstance composed from selectors and/or conditional at-rules. |
+| **root** | The selector anchoring a system/module/group's emitted token declarations. |
+| **emission context** | The effective root, condition, at-rules, and layer for one declaration. |
+| **mutable token** | A token whose authored base/mode/case values receive runtime-addressable custom-property slots. |
+| **runtime** | A finalized system bound to one concrete DOM/cascade root. |
+| **token override** | A typed group of changes to token values. It may produce a build-time class or runtime assignments. |
+| **port** | A component/style's published per-instance custom-property input with a default. |
+| **plugin** | A reusable engine extension built through the same public contracts as built-ins. |
+| **pattern** | A reusable class-generating styling composition. |
+| **utility** | A pure value or style-fragment helper; not every utility is a pattern. |
 
-The words of CSS itself keep their platform meanings: property names are csstype's camelCase, selectors are CSS selector syntax, at-rules are their CSS spellings. vane-dux never invents a parallel spelling for something CSS already names.
+`theme` remains an application/product word. Vane does not use it for the primitive act of assigning arbitrary custom properties.
 
----
+`scope` is reserved for CSS `@scope`. Conversational uses such as “scoped under the widget” are understandable, but APIs use `root`, `condition`, `selector`, and `context` precisely.
 
-## 2. Values vs types
+## 3. Engine authoring
 
-- **Values are unprefixed:** `defineTokens`, `createSystem`, `css`, `recipe`, `anatomy`, `port`, `keyframes`, `globalCss`, `theme`, `defineAtoms`, `applyTheme`, `setScheme`, `propsOf`, `usePorts`, `useAnatomy`. The package specifier already namespaces them; a userland clash is one `import { css as vaneCss }` away.
-- **Types are `Vane`-prefixed and domain-scoped.** Root nouns may stand alone (`VaneSystem`, `VaneTokens`); supporting types read `Vane<Domain><Thing>` (`VaneStyleRule`, `VaneRecipeProps`, `VanePortValue`). The everyday utility is `VaneProps<typeof button>` — the inferred variant props of a recipe or anatomy.
-- **A standard name stays standard; a name we coin is chosen for precision.** csstype property names, CSS at-rule spellings, and platform terms pass through untouched.
+The engine grows through staged, immutable links so later links receive exact earlier capabilities.
 
-**The shipped namespace is `Vane`.** `dux` is the workspace, branch, and doc-set word only. Shipped types, classes, and interfaces use `Vane*` (`VaneError`, `VaneDiagnostic`, `VaneDiagnosticCode`). Stable machine identifiers use `VANE_*`. No shipped API, diagnostic code, environment variable, class, or type uses `Dux*`, `*Dux*`, or `DUX*` unless it is literally naming the workspace/docs.
+```ts
+export const de = createEngine({
+  color: {
+    space: 'oklch',
+  },
 
-**Why `Vane*` and not `VaneDux*`.** The maintainer's forks brand coined types `<Brand>Dux*` when the bare brand belongs to an upstream (`H3Dux*` beside h3's own `H3*`, `IdbDux*` beside Instant's). Here *vane* is itself the coined brand — no official `Vane*` namespace exists to collide with — so the shorter prefix is unambiguous and the `Dux` tier is unnecessary.
+  length: {
+    unitless: 'px',
+  },
 
-**Generated names.** vane-owned CSS custom properties use `--vane-*` by default (`--vane-color-brand`), configurable via the system's `prefix`; user-authored custom properties pass through unchanged. Diagnostic codes are `VANE_<DOMAIN>_<DETAIL>` — stable identifiers the editor-DX suites assert on; renaming one is a breaking change.
+  tokens: {
+    reference: 'var',
+    emit: true,
+  },
+})
+  .use(elevationPlugin())
+  .extend({
+    id: 'com.example.editorial-values',
+    version: 1,
+  }, ({ defineValue }) => ({
+    editorial: {
+      measure: defineValue(/* extension-owned serializer */),
+    },
+  }))
+  .axes(({ axis, data, defaultMode, schemeIs, darken }) => ({
+    scheme: axis({
+      modes: {
+        light: defaultMode(),
+        dark: schemeIs('dark'),
+      },
 
----
+      derive: {
+        dark: ({ light }) => darken(light, 0.4),
+      },
+    }),
 
-## 3. Naming collisions we refuse
+    density: axis({
+      modes: {
+        compact: data('density', 'compact', { on: 'root' }),
+        cozy: data('density', 'cozy', { on: 'root' }),
+      },
+    }),
+  }))
+```
 
-Three ecosystem words are banned from the vane-dux surface because they already mean something else to our primary audience:
+Axes use declaration order by default. Add `.axisOrder('density', 'scheme')` only when deliberate precedence differs from that order; the override autocompletes and must list every axis exactly once.
 
-- **"slot".** In Vue, a slot is content projection (`<slot />`). The ecosystem's "slot recipe" (Panda's `sva`, Ark's slots) styles a component's *elements*, which is a different concept — so a Dialog's styled backdrop is a **part** of its **anatomy**, matching the headless libraries' own anatomy/parts vocabulary. A "slot" in vane-dux docs always means the Vue kind.
-- **"theme" for the light/dark axis.** Light/dark is a **scheme** (matching CSS `color-scheme` and `prefers-color-scheme`); a **theme** is a scoped token-override set. Conflating them is how "add dark mode" becomes "maintain two palettes".
-- **"variable" for the runtime boundary.** Every custom property is a variable; only a declared, typed, defaulted one is a **port**. The distinct word is the point: it names the doorway, not the mechanism.
+The engine object is kept intact. Destructuring a helper for local convenience is allowed, but examples should not scatter unrelated engine functions into a pseudo-global import surface.
 
----
+## 4. Token definition
 
-## 4. The naming map
+### 4.1 Raw shorthand
 
-Every name vane-dux coins or adopts, with the ecosystem/substrate term it maps to and why. New names are settled here once; the specs reference this table rather than re-justifying each.
+The common path is a value:
 
-| vane-dux | Ecosystem / substrate | Why |
-| --- | --- | --- |
-| `defineTokens(graph)` | VE `createGlobalThemeContract` + `createGlobalTheme` | one call defines names *and* values *and* relationships; "contract" vocabulary retired — the system is the contract |
-| derivation (`({ color }) => …`) | — (new; hail-styl formulas) | tokens as a dependency graph, not a value bag |
-| `.compose(tokenModule)` | hand-merged token objects | independently buildable graphs accumulate with exact inference, duplicate-path diagnostics, and graph-aware rename identity |
-| `.live()` | — (new) | marks a runtime-changeable token; names the consequence (derivations stay live) at the definition site |
-| `scheme({ light, dark })` | "dark mode", `createTheme` pairs | one token, two scheme values, compiled to `light-dark()` — never a parallel palette |
-| preset `elevation(base, n)` | — (hail-styl, generalized) | an explicit base + plane position → scheme-aware color; composed from public `scheme()` + `mix()`, never a core axiom |
-| `legibleOn(fn)` / `check.*` | manual audits; "contrast" APIs | named for what it *produces* — a color legible on its target — not the check it carries; validated at build (APCA), live via `contrast-color()` where supported |
-| `theme(overrides)` / `applyTheme(el, overrides)` | VE `createTheme` / `assignInlineVars` | the same concept at build time and runtime, named as the pair it is |
-| `setScheme(el, scheme)` | manual `data-scheme` writes | the tiny runtime helper for pinning the platform color-scheme axis; themes still mean token overrides |
-| `createSystem({ tokens, conditions?, layers? })` | Panda config + codegen; sprinkles `defineProperties` | a plain typed factory — inference instead of a generated artifact directory; accepts inline tokens and returns `t`, defaults layers, ships base conditions — the happy path is one file |
-| `css(rule)` | VE `style()` | the author thinks "I'm writing CSS", and the emitted thing *is* CSS; `style` collides with the HTML attribute and Vue's `:style` |
-| condition (bare key: `hover:`, `md:`, `dark:`) | Panda/mincho `_hover`; Tailwind `hover:` | the beloved prefix, typed, with no underscore dialect — the factory refuses condition names that collide with CSS properties |
-| `layers: [...]` + per-style `layer:` | CSS `@layer` | platform term kept; the system declares the order once |
-| `keyframes(steps)` | VE `keyframes` (kept) | already precise: a value, not a global name |
-| `globalCss(selector, rule)` | VE `globalStyle` | consistent with `css` as the authoring verb |
-| `css.raw\`…\`` | — (new) | the escape hatch is CSS itself: parsed, validated, scoped under the generated class |
-| `recipe({ base, variants, toggles, compound, defaults })` | Stitches variants; VE recipes; CVA | the settled industry shape, kept deliberately |
-| `toggles:` | `variants: { x: { true: … } }` | a boolean variant is a distinct authoring idea; `pill: true` at the call site, no `'true'` key ceremony |
-| `anatomy({ parts, base, variants })` | Panda `sva`, "slot recipes" | multi-part styling named for what it styles — the component's anatomy; avoids Vue's `slot` ([§3](#3-naming-collisions-we-refuse)) |
-| `recipe({ ports: { … } })` | sidecar `*Ports` exports | publication: a component's runtime style API travels on the recipe (`button.ports.gap`), one import for classes + API |
-| `port(default, options?)` | VE `createVar` + `assignInlineVars`; Vue `v-bind()` in CSS; rainbow-sprinkles' inline vars | one typed primitive unifying four mechanisms; typed by its default, named by its export — never a repeated string |
-| `fraction.set(v)` / `ports(…)` | `assignInlineVars({ [x]: v })` | a typed setter returning a style fragment — no string-keyed object literals |
-| `usePorts(fn)` | Vue `useCssVars` (internal) | the reactive binding for ports; a `computed()` around a style object, SSR-safe |
-| `useAnatomy(anatomy, props)` | — (new) | the one composable the no-wrapper rule bends for: a reactive, typed record of part classes ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)) |
-| `propsOf(recipe)` | CVA `VariantProps` + hand-restated `defineProps` | the variant space *is* the props declaration — Vue's SFC compiler can't infer a call's types, so the runtime handle supplies them ([dux-spec-vue.md §2](./dux-spec-vue.md#2-useanatomy-and-propsof)) |
-| `defineAtoms({ properties, … })` | sprinkles `defineProperties`/`createSprinkles` | one call, system-bound like `recipe`; conditions declared per map keep output bounded |
-| `presetTokens` / `presetConditions` / `presetAtoms` | Tailwind's default theme; Panda presets | the furnished room with receipts: plain data you spread, override, or delete |
-| `'root:open'` part-scoped condition | raw `'[data-state="open"] &'` | a part styled by another part's state, typed over parts × conditions |
-| `hover` / `active` / `hoverFocus` conditions | Panda `_hover` (secretly `:hover, [data-hover]`) | a condition never claims less than it does: `hover` is `:hover`, `active` is `:active`; the affordance pair is named `hoverFocus` |
-| `` [`${button} + &`] `` interpolation | Vue `:deep(.child)` | boundary-crossing as typed class references in the module graph, not string incantations — and visibly a selector, because it is one |
-| `atoms(props)` | VE sprinkles; Tailwind call-site authoring | the strict utility lane; "sprinkles" is whimsy, "atoms" says small single-purpose declarations |
-| `unsafe.value(v, reason)` | silent arbitrary values | escapes carry intent and surface in the audit |
-| part `data-part` attributes | Zag/Ark `data-part` | headless-ecosystem convention kept verbatim |
-| the manifest | Panda studio metadata, hail-styl AI templates | a first-class build artifact, not a docs-site byproduct |
-| `*.style.ts` | VE `*.css.ts` | the module exports *styles* (classes, recipes, ports) — `.css.ts` misreads as "a CSS file in TS clothing" |
+```ts
+export const colors = de.defineTokens({
+  color: {
+    brand: de.oklch(0.58, 0.2, 285),
+  },
+})
+```
 
-Everything not in this table follows CSS, csstype, or web-platform vocabulary unless vane-dux has a clearer project-specific term ([dux-vision.md §3](./dux-vision.md#3-design-principles), principle 9).
+The zero-config shorthand policy is `reference: 'var'` plus `emit: true`: `brand` emits an inspectable custom property and the resolved token handle uses `var()`. A project that deliberately prefers compile constants may configure `createEngine({ tokens: { reference: 'val', emit: false } })`; modules capture the engine policy under which they were defined.
+
+### 4.2 Advanced configuration
+
+Configuration uses `token()` so groups never reserve `val`, `axes`, `emit`, or other ordinary keys:
+
+```ts
+brand: de.token({
+  val: de.oklch(0.58, 0.2, 285),
+  reference: 'var',
+  emit: true,
+  mutable: true,
+  description: 'Primary brand color',
+
+  axes: {
+    scheme: {
+      dark: de.oklch(0.72, 0.16, 285),
+    },
+  },
+
+  register: {
+    inherits: true,
+  },
+})
+```
+
+Canonical fields:
+
+| Field | Meaning |
+| --- | --- |
+| `val` | Base CSS value/expression. May be absent for a typed no-default token. |
+| `reference` | `'val'` or `'var'`: the token's default representation when consumed. |
+| `emit` | Whether to emit the ordinary value/property projection. Defaults from engine token policy; axes/mutability require a binding. |
+| `mutable` | Whether stable runtime slots and setters are generated. Implies a var reference. |
+| `axes` | Per-axis mode values. Axes/modes autocomplete from the engine. |
+| `cases` | Explicit multi-axis intersection values. |
+| `register` | Optional `@property` registration descriptors; syntax is inferred when possible. |
+| `description` | Human/manifest description. |
+| `deprecated` | Deprecation metadata and optional replacement. |
+| `validate` | Optional runtime validation for mutable writes; build-time CSS validity remains universal. |
+
+### 4.3 Null and no-default forms
+
+```ts
+fill: null
+// untyped token/custom-property name; no value declaration
+
+fill: de.token.color()
+// typed <color>; no value declaration
+
+breakpoint: de.token({
+  val: de.length.rem(64),
+  reference: 'val',
+  emit: false,
+})
+// known compile value; deliberately no declaration
+```
+
+Null means “no authored value,” not CSS `unset`, `initial`, or an empty value.
+
+### 4.4 Composition
+
+```ts
+export const tokens = de
+  .defineTokens()
+  .compose(colors)
+  .compose(space)
+  .derive(({ color }) => ({
+    shadow: {
+      focus: de.shadow({ color: color.brand }),
+    },
+  }))
+```
+
+Modules with incompatible semantic engine requirements fail with a signature diagnostic unless the plugin/value IR explicitly declares itself portable. Equivalent engines do not need to be the same object.
+
+## 5. Resolved token handles
+
+Every vane-provided member that shares the token-tree namespace is `$`-prefixed:
+
+```ts
+t.color.brand.$name
+t.color.brand.$val
+t.color.brand.$var()
+t.color.brand.$var(de.oklch(0.5, 0.1, 285))
+t.color.brand.$description
+t.color.brand.$axes.scheme.dark.$val
+```
+
+The token handle itself serializes according to `reference`:
+
+```ts
+css({ color: t.color.brand })
+```
+
+Code that requires a specific projection says so:
+
+```ts
+css({ color: t.color.brand.$val })
+css({ color: t.color.brand.$var('currentColor') })
+```
+
+`$val` is a property. `$var()` is a method because it accepts an optional fallback.
+
+Axis modes and cases are branch handles, not raw values and not separate public custom properties:
+
+```ts
+const dark = t.color.brand.$axes.scheme.dark
+
+dark.$val
+// no dark.$name or dark.$var(): the selected public property is brand.$name
+```
+
+Using `dark` directly in a value position serializes its authored `$val`, not the parent token's default `var()` projection. The corresponding `runtime.t` branch has the same shape and adds `$set()`/`$unset()` when the token is mutable. This keeps generic traversal plane-neutral while private runtime slot names stay private.
+
+## 6. System creation and projections
+
+```ts
+export const ds = de.createSystem({
+  tokens: de
+    .defineTokens()
+    .compose(colors)
+    .compose(space),
+
+  prefix: 'app',
+  root: ':root',
+  layers: ['reset', 'tokens', 'recipes', 'utilities', 'overrides'],
+})
+```
+
+The system is the only final owner of the emitted prefix.
+
+It returns the resolved graph and styling language:
+
+```ts
+ds.t
+ds.css
+ds.globalCss
+ds.keyframes
+ds.fontFace
+ds.recipe
+ds.anatomy
+ds.port
+ds.defineAtoms
+ds.length
+ds.oklch
+ds.customProperty
+ds.rawValue
+ds.serialize
+ds.runtime
+ds.runtimeStyle
+ds.runtimeProps
+ds.reconcileRuntimeSnapshot
+```
+
+The system re-exposes its engine's configured value constructors and value plugins directly. Style modules therefore need only the system import; graph-definition operations remain on `de`.
+
+The core system-member set is closed and versioned. Extensions should expose one distinctive namespace—such as the example's `ds.editorial.measure`—so future core capabilities and unrelated plugins cannot appropriate a generic top-level name unnoticed.
+
+Module/tree projections are system-bound so names reflect the final prefix and naming policy:
+
+```ts
+ds.tokensOf(colors)
+ds.namesOf(colors)
+ds.varsOf(colors)
+
+ds.namesOf(ds.t.color)
+ds.namesOf({
+  color: ds.t.color,
+  icon: ds.t.icon,
+})
+```
+
+`tokensOf()` returns resolved handles, `namesOf()` returns custom-property names, and `varsOf()` returns `var()` expressions with an isomorphic tree shape.
+
+## 7. CSS values
+
+Direct CSS remains the ergonomic floor:
+
+```ts
+ds.css({
+  padding: '2em',
+  color: 'oklch(60% 0.2 285)',
+})
+```
+
+Brands add type and composition when wanted:
+
+```ts
+ds.css({
+  padding: ds.length.em(2),
+  rotate: ds.angle.deg(45),
+})
+```
+
+Constructors accept ergonomic primitives and typed expressions:
+
+```ts
+ds.oklch(0.5, 0.2, 285)
+ds.oklch(ds.percent(50), ds.calc(/* ... */), ds.angle.deg(285), 0.5)
+```
+
+Typed future syntax is explicit:
+
+```ts
+ds.rawValue.length('anchor-size(width)')
+```
+
+The raw escape validates broad CSS structure and carries the asserted data type; it does not pretend vane understands the future function's semantics.
+
+## 8. External custom properties
+
+An external custom property uses the same handle vocabulary:
+
+```ts
+const mystery = de.customProperty('--mystery', {
+  type: 'length',
+})
+
+mystery.$name
+mystery.$var()
+mystery.$var('4rem')
+```
+
+One-off use remains possible:
+
+```ts
+ds.css({
+  padding: ds.customProperty('--mystery').$var('4rem'),
+})
+```
+
+A future `varRef(name, fallback?)` may be added only as direct sugar over this same model.
+
+## 9. Axes and cases
+
+```ts
+shadow: de.token({
+  val: baseShadow,
+
+  axes: {
+    scheme: {
+      light: lightShadow,
+      dark: darkShadow,
+    },
+
+    density: {
+      cozy: cozyShadow,
+      compact: compactShadow,
+    },
+  },
+
+  cases: [
+    {
+      when: {
+        scheme: 'dark',
+        density: 'compact',
+      },
+      val: darkCompactShadow,
+    },
+  ],
+})
+```
+
+An omitted mode falls back to `val` when a base exists. A complete single-axis map may omit `val`. Multiple matching axes resolve in engine axis order; a matching case resolves after every single-axis declaration.
+
+Resolved branch handles enumerate authored addresses only. A mutable `dark: null` mode or `{ when, val: null }` case explicitly reserves a typed runtime address without a build-time default; before it is set, its binding falls through to the value that otherwise would have won. Omitted modes/cases have neither a handle nor a slot.
+
+## 10. Roots and conditions
+
+The system root defaults to `:root`:
+
+```ts
+de.createSystem({
+  root: '#widget',
+  tokens,
+})
+```
+
+A module may carry a nearer root. Group-local `$root` ships as the nearest refinement because it shares user structure; it accepts an absolute selector or composes an `&`-anchored selector against the inherited root.
+
+Conditions anchor explicitly to the effective root:
+
+```ts
+condition('&[data-scheme="dark"]')
+// #widget[data-scheme="dark"]
+
+condition('[data-scheme="dark"] &')
+// [data-scheme="dark"] #widget
+
+condition('& [data-scheme="dark"]')
+// #widget [data-scheme="dark"]
+
+absoluteCondition('[data-scheme="dark"]')
+// [data-scheme="dark"]
+```
+
+Typed helpers should express the same placement without string assembly:
+
+```ts
+data('scheme', 'dark', { on: 'root' })
+data('scheme', 'dark', { on: 'ancestor' })
+data('scheme', 'dark', { on: 'descendant' })
+condition(media('print'), { priority: 0 })
+```
+
+Raw typed conditions require an `&` anchor or an explicit absolute constructor. No implicit descendant surprise.
+
+## 11. Runtime language
+
+Plane-neutral system handles contain CSS information:
+
+```ts
+ds.t.color.brand.$name
+ds.t.color.brand.$var()
+```
+
+A runtime binds one system to one concrete cascade root:
+
+```ts
+const runtime = ds.runtime(document.documentElement)
+```
+
+Runtime-bound mutable handles add side effects:
+
+```ts
+runtime.t.color.brand.$set(newBrand)
+runtime.t.color.brand.$unset()
+
+const darkBrand = runtime.t.color.brand.$axes.scheme.dark
+
+darkBrand.$val
+darkBrand.$set(newDarkBrand)
+```
+
+Generic explicit-target operations work for any custom property:
+
+```ts
+import { setCustomProperties, setCustomProperty } from '@mszr/vane-dux/runtime'
+
+setCustomProperty(element, ds.t.color.brand, value)
+setCustomProperties(element, [
+  [ds.t.color.brand, value],
+  [externalProperty, otherValue],
+])
+```
+
+Grouped token operations use token language, not theme language:
+
+```ts
+const compactClass = ds.tokenOverride({
+  size: {
+    control: '28px',
+  },
+})
+
+runtime.applyTokenOverrides({
+  size: {
+    control: '32px',
+  },
+})
+
+runtime.applyTokenOverrides([
+  [ds.t.color.brand.$axes.scheme.dark, newDarkBrand],
+])
+```
+
+`ds.tokenOverride()` is the canonical build-time class primitive. `runtime.applyTokenOverrides()` is the canonical runtime batch primitive. Its object form addresses base leaves; its tuple-entry form accepts plane-neutral mutable base/mode/case handles from the same system. Both runtime forms feed the same snapshot address model as `$set()`.
+
+Snapshot schema changes reconcile per semantic address: valid overrides survive, invalid/removed ones produce migration diagnostics, and only an unsupported snapshot protocol rejects the document wholesale.
+
+An app-plane validation schema is registered under the stable ID authored in `token({ validate: { id, schema } })`; schema functions never get embedded in generated style-module contracts. Runtime selector strings are intentionally absent—query an element explicitly, or omit the target only for a `:root` system.
+
+## 12. Property aliases
+
+Aliases are engine plugins:
+
+```ts
+const de = createEngine().use(propertyAliases({
+  pb: 'paddingBottom',
+  py: 'paddingBlock',
+}, {
+  expose: 'both', // or 'aliases-only'
+}))
+```
+
+Aliases participate in `css()` IntelliSense and collision diagnostics. An aliases-only primary lane retains explicit standards access:
+
+```ts
+ds.css.standard({
+  paddingBlock: '1rem',
+})
+
+ds.css.raw`padding-block: 1rem;`
+```

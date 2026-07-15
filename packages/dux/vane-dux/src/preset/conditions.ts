@@ -8,7 +8,12 @@
  */
 
 import type { VaneCondition } from '@mszr/vane-dux'
-import { container, data, media } from '@mszr/vane-dux'
+
+export interface VanePresetConditionEngine {
+  readonly container: (query: string) => VaneCondition
+  readonly data: (name: string, value?: string) => VaneCondition
+  readonly media: (query: string) => VaneCondition
+}
 
 export type VanePresetConditionName
   = | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
@@ -24,7 +29,8 @@ export type VanePresetConditionName
  * contract, so styling a headless library is the happy path
  * ([dux-spec-recipes.md §5]).
  */
-export function presetConditions(): Record<VanePresetConditionName, VaneCondition> {
+export function presetConditions(engine: VanePresetConditionEngine): Record<VanePresetConditionName, VaneCondition> {
+  const { container, data, media } = engine
   return {
     // Breakpoints — min-width, mobile-first.
     'sm': media('(min-width: 40rem)'),

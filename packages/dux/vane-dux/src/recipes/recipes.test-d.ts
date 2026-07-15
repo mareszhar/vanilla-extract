@@ -4,9 +4,9 @@
  * `when` typing, part-scoped condition keys, and published-port typing.
  */
 
-import type { VanePort, VaneProps } from '@mszr/vane-dux'
-import { createSystem } from '@mszr/vane-dux'
+import type { VanePort, VaneProps } from '../test-support/legacy'
 import { describe, expectTypeOf, it } from 'vitest'
+import { createSystem } from '../test-support/legacy'
 
 // Never evaluated — the typecheck plane only reads types.
 function system() {

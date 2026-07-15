@@ -5,7 +5,7 @@
  * the explicit opt-out, and patterns return memoized ordinary classes.
  */
 
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import {
   animate,
   definePatterns,
@@ -24,9 +24,10 @@ import { describe, expect, it } from 'vitest'
 describe('presetAtoms', () => {
   it('binds through defineAtoms: shorthands, toggles, and the responsive lane', () => {
     const { returned: atoms } = emit(() => {
-      const { defineAtoms, t } = createSystem({
-        tokens: presetTokens(),
-        conditions: presetConditions(),
+      const de = createEngine()
+      const { defineAtoms, t } = de.createSystem({
+        tokens: presetTokens(de),
+        conditions: presetConditions(de),
       })
 
       return defineAtoms(presetAtoms(t), 'atoms')
@@ -70,7 +71,7 @@ describe('motion opinions', () => {
 
   it('keyframe fragments feed keyframes()', () => {
     const { returned, css } = emit(() => {
-      const { keyframes } = createSystem({ tokens: {} })
+      const { keyframes } = createEngine().createSystem({ tokens: {} })
       return keyframes(fade, 'fade')
     })
 
@@ -82,7 +83,8 @@ describe('motion opinions', () => {
 describe('layout patterns', () => {
   function bindPatterns() {
     return emit(() => {
-      const { css, t } = createSystem({ tokens: presetTokens() })
+      const de = createEngine()
+      const { css, t } = de.createSystem({ tokens: presetTokens(de) })
       const patterns = definePatterns({ css, t })
 
       return {

@@ -11,12 +11,13 @@ import { describe, expect, it } from 'vitest'
 const project = duxProject()
 
 const defineFixture = `
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { animate, definePatterns, focusRing, minTarget, presetAtoms, presetConditions, presetTokens } from '@mszr/vane-dux/preset'
 
-const { css, defineAtoms, t } = createSystem({
-  tokens: presetTokens(),
-  conditions: presetConditions(),
+const de = createEngine()
+const { css, defineAtoms, t } = de.createSystem({
+  tokens: presetTokens(de),
+  conditions: presetConditions(de),
 })
 
 const atoms = defineAtoms(presetAtoms(t))

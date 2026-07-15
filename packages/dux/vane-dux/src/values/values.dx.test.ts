@@ -9,8 +9,8 @@ const project = duxProject()
 describe('cSS value editor DX', () => {
   it('calculation operations complete as one small immutable surface', () => {
     const { completions } = project.query`
-      import { calc } from '@mszr/vane-dux'
-      void calc('1rem').${cursor}
+      import { createEngine } from '@mszr/vane-dux'
+      void createEngine().calc('1rem').${cursor}
     `
 
     expect(completions).toContainCompletions(['add', 'subtract', 'multiply', 'divide', 'negate', 'css'])
@@ -18,8 +18,8 @@ describe('cSS value editor DX', () => {
 
   it('a dimensional mistake is one diagnostic at its operand', () => {
     const { errors } = project.check`
-      import { calc } from '@mszr/vane-dux'
-      void calc('1rem').add('20deg')
+      import { createEngine } from '@mszr/vane-dux'
+      void createEngine().calc('1rem').add('20deg')
     `
 
     expect(errors).toHaveErrorCount(1)
@@ -28,8 +28,8 @@ describe('cSS value editor DX', () => {
 
   it('grid helpers complete as one focused namespace', () => {
     const { completions } = project.query`
-      import { grid } from '@mszr/vane-dux'
-      void grid.${cursor}
+      import { createEngine } from '@mszr/vane-dux'
+      void createEngine().grid.${cursor}
     `
 
     expect(completions).toContainCompletions(['minmax', 'repeat', 'template', 'areas'])
@@ -37,9 +37,10 @@ describe('cSS value editor DX', () => {
 
   it('relative color and channel operations are discoverable', () => {
     const result = project.query`
-      import { channel, oklch } from '@mszr/vane-dux'
-      void oklch.${cursor('oklch')}
-      void channel.${cursor('channel')}
+      import { createEngine } from '@mszr/vane-dux'
+      const de = createEngine()
+      void de.oklch.${cursor('oklch')}
+      void de.channel.${cursor('channel')}
     `
 
     expect(result.at('oklch').completions).toContainCompletion('from')

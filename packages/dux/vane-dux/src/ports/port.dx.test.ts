@@ -20,11 +20,15 @@ function expectNoLeak(messages: Array<Diagnostic | string>): void {
 }
 
 const defineSystem = `
-import { createSystem, oklch } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 
-const { t, css, port } = createSystem({
+const de = createEngine()
+const { t, css, port } = de.createSystem({
   tokens: {
-    color: { brand: oklch(0.58, 0.2, 285).live(), ink: oklch(0.2, 0, 0) },
+    color: {
+      brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }),
+      ink: de.oklch(0.2, 0, 0),
+    },
     space: { sm: '8px', md: '16px' },
   },
 })
@@ -55,7 +59,7 @@ describe('the authoring shape', () => {
   it('value-token and color-expression defaults raise no diagnostics', () => {
     const { errors } = project.check`${defineSystem}
       export const gap = port(t.space.sm)
-      export const glow = port(oklch(0.7, 0.1, 200))
+      export const glow = port(de.oklch(0.7, 0.1, 200))
       void gap.set(t.space.md); void glow.set('rebeccapurple')
     `
     expect(errors).toBeClean()

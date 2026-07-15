@@ -1,24 +1,24 @@
-updated: 2026-07-09
-status: spec — contracts settled, implemented (phases 5 + 7)
+updated: 2026-07-15
+status: canonical implemented specification
 
 # vane-dux — spec: preset
 
-The thin opinionated convenience layer: a hospitable starting point that takes away ceremony for most users without locking the foundation it's built on. The preset ships in two waves: the **foundations** (§1–2) land as phase 5 because the quickstart runs through them ([dux-spec-css.md §1.1](./dux-spec-css.md#11-the-happy-path-one-file)); the **conveniences** (§3–6) follow as phase 7.
+The thin opinionated convenience layer: a hospitable starting point that takes away ceremony for most users without locking the foundation it's built on.
 
 The preset's law: **opinions live where they're deletable.** Everything here consumes only the public core surface — a user can replace any piece (or all of it) with their own, and the core never knows the difference. Starting from nothing is too much ceremony; starting from someone else's totalizing philosophy is moving into their house. The preset is a furnished room with the receipts attached.
 
 ## Implementation status
 
-| # | Contract | Phase | Status |
-| --- | --- | --- | --- |
-| 1 | Preset tokens | 5 | ☑ |
-| 2 | Preset conditions | 5 | ☑ |
-| 3 | `atoms` | 7 | ☑ (the engine is core, bound on the system; the preset ships the default map) |
-| 4 | A11y helpers | 7 | ☑ (including the audit for outline removal without a focus-visible replacement) |
-| 5 | Motion opinions | 7 | ☑ |
-| 6 | Layout patterns | 7 | ☑ |
-| 7 | Optional elevation/BEM engine plugins | 6-next | ☑ |
-| 8 | Style-fragment utilities | 6-next | ☑ |
+| # | Contract | Status |
+| --- | --- | --- |
+| 1 | Preset tokens | ☑ |
+| 2 | Preset conditions | ☑ |
+| 3 | `atoms` | ☑ (the engine is core, bound on the system; the preset ships the default map) |
+| 4 | A11y helpers | ☑ (including the audit for outline removal without a focus-visible replacement) |
+| 5 | Motion opinions | ☑ |
+| 6 | Layout patterns | ☑ |
+| 7 | Optional elevation/BEM engine plugins | ☑ |
+| 8 | Style-fragment utilities | ☑ |
 
 ---
 
@@ -29,12 +29,18 @@ The preset's law: **opinions live where they're deletable.** Everything here con
 **Usage.**
 
 ```TS
+import { createEngine } from '@mszr/vane-dux'
 import { presetTokens } from '@mszr/vane-dux/preset'
 
-export const t = defineTokens({
-  ...presetTokens({ brand: '#635bff', radius: 'calm', density: 'comfortable' }),
-  color: { accent: oklch(0.7, 0.15, 160) }, // extend freely
+export const de = createEngine()
+const base = presetTokens(de, {
+  brand: '#635bff', radius: 'calm', density: 'comfortable',
 })
+const accents = de.defineTokens({
+  accent: { positive: de.oklch(0.7, 0.15, 160) },
+})
+
+export const tokens = de.defineTokens().compose(base).compose(accents)
 ```
 
 **Contract details.**
@@ -42,7 +48,7 @@ export const t = defineTokens({
 - OKLCH-derived brand ramp from one seed color; elevation-driven surfaces/borders/inks ([dux-spec-tokens.md §4](./dux-spec-tokens.md#4-elevation)) so both schemes fall out automatically; `legibleOn()` pairings prewired.
 - Spacing (linear ×4), type scale with composite `text.*` styles, radii, shadows, z-index scale, durations and easings.
 - The seed options (`radius`, `density`, `contrast`) are hail-styl-style **controls**: one knob retunes a family of tokens without editing them individually.
-- The output is a plain token subtree — inspectable, spreadable, partially adoptable. The merge semantics are ordinary object spread and therefore already understood: later keys win, so preset tokens are *defaults you extend or override*, with no hidden merge logic. `createSystem({ tokens: presetTokens({ brand }) })` (the quickstart) and the `defineTokens` spread above are the same operation in two positions.
+- The output is an ordinary engine-bound token module — inspectable, composable, and partially adoptable. It uses the same public `defineTokens().compose(...)` protocol as application modules; there is no privileged preset graph path.
 
 ---
 
@@ -53,15 +59,20 @@ export const t = defineTokens({
 **Usage.**
 
 ```TS
-import { presetConditions } from '@mszr/vane-dux/preset'
+import { createEngine } from '@mszr/vane-dux'
+import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
 
-createSystem({
-  tokens: t,
-  conditions: presetConditions(), // or { ...presetConditions(), cardWide: container('card', '…') }
+const de = createEngine()
+de.createSystem({
+  tokens: presetTokens(de),
+  conditions: {
+    ...presetConditions(de),
+    cardWide: de.container('card', '(min-width: 30rem)'),
+  },
 })
 ```
 
-**Contract details.** `presetConditions()` returns a plain conditions map — spread it to extend, omit keys by destructuring, or pass it whole. It *adds to* the core base set ([dux-spec-css.md §1](./dux-spec-css.md#1-createsystem--bind-once-typed-everywhere)), contributing the opinionated names:
+**Contract details.** `presetConditions(de)` returns a plain conditions map built with that engine's helpers — spread it to extend, omit keys by destructuring, or pass it whole. It *adds to* the core base set ([dux-spec-css.md §1](./dux-spec-css.md#1-decreatesystem--bind-once-typed-everywhere)), contributing the opinionated names:
 
 - breakpoints `sm…2xl`; container sizes; orientation
 - preference: `contrastMore`, `forcedColors`

@@ -206,7 +206,7 @@ export function exercise() {
     expect(manifest.tokens['color.brand'].name).toBe('--vane-color-brand')
     expect(manifest.tokens['color.brand']).toMatchObject({
       file: 'system.style.ts',
-      line: 7,
+      line: 9,
       column: 14,
     })
     expect(manifest.recipes.button.variants.intent).toEqual(['brand', 'ghost'])
@@ -276,9 +276,10 @@ describe('source-local build diagnostics', () => {
   it('points an invalid declaration at its authored property', async () => {
     const error = await buildBrokenFixture({
       'entry.ts': 'export { broken } from \'./broken.style\'\n',
-      'system.style.ts': `import { createSystem, defineTokens } from '@mszr/vane-dux'
-const tokens = defineTokens({ color: { brand: '#635bff' } }).build()
-export const { css } = createSystem({ tokens })
+      'system.style.ts': `import { createEngine } from '@mszr/vane-dux'
+const de = createEngine()
+const tokens = de.defineTokens({ color: { brand: '#635bff' } })
+export const { css } = de.createSystem({ tokens })
 `,
       'broken.style.ts': `import { css } from './system.style'
 
@@ -302,21 +303,23 @@ export const broken = css({
   it('traces a composed token failure to the module that defines it', async () => {
     const error = await buildBrokenFixture({
       'entry.ts': 'export { marker } from \'./system.style\'\n',
-      'palette.tokens.ts': `import { defineTokens, legibleOn, oklch } from '@mszr/vane-dux'
+      'palette.tokens.ts': `import { createEngine } from '@mszr/vane-dux'
 
-export const palette = defineTokens({ color: { base: oklch(0.7, 0, 0) } })
+const de = createEngine()
+export const palette = de.defineTokens({ color: { base: de.oklch(0.7, 0, 0) } })
   .derive(({ color }) => ({
     color: {
-      onBase: legibleOn(color.base),
+      onBase: de.legibleOn(color.base),
     },
   }))
 `,
-      'system.style.ts': `import { createSystem, defineTokens } from '@mszr/vane-dux'
+      'system.style.ts': `import { createEngine } from '@mszr/vane-dux'
 import { palette } from './palette.tokens'
 
-const tokens = defineTokens().compose(palette).build()
-export const { css } = createSystem({ tokens })
-export const marker = css({ color: tokens.color.base })
+const de = createEngine()
+const tokens = de.defineTokens().compose(palette)
+export const { css, t } = de.createSystem({ tokens })
+export const marker = css({ color: t.color.base })
 `,
     })
     const diagnostic = findVaneError(error)?.diagnostics[0]
@@ -325,10 +328,10 @@ export const marker = css({ color: tokens.color.base })
       code: 'VANE_TOKENS_CONTRAST',
       file: 'palette.tokens.ts',
       path: 'color.onBase',
-      line: 6,
+      line: 7,
       column: 7,
     })
-    expect(String(error)).toContain('at palette.tokens.ts:6:7')
+    expect(String(error)).toContain('at palette.tokens.ts:7:7')
   })
 })
 
@@ -465,8 +468,9 @@ describe('hmr', () => {
 describe('auto-imports', () => {
   it('styleExportNames reads every export form', () => {
     const source = `
-      import { createSystem } from '@mszr/vane-dux'
-      export const { t, css, recipe: makeRecipe } = createSystem({ tokens: {} })
+      import { createEngine } from '@mszr/vane-dux'
+      const de = createEngine()
+      export const { t, css, recipe: makeRecipe } = de.createSystem({ tokens: {} })
       export const brand = '#635bff'
       export function helper() {}
       const local = 1
@@ -487,7 +491,7 @@ describe('auto-imports', () => {
         t,
         css: style,
         recipe: makeRecipe = fallback,
-      } = createSystem({ tokens: {} })
+      } = de.createSystem({ tokens: {} })
       export interface TypesOnly {}
       export type Alias = string
     `

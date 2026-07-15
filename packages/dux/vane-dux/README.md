@@ -223,7 +223,7 @@ The architectural split survives intact: vane-dux’s root entrypoint is hail-st
 | token definitions split across imported Stylus files | independently buildable token modules joined with `.compose()` |
 | `Var('c:primary')` / `UseToken(...)` | the typed handle `t.color.primary` |
 | `dsColor`, `Calc`, size helpers | config-agnostic `oklch`/relative-color, `mix`, `alpha`, `calc`, `clamp`, `grid`, and `scale` helpers |
-| the bundled monochromatic/elevation design | `presetTokens(...)` and `elevation(...)`, with every dependency explicit |
+| the bundled monochromatic design | `presetTokens(de, ...)`, with every engine dependency explicit |
 | registry + final flush | ordinary exported authoring calls; the Vite/Nuxt compiler emits once automatically |
 
 The important migration is conceptual, not syntactic: relationships that were string paths become TypeScript property references; registry order becomes explicit builder stages; optional design opinions become a deletable module. A two-color, triadic, product-specific, or entirely non-color token system uses the exact same engine as the bundled preset.

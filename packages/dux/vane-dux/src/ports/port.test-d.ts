@@ -4,18 +4,21 @@
  * at the type level.
  */
 
-import type { VaneColorToken, VanePort, VanePortKind, VanePortMeta, VanePortSetValue, VaneVarReference } from '@mszr/vane-dux'
-import { angle, createSystem, oklch } from '@mszr/vane-dux'
+import type { VaneColorTokenHandle, VanePort, VanePortKind, VanePortMeta, VanePortSetValue, VaneVarReference } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { describe, expectTypeOf, it } from 'vitest'
+
+const de = createEngine()
 
 // Never evaluated — the typecheck plane only reads types.
 function system() {
-  return createSystem({
+  return de.createSystem({
     tokens: {
       color: {
-        brand: oklch(0.58, 0.2, 285).live(),
-        ink: oklch(0.2, 0, 0),
+        brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }),
+        ink: de.oklch(0.2, 0, 0),
       },
+      opacity: { disabled: 0.5 },
       space: { sm: '8px', md: '16px' },
     },
   })
@@ -43,7 +46,7 @@ describe('port type inference', () => {
     const { port, t } = system()
     const tint = port(t.color.brand)
 
-    expectTypeOf(tint).toExtend<VanePort<VaneColorToken<'live', 'vane-color-brand', 'color.brand'>>>()
+    expectTypeOf(tint).toExtend<VanePort<VaneColorTokenHandle, 'color'>>()
   })
 
   it('the var reference includes the default as a string literal', () => {
@@ -68,7 +71,7 @@ describe('set() typing', () => {
 
     expectTypeOf(fraction.set).parameter(0).toEqualTypeOf<VanePortSetValue<'number'>>()
     fraction.set(0.62)
-    fraction.set(t.space.sm)
+    fraction.set(t.opacity.disabled)
   })
 
   it('a string port accepts a string or a reference', () => {
@@ -134,7 +137,7 @@ describe('token and expression defaults', () => {
 
   it('a color expression default is a color port', () => {
     const { port } = system()
-    const tint = port(oklch(0.5, 0.1, 200))
+    const tint = port(de.oklch(0.5, 0.1, 200))
 
     tint.set('rebeccapurple')
     // @ts-expect-error — a color port takes a string or a reference, not a number
@@ -159,10 +162,10 @@ describe('token and expression defaults', () => {
 describe('options', () => {
   it('units come from branded values and `as` is retired', () => {
     const { port } = system()
-    const rotation = port(angle.deg(0))
+    const rotation = port(de.angle.deg(0))
 
     expectTypeOf(rotation.type).toEqualTypeOf<'angle'>()
-    rotation.set(angle.deg(45))
+    rotation.set(de.angle.deg(45))
     rotation.set('0.5turn')
     // @ts-expect-error — a raw number has no angle unit
     rotation.set(45)

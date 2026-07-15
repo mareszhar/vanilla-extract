@@ -86,11 +86,17 @@ export interface VaneCoreConstructors<DefaultLengthUnit extends VaneLengthUnit =
   readonly length: VaneLengthConstructor<DefaultLengthUnit>
 }
 
+type VaneCanonicalResult<Result>
+  = Result extends VaneInterpolatedColor<any> ? VaneAuthoredInterpolatedColor
+    : Result extends VaneColor<any> ? VaneAuthoredColor
+      : Result
+
+/** Preserve callable namespaces such as `oklch.from` while erasing legacy color modes. */
 type VaneCanonicalConstructor<Constructor>
   = Constructor extends (...args: infer Args) => infer Result
-    ? (...args: Args) => Result extends VaneInterpolatedColor<any>
-        ? VaneAuthoredInterpolatedColor
-        : Result extends VaneColor<any> ? VaneAuthoredColor : Result
+    ? ((...args: Args) => VaneCanonicalResult<Result>) & {
+      readonly [Key in keyof Constructor]: VaneCanonicalConstructor<Constructor[Key]>
+    }
     : Constructor
 
 type VaneColorConstructorName

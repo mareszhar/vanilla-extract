@@ -1,3 +1,7 @@
+import { emit } from '@test'
+import { describe, expect, it } from 'vitest'
+import { collectInspection } from '../internal/inspect'
+import { buildManifest } from '../introspect/manifest'
 import {
   createEngine,
   defineCssSupportTarget,
@@ -7,11 +11,7 @@ import {
   VANE_SYSTEM_MEMBERS,
   VANE_SYSTEM_SURFACE_VERSION,
   VaneError,
-} from '@mszr/vane-dux'
-import { emit } from '@test'
-import { describe, expect, it } from 'vitest'
-import { collectInspection } from '../internal/inspect'
-import { buildManifest } from '../introspect/manifest'
+} from '../test-support/legacy'
 import { createCoreConstructors } from '../values/defaultEngine'
 
 describe('the canonical design engine', () => {

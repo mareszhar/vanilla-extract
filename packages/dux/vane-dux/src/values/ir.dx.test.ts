@@ -7,9 +7,10 @@ const project = duxProject()
 describe('shared value editor DX', () => {
   it('groups units and typed raw lanes into focused namespaces', () => {
     const result = project.query`
-      import { length, rawValue } from '@mszr/vane-dux'
-      void length.${cursor('length')}
-      void rawValue.${cursor('raw')}
+      import { createEngine } from '@mszr/vane-dux'
+      const de = createEngine()
+      void de.length.${cursor('length')}
+      void de.rawValue.${cursor('raw')}
     `
 
     expect(result.at('length').completions).toContainCompletions(['px', 'rem', 'em', 'vh', 'cqi'])
@@ -18,10 +19,11 @@ describe('shared value editor DX', () => {
 
   it('keeps custom-property anatomy and color interpolation discoverable', () => {
     const result = project.query`
-      import { customProperty, mix } from '@mszr/vane-dux'
-      const gap = customProperty('--gap', { type: 'length' })
+      import { createEngine } from '@mszr/vane-dux'
+      const de = createEngine()
+      const gap = de.customProperty('--gap', { type: 'length' })
       void gap.${cursor('property')}
-      void mix('#fff', '#000', 0.5).${cursor('mix')}
+      void de.mix('#fff', '#000', 0.5).${cursor('mix')}
     `
 
     expect(result.at('property').completions).toContainCompletions(['$name', '$var'])
@@ -30,8 +32,8 @@ describe('shared value editor DX', () => {
 
   it('puts an incompatible min operand in one local diagnostic', () => {
     const { errors } = project.check`
-      import { min } from '@mszr/vane-dux'
-      void min('1s', '2px')
+      import { createEngine } from '@mszr/vane-dux'
+      void createEngine().min('1s', '2px')
     `
     expect(errors).toHaveErrorCount(1)
     expect(errors).toHaveError(/never|1s|2px/)
@@ -40,8 +42,8 @@ describe('shared value editor DX', () => {
   it('keeps self/system brands and unit hovers readable', () => {
     const result = project.query`
       import type { VaneSystemValue } from '@mszr/vane-dux'
-      import { length } from '@mszr/vane-dux'
-      const measure = length.em(2)
+      import { createEngine } from '@mszr/vane-dux'
+      const measure = createEngine().length.em(2)
       declare const resolved: VaneSystemValue<'length'>
       void meas${cursor('self')}ure
       void resol${cursor('system')}ved

@@ -4,9 +4,9 @@
  * locked as a public contract ([dux-workspace.md §5]).
  */
 
-import { angle, createSystem } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
+import { angle, createSystem } from '../test-support/legacy'
 
 /** A tiny system: inline tokens, spec-shaped conditions, default layers. */
 function miniSystem() {

@@ -1,19 +1,13 @@
 updated: 2026-07-14
-status: target spec — Phase 5 runtime boundary, binding, snapshots, SSR projection, and HMR implemented
+status: canonical implemented specification
 
-# vane-dux next — spec: runtime
+# vane-dux — spec: runtime
 
 The runtime plane writes declared CSS custom-property values and selects pre-emitted states. The browser remains responsible for cascade, inheritance, expressions, axes, and recomputation.
 
-## Implementation ledger
-
-| Current contract | Disposition |
-| --- | --- |
-| `applyTheme(element, tokens, overrides)` writes live token custom properties | Generalize to runtime-bound mutable token overrides; retire theme terminology. |
-| `setScheme(element, mode)` | Generalize to `setMode`; preserve scheme convenience. |
-| Port `.set()` returns inline style fragments | Preserve; share value serialization/validation primitives. |
-| Runtime never constructs CSS rules | Preserve for core; optional explicit runtime sheet remains separately scoped. |
-| Token handles serialize across build/runtime | Preserve and add mutable slot provenance. |
+Runtime mutation has one canonical vocabulary: explicit custom-property writes,
+runtime-bound token overrides, and axis mode selection. Core runtime code never
+patches authored stylesheets or constructs selector rules.
 
 ## 1. Two runtime lanes
 

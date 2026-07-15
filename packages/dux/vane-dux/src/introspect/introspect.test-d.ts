@@ -4,6 +4,7 @@
  * tools can build on.
  */
 
+import type { VaneManifest, VaneManifestToken } from '@mszr/vane-dux/vite'
 import type {
   VaneAuditConfig,
   VaneAuditKind,
@@ -11,10 +12,9 @@ import type {
   VaneDtcgDocument,
   VaneRuntimeInspection,
   VaneTokenExplanation,
-} from '@mszr/vane-dux'
-import type { VaneManifest, VaneManifestToken } from '@mszr/vane-dux/vite'
-import { createEngine, createSystem, exportDesignTokens, importDesignTokens } from '@mszr/vane-dux'
+} from '../test-support/legacy'
 import { describe, expectTypeOf, it } from 'vitest'
+import { createEngine, createSystem, exportDesignTokens, importDesignTokens } from '../test-support/legacy'
 
 describe('the audit config', () => {
   it('accepts the declared lanes at the declared levels', () => {

@@ -19,65 +19,6 @@ interface RenameFixture {
   cursor: { fileName: string, position: number }
 }
 
-function fixture(cursorFile: 'design.ts' | 'consumer.ts'): RenameFixture {
-  const marked = {
-    'design.ts': `
-      import { alpha, defineTokens, oklch } from '@mszr/vane-dux'
-
-      export const t = defineTokens({ color: { ${cursorFile === 'design.ts' ? MARK : ''}brand: oklch(0.58, 0.2, 285) } })
-        .derive(({ color }) => ({ color: { brandSoft: alpha(color.brand, 0.12) } }))
-        .derive(({ color }) => ({ color: { brandHover: color.brand.mix('#000', 0.12) } }))
-        .build()
-
-      void t.color.brand
-    `,
-    'consumer.ts': `
-      import { t } from './design'
-      void t.color.${cursorFile === 'consumer.ts' ? MARK : ''}brand
-    `,
-    'other.ts': `
-      import { defineTokens, oklch } from '@mszr/vane-dux'
-      const other = defineTokens({ color: { brand: oklch(0.4, 0.1, 20) } }).build()
-      void other.color.brand
-    `,
-  }
-
-  return fixtureFromSources(marked, cursorFile)
-}
-
-function modularFixture(cursorFile: 'colors.ts' | 'consumer.ts'): RenameFixture {
-  const marked = {
-    'colors.ts': `
-      import { alpha, defineTokens, oklch } from '@mszr/vane-dux'
-      export const colors = defineTokens({ color: { ${cursorFile === 'colors.ts' ? MARK : ''}brand: oklch(0.58, 0.2, 285) } })
-        .derive(({ color }) => ({ color: { brandSoft: alpha(color.brand, 0.12) } }))
-    `,
-    'metrics.ts': `
-      import { defineTokens } from '@mszr/vane-dux'
-      export const metrics = defineTokens({ space: { sm: '8px' } })
-    `,
-    'design.ts': `
-      import { defineTokens } from '@mszr/vane-dux'
-      import { colors } from './colors'
-      import { metrics } from './metrics'
-      export const t = defineTokens().compose(colors).compose(metrics)
-        .derive(({ color, space }) => ({ control: { tint: color.brandSoft, gap: space.sm } }))
-        .build()
-    `,
-    'consumer.ts': `
-      import { t } from './design'
-      void t.color.${cursorFile === 'consumer.ts' ? MARK : ''}brand
-    `,
-    'other.ts': `
-      import { defineTokens } from '@mszr/vane-dux'
-      const other = defineTokens({ color: { brand: '#f00' } }).build()
-      void other.color.brand
-    `,
-  }
-
-  return fixtureFromSources(marked, cursorFile)
-}
-
 function engineModularFixture(cursorFile: 'colors.ts' | 'consumer.ts'): RenameFixture {
   const marked = {
     'engine.ts': `
@@ -159,63 +100,11 @@ function renamed(fixture: RenameFixture): string[] {
 }
 
 describe('token rename-symbol', () => {
-  const expected = [
-    'consumer.ts:brand',
-    'design.ts:brand',
-    'design.ts:brand',
-    'design.ts:brand',
-    'design.ts:brand',
-  ]
-
-  it('renames from the definition through every stage and consumer', () => {
-    const project = fixture('design.ts')
-
-    try {
-      expect(renamed(project)).toEqual(expected)
-    }
-    finally {
-      project.service.dispose()
-    }
-  })
-
-  it('renames from a synthesized consumer property without crossing into another graph', () => {
-    const project = fixture('consumer.ts')
-
-    try {
-      expect(renamed(project)).toEqual(expected)
-    }
-    finally {
-      project.service.dispose()
-    }
-  })
-
   const modularExpected = [
     'colors.ts:brand',
     'colors.ts:brand',
     'consumer.ts:brand',
   ]
-
-  it('preserves a source module identity through aggregate composition', () => {
-    const project = modularFixture('colors.ts')
-
-    try {
-      expect(renamed(project)).toEqual(modularExpected)
-    }
-    finally {
-      project.service.dispose()
-    }
-  })
-
-  it('renames from an aggregate consumer back into the contributing module only', () => {
-    const project = modularFixture('consumer.ts')
-
-    try {
-      expect(renamed(project)).toEqual(modularExpected)
-    }
-    finally {
-      project.service.dispose()
-    }
-  })
 
   it('preserves rename identity through canonical engine modules and a finalized system', () => {
     const fromDefinition = engineModularFixture('colors.ts')

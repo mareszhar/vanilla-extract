@@ -5,10 +5,10 @@
  * runtime calls get the ports-lane redirect.
  */
 
-import { createSystem, unsafe, VaneError } from '@mszr/vane-dux'
 import { restoreAtoms } from '@mszr/vane-dux/runtime'
 import { emit } from '@test'
 import { describe, expect, it, vi } from 'vitest'
+import { createSystem, unsafe, VaneError } from '../test-support/legacy'
 
 function miniAtoms() {
   return emit(() => {

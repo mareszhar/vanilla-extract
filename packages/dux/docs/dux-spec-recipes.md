@@ -1,5 +1,5 @@
 updated: 2026-07-09
-status: spec — contracts settled, implemented (phase 4)
+status: canonical implemented specification
 
 # vane-dux — spec: recipes
 

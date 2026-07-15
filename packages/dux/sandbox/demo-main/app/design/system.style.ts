@@ -15,7 +15,7 @@ export const ds = de.createSystem({
   root: '#prism-studio',
   tokens,
   conditions: {
-    ...presetConditions(),
+    ...presetConditions(de),
     previewWide: de.container('application', '(min-width: 44rem)'),
     previewRoomy: de.container('application', '(min-width: 58rem)'),
     supportsBackdrop: de.supports('(backdrop-filter: blur(1px))'),

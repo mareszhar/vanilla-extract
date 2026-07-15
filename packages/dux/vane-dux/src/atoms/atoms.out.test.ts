@@ -4,9 +4,9 @@
  * `utilities` layer; CSS output scales with conditions, never with values.
  */
 
-import { createSystem } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
+import { createSystem } from '../test-support/legacy'
 
 describe('atoms, emitted', () => {
   it('pre-generates value × condition classes in the utilities layer', () => {
@@ -29,9 +29,15 @@ describe('atoms, emitted', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.utilities {
         .atoms_gap_sm__oiwpg60 {

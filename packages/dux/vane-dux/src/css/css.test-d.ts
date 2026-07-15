@@ -4,20 +4,22 @@
  * unknown key dies at the cursor ([dux-patterns.md §2]).
  */
 
-import type { VaneColorToken, VaneValueToken } from '@mszr/vane-dux'
-import { createSystem, defineTokens, media, oklch } from '@mszr/vane-dux'
+import type { VaneColorTokenHandle } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { describe, expectTypeOf, it } from 'vitest'
+
+const de = createEngine()
 
 // Never evaluated — the typecheck plane only reads types.
 function system() {
-  return createSystem({
+  return de.createSystem({
     tokens: {
-      color: { brand: oklch(0.58, 0.2, 285).live() },
+      color: { brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }) },
       space: { md: '16px' },
     },
     conditions: {
       open: '&[data-state="open"]',
-      md: media('(min-width: 768px)'),
+      md: de.media('(min-width: 768px)'),
     },
   })
 }
@@ -26,32 +28,32 @@ describe('createSystem inference', () => {
   it('inline tokens bind and come back typed', () => {
     const { t } = system()
 
-    expectTypeOf(t.color.brand).toExtend<VaneColorToken<'live', 'vane-color-brand'>>()
-    expectTypeOf(t.space.md).toExtend<VaneValueToken<'16px'>>()
+    expectTypeOf(t.color.brand).toExtend<VaneColorTokenHandle>()
+    expectTypeOf(t.space.md.$val).toEqualTypeOf<'16px'>()
   })
 
   it('a defineTokens result passes through untouched', () => {
-    const t = defineTokens({ radius: { sm: '4px' } }).build({ prefix: 'prism' })
-    const bound = createSystem({ tokens: t })
+    const module = de.defineTokens({ radius: { sm: '4px' } })
+    const bound = de.createSystem({ tokens: module, prefix: 'prism' })
 
-    expectTypeOf(bound.t.radius).toEqualTypeOf<typeof t.radius>()
-    expectTypeOf(bound.t.radius.sm.name).toEqualTypeOf<'--prism-radius-sm'>()
+    expectTypeOf(bound.tokensOf(module).radius).toEqualTypeOf<typeof bound.t.radius>()
+    expectTypeOf(bound.t.radius.sm.$name).toEqualTypeOf<'--prism-radius-sm'>()
   })
 
   it('a condition name colliding with a CSS property is refused at the key', () => {
-    void createSystem({
+    void de.createSystem({
       tokens: {},
       // @ts-expect-error — 'color' is a CSS property; bare keys must never blur
       conditions: { color: '&[data-color]' },
     })
   })
 
-  it('the bound theme accepts overrides for the bound graph only', () => {
-    const { theme } = system()
+  it('the bound token override accepts overrides for the bound graph only', () => {
+    const { tokenOverride } = system()
 
-    theme({ color: { brand: oklch(0.4, 0.1, 100) } })
+    tokenOverride({ color: { brand: de.oklch(0.4, 0.1, 100) } })
     // @ts-expect-error — unknown tokens die at the cursor
-    theme({ color: { brandy: '#fff' } })
+    tokenOverride({ color: { brandy: '#fff' } })
   })
 })
 
@@ -103,13 +105,13 @@ describe('css() typing', () => {
     const withBase = system()
     void withBase.css({ hover: { opacity: 0.9 }, dark: { borderColor: 'white' } })
 
-    const bare = createSystem({ tokens: {}, baseConditions: false })
+    const bare = de.createSystem({ tokens: {}, baseConditions: false })
     // @ts-expect-error — no base conditions to speak of
     void bare.css({ hover: { opacity: 0.9 } })
   })
 
   it('custom layers replace the default order in the layer key', () => {
-    const custom = createSystem({ tokens: {}, layers: ['base', 'app'] })
+    const custom = de.createSystem({ tokens: {}, layers: ['base', 'app'] })
 
     void custom.css({ layer: 'app' })
     // @ts-expect-error — 'overrides' is not declared by this system

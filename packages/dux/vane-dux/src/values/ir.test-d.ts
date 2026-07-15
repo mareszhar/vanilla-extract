@@ -1,4 +1,5 @@
-import type { VaneCssValue, VaneSelfValue, VaneValue } from '@mszr/vane-dux'
+import type { VaneCssValue, VaneSelfValue, VaneValue } from '../test-support/legacy'
+import { describe, expectTypeOf, it } from 'vitest'
 import {
   angle,
   calc,
@@ -11,8 +12,7 @@ import {
   mix,
   oklch,
   percent,
-} from '@mszr/vane-dux'
-import { describe, expectTypeOf, it } from 'vitest'
+} from '../test-support/legacy'
 
 describe('typed CSS value contracts', () => {
   it('keeps the common interface context-bound while compatibility helpers remain usable', () => {

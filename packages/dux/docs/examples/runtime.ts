@@ -1,4 +1,4 @@
-import { createEngine, customProperty } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { setCustomProperties, setCustomProperty } from '@mszr/vane-dux/runtime'
 
 const de = createEngine().axes(({ scheme }) => ({ scheme: scheme() }))
@@ -20,7 +20,7 @@ runtime.applyTokenOverrides([[ds.t.color.brand, 'hotpink']])
 runtime.t.color.brand.$unset()
 runtime.setMode('scheme', 'dark')
 
-const external = customProperty('--external-brand', { type: 'color' })
+const external = de.customProperty('--external-brand', { type: 'color' })
 setCustomProperty(document.documentElement, external, 'rebeccapurple')
 setCustomProperties(document.documentElement, [[ds.t.color.brand, 'hotpink']])
 

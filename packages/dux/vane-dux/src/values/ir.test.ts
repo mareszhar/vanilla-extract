@@ -1,3 +1,6 @@
+import { VANE_CSS_CAPABILITIES } from '@mszr/vane-dux/capabilities'
+import { emit } from '@test'
+import { describe, expect, it } from 'vitest'
 import {
   alpha,
   angle,
@@ -20,10 +23,7 @@ import {
   oklch,
   percent,
   rawValue,
-} from '@mszr/vane-dux'
-import { VANE_CSS_CAPABILITIES } from '@mszr/vane-dux/capabilities'
-import { emit } from '@test'
-import { describe, expect, it } from 'vitest'
+} from '../test-support/legacy'
 import { defaultEngine } from './defaultEngine'
 import { nodeOf } from './protocol'
 
@@ -171,7 +171,7 @@ describe('the shared CSS value IR', () => {
       }
     })
 
-    expect(returned.token.value).toBe('2rem')
+    expect(returned.token.$val).toBe('2rem')
     expect(returned.runtimeGap.defaultValue).toBe('12px')
     expect(returned.runtimeGap.set('16px')).toEqual({ [returned.runtimeGap.name]: '16px' })
     expect(returned.className).toMatch(/valueRule__/)

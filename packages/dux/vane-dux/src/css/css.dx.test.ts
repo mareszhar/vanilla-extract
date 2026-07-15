@@ -21,16 +21,17 @@ function expectNoLeak(messages: Array<Diagnostic | string>): void {
 }
 
 const defineSystem = `
-import { createSystem, media, oklch } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 
-const { t, css, keyframes, globalCss } = createSystem({
+const de = createEngine()
+const { t, css, keyframes, globalCss } = de.createSystem({
   tokens: {
-    color: { brand: oklch(0.58, 0.2, 285).live() },
+    color: { brand: de.token({ val: de.oklch(0.58, 0.2, 285), mutable: true }) },
     space: { sm: '8px', md: '16px' },
   },
   conditions: {
     open: '&[data-state="open"]',
-    md: media('(min-width: 768px)'),
+    md: de.media('(min-width: 768px)'),
   },
 })
 
@@ -107,8 +108,8 @@ describe('errors at the cursor', () => {
 
   it('a condition name colliding with a CSS property is refused at the definition key', () => {
     const { errors } = project.check`
-      import { createSystem } from '@mszr/vane-dux'
-      void createSystem({ tokens: {}, conditions: { color: '&[data-color]' } })
+      import { createEngine } from '@mszr/vane-dux'
+      void createEngine().createSystem({ tokens: {}, conditions: { color: '&[data-color]' } })
     `
     // The type plane refuses at the key; the build diagnostic carries the sentence.
     expect(errors).toHaveError(/never/)

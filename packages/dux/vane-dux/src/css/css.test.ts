@@ -4,7 +4,7 @@
  * ([dux-patterns.md §10]).
  */
 
-import { check, createSystem, legibleOn, oklch, VaneError } from '@mszr/vane-dux'
+import { createEngine, VaneError } from '@mszr/vane-dux'
 import { definePrism, definePrismSystem, emit } from '@test'
 import { describe, expect, it } from 'vitest'
 
@@ -26,41 +26,40 @@ function expectVaneError(run: () => unknown, code: string, message: RegExp): Van
 }
 
 describe('createSystem', () => {
-  it('returns the defined graph as t, untouched', () => {
-    const { returned } = emit(() => {
-      const t = definePrism()
-      const system = createSystem({ tokens: t })
-      return { t, system }
-    })
-
-    expect(returned.system.t).toBe(returned.t)
+  it('finalizes the defined graph as canonical token handles', () => {
+    const { returned: t } = emit(() => definePrism())
+    expect(t.color.brand.$name).toBe('--vane-color-brand')
   })
 
   it('binds inline tokens and hands t back — one file, one call', () => {
-    const { returned: system } = emit(() => createSystem({
+    const de = createEngine()
+    const { returned: system } = emit(() => de.createSystem({
       tokens: { color: { brand: '#635bff' } },
       prefix: 'prism',
     }))
 
     expect(`${system.t.color.brand}`).toBe('var(--prism-color-brand)')
-    expect(system.t.color.brand.value).toBe('#635bff')
+    expect(system.t.color.brand.$val).toBe('#635bff')
   })
 
   it('forwards checks to an inline token graph', () => {
     expectVaneError(
-      () => emit(() => createSystem({
-        tokens: { color: { ink: oklch(0.5, 0, 0), canvas: oklch(0.55, 0, 0) } },
-        checks: t => [check.textContrast(t.color.ink, t.color.canvas)],
-      })),
+      () => emit(() => {
+        const de = createEngine()
+        return de.createSystem({
+          tokens: { color: { ink: de.oklch(0.5, 0, 0), canvas: de.oklch(0.55, 0, 0) } },
+          checks: t => [de.check.textContrast(t.color.ink, t.color.canvas)],
+        })
+      }),
       'VANE_TOKENS_CONTRAST',
       /fails APCA/,
     )
   })
 
-  it('the bound theme drops the graph argument', () => {
+  it('the bound token override drops the graph argument', () => {
     const { returned, css } = emit(() => {
-      const system = createSystem({ tokens: { color: { brand: '#635bff' } } })
-      return system.theme({ color: { brand: '#111111' } }, 'midnight')
+      const system = createEngine().createSystem({ tokens: { color: { brand: '#635bff' } } })
+      return system.tokenOverride({ color: { brand: '#111111' } }, 'midnight')
     })
 
     expect(typeof returned).toBe('string')
@@ -69,7 +68,7 @@ describe('createSystem', () => {
 
   it('refuses a condition name that collides with a CSS property, at definition', () => {
     expectVaneError(
-      () => emit(() => createSystem({
+      () => emit(() => createEngine().createSystem({
         tokens: {},
         conditions: { color: '&[data-color]' } as never,
       })),
@@ -80,7 +79,7 @@ describe('createSystem', () => {
 
   it('refuses a condition that is neither a selector with & nor an at-rule', () => {
     expectVaneError(
-      () => emit(() => createSystem({
+      () => emit(() => createEngine().createSystem({
         tokens: {},
         conditions: { open: '[data-state=open]' },
       })),
@@ -91,7 +90,7 @@ describe('createSystem', () => {
 
   it('a same-named user condition overrides its base condition', () => {
     const { css } = emit(() => {
-      const system = createSystem({
+      const system = createEngine().createSystem({
         tokens: {},
         conditions: { hover: '&:hover, &[data-hover]' },
       })
@@ -104,7 +103,7 @@ describe('createSystem', () => {
   it('baseConditions: false opts out entirely', () => {
     expectVaneError(
       () => emit(() => {
-        const system = createSystem({ tokens: {}, baseConditions: false })
+        const system = createEngine().createSystem({ tokens: {}, baseConditions: false })
         system.css({ hover: { opacity: 0.9 } } as never)
       }),
       'VANE_CSS_UNKNOWN_PROPERTY',
@@ -114,7 +113,7 @@ describe('createSystem', () => {
 
   it('an authoring call outside a style-module build names the missing plugin', () => {
     expectVaneError(
-      () => createSystem({ tokens: {} }),
+      () => createEngine().createSystem({ tokens: {} }),
       'VANE_VITE_PLUGIN_MISSING',
       /createSystem ran outside a style-module build/,
     )
@@ -182,7 +181,7 @@ describe('css() diagnostics', () => {
     expectVaneError(
       () => emit(() => {
         const { css, t } = definePrismSystem()
-        css({ color: legibleOn(t.color.brand) as never })
+        css({ color: createEngine().legibleOn(t.color.brand) as never })
       }),
       'VANE_CSS_INVALID_VALUE',
       /legibleOn, which is graph knowledge/,
@@ -193,8 +192,8 @@ describe('css() diagnostics', () => {
     const { css } = emit(() => {
       const system = definePrismSystem()
       system.css({
-        background: oklch(0.6, 0.1, 285).alpha(0.5),
-        outlineColor: system.t.color.brand.alpha(0.42),
+        background: system.alpha(system.oklch(0.6, 0.1, 285), 0.5),
+        outlineColor: system.alpha(system.t.color.brand, 0.42),
       }, 'helper')
     })
 

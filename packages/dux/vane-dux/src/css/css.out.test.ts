@@ -4,9 +4,9 @@
  * directions, arm intersection, scheme arms, global and raw lanes, locked.
  */
 
-import { createSystem } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
+import { createSystem } from '../test-support/legacy'
 
 /** A tiny system: inline tokens, spec-shaped conditions, default layers. */
 function miniSystem() {
@@ -46,10 +46,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .card__oiwpg60 {
@@ -95,10 +101,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .content__oiwpg60 {
@@ -141,10 +153,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .panel__oiwpg60:where([data-scheme='dark'], [data-scheme='dark'] *) {
@@ -178,10 +196,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .button__oiwpg60 {
@@ -213,10 +237,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .numbers__oiwpg60 {
@@ -246,10 +276,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .escape__oiwpg60 {
@@ -275,10 +311,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .inRecipes__oiwpg60 {
@@ -311,10 +353,16 @@ describe('css()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .entry__oiwpg60 {
@@ -366,10 +414,16 @@ describe('keyframes and globalCss', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         @media (prefers-reduced-motion: no-preference) {
@@ -399,10 +453,16 @@ describe('keyframes and globalCss', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.reset {
         html, body {
@@ -443,10 +503,16 @@ describe('css.raw', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .oiwpg60 h2 {

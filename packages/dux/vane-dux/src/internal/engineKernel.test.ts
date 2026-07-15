@@ -1,5 +1,5 @@
-import { defineCssValue, length } from '@mszr/vane-dux'
 import { describe, expect, it } from 'vitest'
+import { defineCssValue, length } from '../test-support/legacy'
 import { createEngineKernel } from './engineKernel'
 
 describe('the internal engine kernel', () => {

@@ -1,9 +1,9 @@
-updated: 2026-07-14
-status: spec — current implementation contract (Phase 6 alias plugin added)
+updated: 2026-07-15
+status: canonical implemented specification
 
 # vane-dux — spec: css authoring
 
-The daily-driver surface: the system factory and the typed authoring functions it binds — `css`, conditions, layers, `keyframes`, `globalCss`, and the escape hatches. Phase 2 of the roadmap.
+The daily-driver surface: the engine-bound system and the typed authoring functions it exposes — `css`, conditions, layers, `keyframes`, `globalCss`, and the escape hatches.
 
 Contracts here lean on the cross-cutting law: evaluation ([dux-patterns.md §1](./dux-patterns.md#1-evaluate-dont-extract-compile-dont-run)), the validation split ([§2](./dux-patterns.md#2-type-the-names-parse-the-values)), conditions ([§5](./dux-patterns.md#5-conditions)), layers ([§6](./dux-patterns.md#6-layer-discipline)), and escape-hatch grace ([§8](./dux-patterns.md#8-escape-hatch-grace)).
 
@@ -24,39 +24,47 @@ Contracts here lean on the cross-cutting law: evaluation ([dux-patterns.md §1](
 
 ---
 
-## 1. `createSystem` — bind once, typed everywhere
+## 1. `de.createSystem` — bind once, typed everywhere
 
 **Why.** Panda-grade typing without Panda's generated artifact directory: a factory that closes over tokens, conditions, and layers returns authoring functions whose types are *inferred*, so a new condition or token is available everywhere the instant it's defined — no codegen lag, no stale artifacts, no diff noise. And because this is the one file every user must write on day one, its floor is engineered: tokens can be defined inline, `t` comes back out, layers default, and a universal base condition set is already there — the happy path is **one file, one call** ([§1.1](#11-the-happy-path-one-file)).
 
-**Usage — the full form.**
+**Usage — the full form.** The engine owns the constructors used to define the
+system, and the finalized system re-exposes them so daily style files need one
+import.
 
 ```TS
 // design/system.style.ts
-import { container, createSystem, media, schemeIs } from '@mszr/vane-dux'
-import { t } from './tokens.style'
+import { createEngine } from '@mszr/vane-dux'
 
-export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = createSystem({
-  tokens: t,
+export const de = createEngine()
+const tokens = de.defineTokens({
+  color: { brand: de.oklch(0.58, 0.2, 285) },
+})
+
+export const ds = de.createSystem({
+  tokens,
   prefix: 'prism',
   conditions: {
     open: '&[data-state="open"]',
-    md: media('(min-width: 768px)'),
-    lg: media('(min-width: 1024px)'),
-    cardWide: container('card', '(min-width: 400px)'),
+    md: de.media('(min-width: 768px)'),
+    lg: de.media('(min-width: 1024px)'),
+    cardWide: de.container('card', '(min-width: 400px)'),
   },
   layers: ['reset', 'tokens', 'recipes', 'utilities', 'overrides'],
 })
+
+export const { t, css, recipe, anatomy, keyframes, globalCss, port } = ds
 ```
 
 **Contract details.**
 
 - One system per design system; the destructured functions are the app's whole authoring import surface.
-- **`tokens` accepts a raw graph or a `defineTokens` result, and `t` is always returned** beside the authoring functions — one import line serves every style file. The separate tokens file remains the library-authoring form ([dux-spec-tokens.md §1](./dux-spec-tokens.md#1-definetokens--the-graph-in-plain-ts)); nothing requires it.
+- **`tokens` accepts an engine-bound token module, and `t` is always returned** beside the authoring functions — one import line serves every style file. Token modules can stay inline or compose across files ([dux-spec-tokens.md §1](./dux-spec-tokens.md#1-definetokens--the-graph-in-plain-ts)).
 - **`layers` is optional**, defaulting to `['reset', 'tokens', 'recipes', 'utilities', 'overrides']`. Nobody needs to know what a cascade layer is to hello-world; declaring `layers` is how you take control when you do.
 - **A base condition set is built in** — the platform-universal names, no opinions: `hover` (`&:hover` — exactly what it says), `hoverFocus` (`&:hover, &:focus-visible` — the interactive-affordance pair, named for what it does), `active` (`&:active`), `focusVisible`, `disabled`, `motionOk`, `motionReduce`, `dark`, `light`, `ltr`, `rtl`. User conditions merge over it; a same-named user condition overrides; `baseConditions: false` opts out entirely. Breakpoints, container sizes, and headless states are opinions and live in the preset ([dux-spec-preset.md §2](./dux-spec-preset.md#2-preset-conditions)).
 - A condition name colliding with a CSS property is refused **at the definition key** (`VANE_SYSTEM_CONDITION_COLLISION`).
-- Condition values are plain selector strings or the typed helpers (`media`, `supports`, `container`, `schemeIs`, `data`, `aria`); helpers exist for readability, strings are never second-class. String forms: a selector containing `&`, or a bare at-rule (`'@media (min-width: 768px)'`).
-- `createSystem` is itself evaluated build-time code; its returns are inert typed functions ([dux-patterns.md §1](./dux-patterns.md#1-evaluate-dont-extract-compile-dont-run)).
+- Condition values are plain selector strings or the engine's typed helpers (`de.media`, `de.supports`, `de.container`, `de.schemeIs`, `de.data`, `de.aria`); helpers exist for readability, strings are never second-class. String forms: a selector containing `&`, or a bare at-rule (`'@media (min-width: 768px)'`).
+- `de.createSystem` is itself evaluated build-time code; its returns are inert typed functions ([dux-patterns.md §1](./dux-patterns.md#1-evaluate-dont-extract-compile-dont-run)).
 
 **Proposed approach.** A generic factory whose type parameters flow from the literal config (`const`-inferred), compiling each authoring call down to substrate primitives. No emitted `.d.ts` artifacts: inference is the codegen.
 
@@ -66,13 +74,16 @@ The canonical quickstart — the exact file the README and Nuxt module docs shar
 
 ```TS
 // design/system.style.ts
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { presetConditions, presetTokens } from '@mszr/vane-dux/preset'
 
-export const { t, css, recipe, anatomy, port, theme } = createSystem({
-  tokens: presetTokens({ brand: '#635bff' }),
-  conditions: presetConditions(), // adds breakpoints, container sizes, headless states
+export const de = createEngine()
+export const ds = de.createSystem({
+  tokens: presetTokens(de, { brand: '#635bff' }),
+  conditions: presetConditions(de), // breakpoints, containers, preferences, states
 })
+
+export const { t, css, recipe, anatomy, port } = ds
 ```
 
 One file, two imports, zero layer literacy, dark mode already working. Every capability remains reachable from here by *adding* keys — never by restructuring (principle 10).
@@ -119,12 +130,12 @@ export const card = css({
 **Why.** TypeScript should improve the parts of CSS that are punctuation-heavy or composition-sensitive without wrapping values that already read naturally. One value layer feeds tokens, declarations, keyframes, ports, atoms, and `css.raw`; a utility never traps its result in a special lane.
 
 ```TS
-import { calc, channel, clamp, grid, oklch } from '@mszr/vane-dux'
+import { ds, t } from '~/design/system.style'
 
-const fluid = clamp('1rem', calc('2vw').add('0.5rem'), '3rem')
-const columns = grid.repeat('auto-fit', grid.minmax('16rem', '1fr'))
-const muted = oklch.from(t.color.brand, {
-  c: channel.multiply(0.5),
+const fluid = ds.clamp('1rem', ds.calc('2vw').add('0.5rem'), '3rem')
+const columns = ds.grid.repeat('auto-fit', ds.grid.minmax('16rem', '1fr'))
+const muted = ds.oklch.from(t.color.brand, {
+  c: ds.channel.multiply(0.5),
   alpha: 0.72,
 })
 
@@ -135,7 +146,7 @@ export const gallery = css({
 })
 ```
 
-- `calc(value)` is an immutable expression with `add`, `subtract`, `multiply`, `divide`, and `negate`. Nested calculations preserve precedence automatically. Known dimensions flow through the type (`length`, `percentage`, `angle`, `time`, and so on); known-invalid sums such as length + angle fail at the operand. A token's literal `value` and a port's default participate in that inference when known; an arbitrary CSS variable degrades honestly to `unknown`.
+- `ds.calc(value)` is an immutable expression with `add`, `subtract`, `multiply`, `divide`, and `negate`. Nested calculations preserve precedence automatically. Known dimensions flow through the type (`length`, `percentage`, `angle`, `time`, and so on); known-invalid sums such as length + angle fail at the operand. A token's authored `$val` and a port's default participate in that inference when known; an arbitrary CSS variable degrades honestly to `unknown`.
 - `min`, `max`, and `clamp` emit their platform functions. `grid.minmax`, `grid.repeat`, `grid.template`, and `grid.areas` compose Grid's punctuation-heavy value grammar.
 - `oklch.from` and `channel.*` are the general relative-color primitive; the token compiler folds static inputs and keeps live graph edges as standards-native relative color syntax. Color constructors cover `oklch`, `oklab`, `lch`, `lab`, `hsl`, `rgb`, and `displayP3`.
 - Every utility returns a `VaneCssValue`: ordinary `toString()` plus a readable `.css` fact. Strings remain first-class and preferred wherever CSS is already the clearest spelling (`'system-ui'`, `'1px solid currentColor'`, or a template interpolation). The utilities are leverage, never ceremony.

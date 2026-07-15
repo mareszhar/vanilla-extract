@@ -24,7 +24,6 @@ import type {
   VaneGraphInput,
   VaneNamesOf,
   VaneResolvedTokens,
-  VaneThemeOverrides,
   VaneTokenBuilder,
   VaneTokenHandleAny,
   VaneTokenModule,
@@ -55,9 +54,8 @@ import { VANE_PROPERTY_ALIASES } from '../plugins/propertyAliases'
 import { createPort } from '../ports/port'
 import { bindAnatomy } from '../recipes/anatomy'
 import { bindRecipe } from '../recipes/recipe'
-import { defineTokenModule, defineTokens, finalizeTokenModule, graphOf, isTokenBuilder, runtimeContractOf, runtimeSchemasOf, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
-import { theme as standaloneTheme, tokenOverride as standaloneTokenOverride } from '../tokens/theme'
-import { defaultEngine } from '../values/defaultEngine'
+import { defineTokenModule, finalizeTokenModule, graphOf, isTokenBuilder, runtimeContractOf, runtimeSchemasOf, tokenModuleEngine, tokenModulePaths } from '../tokens/graph'
+import { tokenOverride as standaloneTokenOverride } from '../tokens/theme'
 import { isVaneValue } from '../values/types'
 import { describeAxisRegistry } from './axes'
 import { baseConditions, describeConditions, normalizeConditions } from './conditions'
@@ -136,8 +134,10 @@ export type VaneEngineSystemOptions<
   L extends readonly string[],
   P extends string,
   B extends boolean,
-> = Omit<VaneSystemOptions<T, C, L, P, B>, 'tokens'> & {
+  Policy extends VaneTokenPolicy = VaneDefaultTokenPolicy,
+> = Omit<VaneSystemOptions<T, C, L, P, B>, 'tokens' | 'checks'> & {
   tokens: T & (T extends VaneTokenModule<infer _Graph, infer _ModulePolicy> ? unknown : T extends VaneGraphInput ? unknown : never)
+  checks?: (tokens: VaneSystemTokens<T, P, Policy, true>) => readonly VaneCheck[]
 }
 
 export type VaneSystemConditionName<C, B extends boolean>
@@ -160,8 +160,6 @@ export interface VaneBoundSystem<
   readonly globalCss: VaneGlobalCssFunction<C, L>
   /** A grouped build-time override class in the system token override layer. */
   readonly tokenOverride: (overrides: VaneTokenOverrides<T>, debugId?: string) => string
-  /** @deprecated D66 migration adapter; use `tokenOverride`. */
-  readonly theme: (overrides: VaneThemeOverrides<T>, debugId?: string) => string
   /** Variants compress state: props in, classes out ([dux-spec-recipes.md §1]). */
   readonly recipe: VaneRecipeFactory<C, L>
   /** The recipe pattern applied to parts ([dux-spec-recipes.md §3]). */
@@ -212,29 +210,6 @@ export interface VaneSystemEngineBinding<
   readonly dtcg: readonly VaneDtcgCodec[]
 }
 
-/** @deprecated Use `createEngine().createSystem()`; removed at target-doc promotion. */
-export function createSystem<
-  const T extends object,
-  const C extends Record<string, VaneConditionInput> = Record<never, never>,
-  const L extends readonly string[] = VaneDefaultLayers,
-  P extends string = 'vane',
-  B extends boolean = true,
->(
-  options: VaneSystemOptions<T, C, L, P, B>,
-): VaneSystem<VaneSystemTokens<T, P>, VaneSystemConditionName<C, B>, L[number]> {
-  return createSystemInternal<
-    Record<never, never>,
-    T,
-    C,
-    L,
-    P,
-    B,
-    VaneDefaultTokenPolicy,
-    false,
-    Record<never, never>
-  >(undefined, options)
-}
-
 export function createSystemForEngine<
   const Constructors extends object,
   const TokenPolicy extends VaneTokenPolicy,
@@ -247,7 +222,7 @@ export function createSystemForEngine<
   B extends boolean = true,
 >(
   binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes>,
-  options: VaneEngineSystemOptions<T, C, L, P, B>,
+  options: VaneEngineSystemOptions<T, C, L, P, B, TokenPolicy>,
 ): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, Css> {
   return createSystemInternal<Constructors, T, C, L, P, B, TokenPolicy, true, Axes, Css>(
     binding,
@@ -267,7 +242,7 @@ function createSystemInternal<
   Axes extends VaneAxisDefinitions = Record<never, never>,
   Css = VaneCssFunction<VaneSystemConditionName<C, B>, L[number]>,
 >(
-  binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes> | undefined,
+  binding: VaneSystemEngineBinding<Constructors, TokenPolicy, Axes>,
   options: VaneSystemOptions<T, C, L, P, B>,
 ): VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, Css> {
   const file = requireStyleModule('createSystem')
@@ -303,7 +278,7 @@ function createSystemInternal<
   }
 
   const declaredLayers = layers as readonly string[]
-  const tokenLayer = options.tokenLayer ?? (binding === undefined ? undefined : declaredLayers.includes('tokens') ? 'tokens' : layers[0])
+  const tokenLayer = options.tokenLayer ?? (declaredLayers.includes('tokens') ? 'tokens' : layers[0])
   if (tokenLayer !== undefined && !declaredLayers.includes(tokenLayer)) {
     throw new VaneError({
       code: 'VANE_SYSTEM_UNKNOWN_LAYER',
@@ -321,7 +296,7 @@ function createSystemInternal<
     globalLayer({ parent: prefix }, layer)
 
   let phaseLayers: VaneTokenPhaseLayers | undefined
-  if (binding !== undefined && qualifiedTokenLayer !== undefined) {
+  if (qualifiedTokenLayer !== undefined) {
     const baseLayer = globalLayer({ parent: qualifiedTokenLayer }, 'base')
     const axesLayer = globalLayer({ parent: qualifiedTokenLayer }, 'axes')
     const axisLayers = Object.freeze(Object.fromEntries(binding.axes.order.map(axis => [
@@ -344,47 +319,40 @@ function createSystemInternal<
   // their prefix/root identity has already been claimed elsewhere.
   let tokens: object
   if (graphOf(options.tokens)) {
-    if (binding !== undefined) {
-      throw new VaneError({
-        code: 'VANE_ENGINE_INCOMPATIBLE',
-        message: 'an engine system cannot consume an already-finalized token graph',
-        file,
-        fix: 'pass the unfinished module returned by de.defineTokens(); the system owns final names',
-      })
-    }
-    tokens = options.tokens
+    throw new VaneError({
+      code: 'VANE_ENGINE_INCOMPATIBLE',
+      message: 'an engine system cannot consume an already-finalized token graph',
+      file,
+      fix: 'pass the unfinished module returned by de.defineTokens(); the system owns final names',
+    })
   }
   else {
     const builder = isTokenBuilder(options.tokens)
       ? options.tokens as unknown as RuntimeTokenBuilder
-      : binding === undefined
-        ? defineTokens(options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
-        : defineTokenModule(binding.requirement, binding.tokenPolicy, options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
+      : defineTokenModule(binding.requirement, binding.tokenPolicy, options.tokens as VaneGraphInput) as unknown as RuntimeTokenBuilder
 
-    if (binding !== undefined) {
-      const moduleEngine = tokenModuleEngine(builder)
-      if (!moduleEngine || !binding.requirement.compatibleSignatures.includes(moduleEngine.signature)) {
-        throw new VaneError({
-          code: 'VANE_ENGINE_INCOMPATIBLE',
-          message: 'this token module is not compatible with the system engine',
-          detail: [
-            `system engine: ${binding.kernel.signature}`,
-            `module engine: ${moduleEngine?.signature ?? 'legacy/unbound'}`,
-          ],
-          file,
-          fix: 'define the module with this engine or an equivalent/compatible parent engine',
-        })
-      }
+    const moduleEngine = tokenModuleEngine(builder)
+    if (!moduleEngine || !binding.requirement.compatibleSignatures.includes(moduleEngine.signature)) {
+      throw new VaneError({
+        code: 'VANE_ENGINE_INCOMPATIBLE',
+        message: 'this token module is not compatible with the system engine',
+        detail: [
+          `system engine: ${binding.kernel.signature}`,
+          `module engine: ${moduleEngine?.signature ?? 'unbound'}`,
+        ],
+        file,
+        fix: 'define the module with this engine or an equivalent/compatible parent engine',
+      })
     }
 
     tokens = finalizeTokenModule(builder, {
       prefix,
       root,
       layers,
-      ...(binding === undefined ? {} : { serializeValue: (value: VaneCssValue) => binding.kernel.serializeValue(value) }),
-      ...(binding === undefined ? {} : { support: binding.kernel.support }),
-      ...(binding === undefined ? {} : { axes: binding.axes }),
-      ...(binding === undefined ? {} : { dtcgCodecIds: new Set(binding.dtcg.map(codec => codec.extension)) }),
+      serializeValue: (value: VaneCssValue) => binding.kernel.serializeValue(value),
+      support: binding.kernel.support,
+      axes: binding.axes,
+      dtcgCodecIds: new Set(binding.dtcg.map(codec => codec.extension)),
       ...(phaseLayers === undefined ? {} : { phaseLayers }),
       ...(qualifiedTokenLayer === undefined ? {} : { layer: qualifiedTokenLayer }),
       ...(options.checks === undefined ? {} : { checks: options.checks as () => readonly VaneCheck[] }),
@@ -399,7 +367,7 @@ function createSystemInternal<
     file,
   )
 
-  const aliasConfig = binding?.kernel.constructors && VANE_PROPERTY_ALIASES in binding.kernel.constructors
+  const aliasConfig = VANE_PROPERTY_ALIASES in binding.kernel.constructors
     ? (binding.kernel.constructors as any)[VANE_PROPERTY_ALIASES]
     : undefined
   if (aliasConfig) {
@@ -433,11 +401,11 @@ function createSystemInternal<
     prefix,
     root,
     ...(qualifiedTokenLayer === undefined ? {} : { tokenLayer: qualifiedTokenLayer }),
-    ...(binding === undefined ? {} : { engine: binding.kernel.signature }),
-    ...(binding === undefined ? {} : { supportTarget: binding.kernel.support.id }),
+    engine: binding.kernel.signature,
+    supportTarget: binding.kernel.support.id,
     layers: [...layers],
     conditions: describeConditions(conditions),
-    ...(binding === undefined || binding.axes.order.length === 0 ? {} : { axes: describeAxisRegistry(binding.axes) }),
+    ...(binding.axes.order.length === 0 ? {} : { axes: describeAxisRegistry(binding.axes) }),
     ...(options.audit === undefined ? {} : { audit: options.audit }),
     runtime: {
       protocol: runtimeContract.protocol,
@@ -449,7 +417,7 @@ function createSystemInternal<
   type Bound = VaneSystem<VaneSystemTokens<T, P, TokenPolicy, Canonical>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, Css>
 
   const describedConditions = Object.freeze(describeConditions(conditions)) as Readonly<Record<VaneSystemConditionName<C, B>, string>>
-  const kernel = binding?.kernel ?? defaultEngine
+  const kernel = binding.kernel
   const resolvedGraph = graphOf(tokens)!
   const runtimeServices = createRuntimeServices<Bound['t'], Axes>(runtimeContract, runtimeSchemasOf(tokens))
   const serializeSystemValue = (value: unknown): string | number => {
@@ -522,7 +490,7 @@ function createSystemInternal<
   )
 
   const bound = {
-    ...(binding?.kernel.constructors ?? {} as Constructors),
+    ...binding.kernel.constructors,
 
     t: tokens as Bound['t'],
     css: buildPlane('css', bindCss(system) as Bound['css']),
@@ -532,11 +500,6 @@ function createSystemInternal<
     tokenOverride: buildPlane('tokenOverride', (overrides: VaneTokenOverrides<Bound['t']>, debugId?: string) => standaloneTokenOverride(
       tokens as Bound['t'],
       overrides as VaneTokenOverrides<Bound['t']>,
-      debugId,
-    )),
-    theme: buildPlane('theme', (overrides: VaneThemeOverrides<Bound['t']>, debugId?: string) => standaloneTheme(
-      tokens as Bound['t'],
-      overrides as VaneThemeOverrides<Bound['t']>,
       debugId,
     )),
     recipe: buildPlane('recipe', bindRecipe(system) as Bound['recipe']),
@@ -559,7 +522,7 @@ function createSystemInternal<
 
   Object.defineProperty(bound, VANE_SYSTEM_INTERCHANGE, {
     enumerable: false,
-    value: Object.freeze({ graph: resolvedGraph, codecs: Object.freeze([...(binding?.dtcg ?? [])]) }),
+    value: Object.freeze({ graph: resolvedGraph, codecs: Object.freeze([...binding.dtcg]) }),
   })
 
   return Object.freeze(bound) as Bound
@@ -589,8 +552,8 @@ type RuntimeTokenBuilder = object
 
 /**
  * Let a bound authoring function cross the build/app boundary as a stub:
- * importing the system module from app code is legal and useful (`t` for
- * `applyTheme`, published classes), so the build-plane functions beside those
+ * importing the system module from app code is legal and useful (`t` and
+ * published classes), so the build-plane functions beside those
  * exports serialize into throwing stubs instead of poisoning the module
  * ([dux-patterns.md §1] — app code never executes styling work at runtime).
  */

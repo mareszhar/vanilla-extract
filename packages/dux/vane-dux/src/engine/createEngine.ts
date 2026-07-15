@@ -144,7 +144,7 @@ export interface VaneEngineMethods<
     P extends string = 'vane',
     B extends boolean = true,
   >(
-    options: VaneEngineSystemOptions<T, C, L, P, B>,
+    options: VaneEngineSystemOptions<T, C, L, P, B, TokenPolicy>,
   ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, VaneCssFunction<VaneSystemConditionName<C, B>, L[number]>>
   readonly axes: <const Added extends VaneAxisDefinitions>(
     factory: (
@@ -194,7 +194,7 @@ export interface VaneAliasedEngineMethods<
     P extends string = 'vane',
     B extends boolean = true,
   >(
-    options: VaneEngineSystemOptions<T, C, L, P, B>,
+    options: VaneEngineSystemOptions<T, C, L, P, B, TokenPolicy>,
   ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, VanePropertyAliasCssFunction<VaneSystemConditionName<C, B>, L[number], Aliases>>
 }
 
@@ -211,7 +211,7 @@ export interface VaneStrictAliasedEngineMethods<
     P extends string = 'vane',
     B extends boolean = true,
   >(
-    options: VaneEngineSystemOptions<T, C, L, P, B>,
+    options: VaneEngineSystemOptions<T, C, L, P, B, TokenPolicy>,
   ) => VaneSystem<VaneSystemTokens<T, P, TokenPolicy, true>, VaneSystemConditionName<C, B>, L[number], Constructors, Axes, VaneStrictPropertyAliasCssFunction<VaneSystemConditionName<C, B>, L[number], Aliases>>
 }
 
@@ -301,8 +301,6 @@ const ENGINE_METHOD_NAMES = new Set<string>([
   'compatibleWith',
   'use',
   'extend',
-  // Transitional current-system member; target surface v1 replaces it with tokenOverride.
-  'theme',
   'tokenOverride',
 ])
 
@@ -456,7 +454,7 @@ function materializeEngine<
       const L extends readonly string[] = VaneDefaultLayers,
       P extends string = 'vane',
       B extends boolean = true,
-    >(options: VaneEngineSystemOptions<T, C, L, P, B>) => createSystemForEngine<
+    >(options: VaneEngineSystemOptions<T, C, L, P, B, TokenPolicy>) => createSystemForEngine<
       Constructors,
       TokenPolicy,
       Axes,

@@ -11,13 +11,14 @@ import { describe, expect, it } from 'vitest'
 const project = duxProject()
 
 const preamble = `
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
+const de = createEngine()
 `
 
 describe('the audit config', () => {
   it('completes the audit lanes', () => {
     const result = project.query`${preamble}
-      void createSystem({ tokens: {}, audit: { ${cursor} } })
+      void de.createSystem({ tokens: {}, audit: { ${cursor} } })
     `
     expect(result.completions).toContainCompletions([
       'unusedTokens',
@@ -30,14 +31,14 @@ describe('the audit config', () => {
 
   it('completes the levels on a lane', () => {
     const result = project.query`${preamble}
-      void createSystem({ tokens: {}, audit: { escapes: ${cursor} } })
+      void de.createSystem({ tokens: {}, audit: { escapes: ${cursor} } })
     `
     expect(result.completions).toContainCompletions(['off', 'warn', 'error'])
   })
 
   it('a typo\'d lane dies at the offending key', () => {
     const { errors } = project.check`${preamble}
-      void createSystem({ tokens: {}, audit: { unusedToken: 'error' } })
+      void de.createSystem({ tokens: {}, audit: { unusedToken: 'error' } })
     `
     expect(errors).toHaveError(/unusedToken/)
     expect(errors).toHaveErrorCount(1)

@@ -10,6 +10,7 @@
  *   https://www.w3.org/TR/css-values-4/#comp-func
  */
 
+import { describe, expect, it } from 'vitest'
 import {
   angle,
   clamp,
@@ -25,8 +26,7 @@ import {
   oklch,
   percent,
   rgb,
-} from '@mszr/vane-dux'
-import { describe, expect, it } from 'vitest'
+} from '../test-support/legacy'
 import { defaultEngine } from './defaultEngine'
 
 describe('cSSWG/WPT-derived value grammar', () => {

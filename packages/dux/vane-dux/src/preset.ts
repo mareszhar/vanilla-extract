@@ -12,7 +12,7 @@ export { presetAtoms } from './preset/atoms'
 // The foundations (phase 5): the quickstart's tokens and conditions.
 export { presetConditions } from './preset/conditions'
 
-export type { VanePresetConditionName } from './preset/conditions'
+export type { VanePresetConditionEngine, VanePresetConditionName } from './preset/conditions'
 export { animate, fade, scaleIn, slideUp, transition } from './preset/motion'
 export { definePatterns } from './preset/patterns'
 export type { VanePatterns, VanePatternsConfig } from './preset/patterns'
@@ -24,7 +24,7 @@ export type {
   VaneElevationPluginApi,
   VaneElevationPluginOptions,
 } from './preset/plugins'
-export { elevation, presetTokens } from './preset/tokens'
+export { presetTokens } from './preset/tokens'
 export type {
   VanePresetBrandInput,
   VanePresetContrast,

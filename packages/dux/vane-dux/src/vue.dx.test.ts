@@ -11,10 +11,11 @@ import { describe, expect, it } from 'vitest'
 const project = duxProject()
 
 const defineOverlay = `
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { useAnatomy, usePorts } from '@mszr/vane-dux/vue'
 
-const { anatomy, port } = createSystem({ tokens: { space: { sm: '8px' } } })
+const de = createEngine()
+const { anatomy, port } = de.createSystem({ tokens: { space: { sm: '8px' } } })
 
 const fraction = port(0)
 

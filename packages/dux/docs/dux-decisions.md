@@ -1,9 +1,9 @@
 updated: 2026-07-15
 status: accepted architecture decisions — change only with new evidence recorded here
 
-# vane-dux next — decisions
+# vane-dux — decisions
 
-This is the compact decision record for the refactor. The specs own full behavior; this file prevents settled choices from being accidentally reopened or contradictory interpretations from spreading across tasks.
+This is the compact architecture decision record. The specs own full behavior; this file prevents settled choices from being accidentally reopened or contradictory interpretations from spreading across tasks.
 
 ## Product and architecture
 
@@ -99,7 +99,7 @@ This is the compact decision record for the refactor. The specs own full behavio
 | D63 | The flagship demo is rebuilt as a design-system studio, not mechanically migrated from the current color-picker concept. | Phase 8 proves one coherent system across live palette, scheme, density, radius, elevation, typography, motion, responsive/container behavior, and runtime persistence. The comparison demo uses a smaller parity-friendly brief; neither demo dictates product architecture. |
 | D64 | Core CSS support targets are explicit versioned feature sets. | `defineCssSupportTarget({ id, features })` is the stable adapter; optional Browserslist/bundler integrations may derive it, but core behavior never floats with external market data. |
 | D65 | Relative performance thresholds have a 1ms measurement floor for editor micro-operations. | Below that floor, repeated-run stability, completion/diagnostic counts, and absolute latency govern acceptance; percentage changes between sub-millisecond medians are treated as timer noise, not fictitious user-visible regressions. |
-| D66 | Deprecated package-root authoring functions are migration adapters, not a second canonical dialect. | Until target-doc promotion they preserve inherited regression gates and receive no new language features. The target root centers `createEngine`, public types, and explicit standards/adapter entrypoints; engine-derived constructors and `de.createSystem()` are the only canonical authoring path. |
+| D66 | Package-root authoring shortcuts are absent rather than maintained as a second dialect. | The root centers `createEngine`, public types, and explicit standards/adapter entrypoints; engine-derived constructors and `de.createSystem()` are the only authoring path. |
 | D67 | Axis conditions use the engine-callback `condition(input, { on, priority })`, `absoluteCondition(selector, { priority })`, and specialized adapters such as axis-aware `data()`/`schemeIs()`. | `on` is `root`, `ancestor`, or `descendant`; selectors containing `&` infer the same placement. At-rules remain query arms, absolute selectors are never silently rooted, and every arm records mechanism/locality/priority. |
 | D68 | Group `$root` ships; group `$axes` does not ship in the initial language. | `$root` accepts an absolute selector or an `&`-anchored refinement and inherits module/system ownership. Per-token `axes` remains the canonical and better-localized form; `$axes` is diagnosed rather than partially implemented until new DX/performance evidence justifies it. |
 | D69 | The built-in adapter is `scheme({ locality, fallback })`; native `light-dark()` is a guarded color-only optimization. | `locality` defaults to `element`; `fallback` defaults to `diagnose` and may explicitly accept document-global media fallback. Non-color values retain the same scheme axis through selector/media emission, typed registration obeys D51, and explicit selector arms remain available beside native preference selection. |

@@ -21,13 +21,13 @@ This is the dux maintainer area inside the **vanilla-extract** fork.
 ## Start here
 
 - **The hub:** [`docs/dux-vision.md`](./docs/dux-vision.md) — what vane-dux is, the principles, the roadmap
-- **The target refactor:** [`docs/next/README.md`](./docs/next/README.md) — the converged next architecture and implementation ledger
+- **Documentation hub:** [`docs/README.md`](./docs/README.md) — vision, language, specifications, evidence, and implementation record
 - The words: [`docs/dux-language.md`](./docs/dux-language.md)
 - The cross-cutting law: [`docs/dux-patterns.md`](./docs/dux-patterns.md)
 - The domains, contract by contract: `docs/dux-spec-*.md` — [tokens](./docs/dux-spec-tokens.md) · [css](./docs/dux-spec-css.md) · [ports](./docs/dux-spec-ports.md) · [recipes](./docs/dux-spec-recipes.md) · [vue](./docs/dux-spec-vue.md) · [preset](./docs/dux-spec-preset.md) · [introspection](./docs/dux-spec-introspection.md)
 - Maintainer manual: [`docs/dux-workspace.md`](./docs/dux-workspace.md)
-- Permanent testing and performance gates: [`docs/next/dux-testing.md`](./docs/next/dux-testing.md)
-- Active migration plan: [`docs/next/dux-implementation-plan.md`](./docs/next/dux-implementation-plan.md)
+- Permanent testing and performance gates: [`docs/dux-testing.md`](./docs/dux-testing.md)
+- Completed semantic-foundation implementation record: [`docs/dux-implementation-plan.md`](./docs/dux-implementation-plan.md)
 - Package front door: [`vane-dux/README.md`](./vane-dux/README.md)
 
 ## Top commands

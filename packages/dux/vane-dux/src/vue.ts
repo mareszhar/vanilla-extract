@@ -8,11 +8,11 @@
  */
 
 import type { ComputedRef, CSSProperties, MaybeRefOrGetter, PropType } from 'vue'
-import type { VaneRuntimeStyle } from './runtime'
+import type { VanePortStyle } from './ports/types'
 import { computed, toValue } from 'vue'
 import { ports } from './runtime'
 
-export type VanePortSource = VaneRuntimeStyle | false | null | undefined
+export type VanePortSource = VanePortStyle | false | null | undefined
 export type VanePortSourceFactory = () => VanePortSource | readonly VanePortSource[]
 
 /**

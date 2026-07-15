@@ -9,8 +9,17 @@
  * tokens without editing them individually.
  */
 
-import type { VaneColor, VaneColorish, VaneColorMode, VaneContrast, VaneDerived, VaneTokenBuilder } from '@mszr/vane-dux'
-import { alpha, color, defineTokens, legibleOn, mix, oklch, scale, scheme } from '@mszr/vane-dux'
+import type {
+  VaneAuthoredColor,
+  VaneAxisDefinitions,
+  VaneCanonicalCoreConstructors,
+  VaneConfiguredToken,
+  VaneContrast,
+  VaneCoreEngine,
+  VaneDerived,
+  VaneTokenModule,
+  VaneTokenPolicy,
+} from '@mszr/vane-dux'
 
 // ─── The controls ────────────────────────────────────────────────────────────
 
@@ -18,8 +27,8 @@ export type VanePresetRadius = 'sharp' | 'calm' | 'round'
 export type VanePresetDensity = 'compact' | 'comfortable' | 'spacious'
 export type VanePresetContrast = 'soft' | 'balanced' | 'high'
 
-/** A brand seed: a CSS color literal, or a color value — `.live()` makes it user-themeable. */
-export type VanePresetBrandInput = string | VaneColor<VaneColorMode>
+/** A brand seed: a CSS color literal or an engine-authored color value. */
+export type VanePresetBrandInput = string | VaneAuthoredColor
 
 export interface VanePresetTokensOptions<
   B extends VanePresetBrandInput = string,
@@ -107,23 +116,22 @@ const easings = {
   spring: springLinear(),
 } as const
 
-/** The brand seed keeps the mode it arrived with; a literal folds at build. */
-export type VanePresetBrand<B> = B extends VaneColor<infer M extends VaneColorMode> ? VaneColor<M> : VaneColor<'static'>
+export type VanePresetBrand<_B extends VanePresetBrandInput> = VaneAuthoredColor
 
 /** The preset's definition graph — public because the builder carries it. */
 export interface VanePresetTokenGraph<B extends VanePresetBrandInput, R extends VanePresetRadius> {
   color: {
-    brand: VanePresetBrand<B>
-    brandSoft: VaneDerived<VaneColor<VaneColorMode>>
+    brand: VaneConfiguredToken<{ readonly val: VanePresetBrand<B>, readonly mutable: true }, 'color'>
+    brandSoft: VaneDerived<VaneAuthoredColor>
     onBrand: VaneDerived<VaneContrast>
-    canvas: VaneDerived<VaneColor<VaneColorMode>>
-    surface: VaneDerived<VaneColor<VaneColorMode>>
-    surfaceRaised: VaneDerived<VaneColor<VaneColorMode>>
-    border: VaneDerived<VaneColor<VaneColorMode>>
-    inkMuted: VaneDerived<VaneColor<VaneColorMode>>
-    ink: VaneDerived<VaneColor<VaneColorMode>>
-    brandHover: VaneDerived<VaneColor<VaneColorMode>>
-    brandActive: VaneDerived<VaneColor<VaneColorMode>>
+    canvas: VaneDerived<VaneAuthoredColor>
+    surface: VaneDerived<VaneAuthoredColor>
+    surfaceRaised: VaneDerived<VaneAuthoredColor>
+    border: VaneDerived<VaneAuthoredColor>
+    inkMuted: VaneDerived<VaneAuthoredColor>
+    ink: VaneDerived<VaneAuthoredColor>
+    brandHover: VaneDerived<VaneAuthoredColor>
+    brandActive: VaneDerived<VaneAuthoredColor>
   }
   space: { [K in keyof typeof spaceSteps]: `${number}px` }
   text: typeof textStyles
@@ -146,9 +154,15 @@ export interface VanePresetTokenGraph<B extends VanePresetBrandInput, R extends 
 export function presetTokens<
   B extends VanePresetBrandInput = string,
   R extends VanePresetRadius = 'calm',
->(options: VanePresetTokensOptions<B, R> = {}): VaneTokenBuilder<VanePresetTokenGraph<B, R>> {
+  Policy extends VaneTokenPolicy = VaneTokenPolicy,
+  Axes extends VaneAxisDefinitions = VaneAxisDefinitions,
+>(
+  engine: VaneCoreEngine<any, Policy, Axes>,
+  options: VanePresetTokensOptions<B, R> = {},
+): VaneTokenModule<VanePresetTokenGraph<B, R>, Policy> {
+  const { alpha, defineTokens, legibleOn, mix, rawValue, scale, token } = engine
   const seed = options.brand ?? '#635bff'
-  const brand = (typeof seed === 'string' ? color(seed) : seed) as VanePresetBrand<B>
+  const brand = (typeof seed === 'string' ? rawValue.color(seed) : seed) as VanePresetBrand<B>
   const unit = densityUnits[options.density ?? 'comfortable']
   const plane = contrastPlanes[options.contrast ?? 'balanced']
 
@@ -165,34 +179,34 @@ export function presetTokens<
     duration: durations,
     ease: easings,
   })
-  const palette = defineTokens({ color: { brand } })
+  const palette = defineTokens({ color: { brand: token({ val: brand, mutable: true }) } })
     .derive(({ color }) => ({
       color: {
         brandSoft: alpha(color.brand, 0.12),
         onBrand: legibleOn(color.brand),
         // The relationship is explicit: every plane composes over the brand
         // seed. A live seed therefore retints the entire system in CSS.
-        canvas: elevation(color.brand, 0),
-        surface: elevation(color.brand, 0.03),
-        surfaceRaised: elevation(color.brand, 0.08),
-        border: elevation(color.brand, plane.border),
-        inkMuted: elevation(color.brand, plane.inkMuted),
-        ink: elevation(color.brand, plane.ink),
+        canvas: elevation(engine, color.brand, 0),
+        surface: elevation(engine, color.brand, 0.03),
+        surfaceRaised: elevation(engine, color.brand, 0.08),
+        border: elevation(engine, color.brand, plane.border),
+        inkMuted: elevation(engine, color.brand, plane.inkMuted),
+        ink: elevation(engine, color.brand, plane.ink),
       },
     }))
     .derive(({ color }) => ({
       color: {
         // Ink is scheme-aware, so interactions deepen toward the reader in
         // either scheme without a parallel dark palette.
-        brandHover: color.brand.mix(color.ink, 0.12),
-        brandActive: color.brand.mix(color.ink, 0.2),
+        brandHover: mix(color.brand, color.ink, 0.12),
+        brandActive: mix(color.brand, color.ink, 0.2),
       },
     }))
   const builder = defineTokens()
     .compose(palette)
     .compose(foundations)
 
-  return builder as unknown as VaneTokenBuilder<VanePresetTokenGraph<B, R>>
+  return builder as unknown as VaneTokenModule<VanePresetTokenGraph<B, R>, Policy>
 }
 
 /**
@@ -201,11 +215,13 @@ export function presetTokens<
  * `surface: ({ color }) => elevation(color.brand, 0.03)`. Replace this helper
  * with any palette logic without changing the token engine.
  */
-export function elevation<B extends VaneColorish>(
-  base: B,
+function elevation(
+  engine: Pick<VaneCanonicalCoreConstructors, 'mix' | 'oklch' | 'scheme'>,
+  base: Parameters<VaneCanonicalCoreConstructors['mix']>[1],
   position: number,
   options: VanePresetElevationOptions = {},
-): VaneColor<VaneColorMode> {
+): VaneAuthoredColor {
+  const { mix, oklch, scheme } = engine
   expectFactor('position', position)
   const tint = options.tint ?? 0.04
   expectFactor('tint', tint)

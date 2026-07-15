@@ -4,14 +4,15 @@
  * pattern gaps are typed by the space scale.
  */
 
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 import { animate, definePatterns, presetAtoms, presetConditions, presetTokens, transition } from '@mszr/vane-dux/preset'
 import { describe, it } from 'vitest'
 
 // The type plane never executes — these calls are shapes, not effects.
-const { css, defineAtoms, t } = createSystem({
-  tokens: presetTokens(),
-  conditions: presetConditions(),
+const de = createEngine()
+const { css, defineAtoms, t } = de.createSystem({
+  tokens: presetTokens(de),
+  conditions: presetConditions(de),
 })
 
 const atoms = defineAtoms(presetAtoms(t))

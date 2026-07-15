@@ -2,16 +2,16 @@ import type {
   VaneRuntimeSnapshotV1,
   VaneRuntimeStyleDeclaration,
   VaneRuntimeTarget,
-} from '@mszr/vane-dux'
-import {
-  createEngine,
-  customProperty,
-} from '@mszr/vane-dux'
+} from '../test-support/legacy'
 import { setCustomProperties, setCustomProperty } from '@mszr/vane-dux/runtime'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
 import { collectInspection } from '../internal/inspect'
 import { buildManifest } from '../introspect/manifest'
+import {
+  createEngine,
+  customProperty,
+} from '../test-support/legacy'
 
 class MemoryStyle implements VaneRuntimeStyleDeclaration {
   readonly values = new Map<string, string>()

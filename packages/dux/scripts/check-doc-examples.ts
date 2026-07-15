@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const docsRoot = join(root, 'docs', 'next')
+const docsRoot = join(root, 'docs')
 const examplesRoot = join(docsRoot, 'examples')
 const markdownFiles = readdirSync(docsRoot)
   .filter(file => file.endsWith('.md'))
@@ -90,5 +90,5 @@ if (semanticDiagnostics.length > 0) {
 
 if (process.exitCode !== 1) {
   const fixtureCount = parsed.fileNames.filter(file => !file.endsWith('ambient.d.ts')).length
-  console.log(`✓ next docs: ${fenceCount} TypeScript fences parsed; ${fixtureCount} canonical package-backed fixtures typechecked`)
+  console.log(`✓ canonical docs: ${fenceCount} TypeScript fences parsed; ${fixtureCount} package-backed fixtures typechecked`)
 }

@@ -5,9 +5,9 @@
  * part-scoped conditions compiled to ancestor-state selectors, locked.
  */
 
-import { createSystem } from '@mszr/vane-dux'
 import { emit } from '@test'
 import { describe, expect, it } from 'vitest'
+import { createSystem } from '../test-support/legacy'
 
 function miniSystem() {
   return createSystem({
@@ -57,11 +57,17 @@ describe('recipe()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-xs: 4px;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-xs: 4px;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .button__oiwpg60 {
@@ -155,11 +161,17 @@ describe('anatomy()', () => {
       @layer vane.recipes;
       @layer vane.utilities;
       @layer vane.overrides;
-      :root {
-        --vane-color-brand: #635bff;
-        --vane-space-xs: 4px;
-        --vane-space-sm: 8px;
-        --vane-space-md: 16px;
+      @layer vane.tokens.base;
+      @layer vane.tokens.axes;
+      @layer vane.tokens.cases;
+      @layer vane.tokens.overrides;
+      @layer vane.tokens.base {
+        :root {
+          --vane-color-brand: #635bff;
+          --vane-space-xs: 4px;
+          --vane-space-sm: 8px;
+          --vane-space-md: 16px;
+        }
       }
       @layer vane.recipes {
         .combobox_input__oiwpg61 {

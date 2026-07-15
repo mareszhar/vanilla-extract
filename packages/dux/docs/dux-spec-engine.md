@@ -1,22 +1,11 @@
 updated: 2026-07-15
-status: target spec — engine/system, axes/emission, runtime, public plugins, and interchange implemented through Phase 7
+status: canonical implemented specification
 
-# vane-dux next — spec: engine and system
+# vane-dux — spec: engine and system
 
 The engine defines the design-system language. The system finalizes one design system and exposes its styling language.
 
-## Implementation ledger
-
-| Contract | Current asset | Target state |
-| --- | --- | --- |
-| Root free functions | Deprecated migration adapters | Canonical authoring derives value/token helpers from `createEngine()`; D66 removes the adapters at target-doc promotion. |
-| `createSystem(options)` | Canonical `engine.createSystem(options)` implemented | Preserve the root function only as a deprecated migration adapter. |
-| Conditions/layers | Implemented and shared across surfaces | Root, token/module, ordered axis, case, and override sublayers are integrated. |
-| Token prefix | Final system is the sole owner | Preserve single finalization as later token traits arrive. |
-| Extensions | Public `.use()`/`.extend()` plus value-extension contracts implemented | Expand the same protocol to later plugins/presets. |
-| Scheme | Engine-defined built-in axis adapter | Preserve element-local/root-bound policy and color-only native optimization. |
-
-Phases 2 and 4 implement the two-stage spine and its environmental layer: zero-config/configured engines, deterministic semantic signatures, immutable extensions/plugins/axes, engine-bound unfinished modules, engine-owned system finalization, system/module/group roots, ordered token sublayers, manifest ownership, and direct constructor/plugin re-exposure on `ds`. The existing package-root authoring functions remain deprecated internal-transition adapters under D66; they are not another supported design language.
+Canonical authoring has one spine: `createEngine()` provides values, conditions, token modules, extensions, and policy; `de.createSystem()` finalizes one design system and provides its styling/runtime surfaces. Package-root authoring shortcuts are deliberately absent.
 
 ## 1. `createEngine()`
 
@@ -366,7 +355,7 @@ Requirements:
 
 ## 12. Returned styling language
 
-The refactor preserves the proven bound APIs unless a target spec explicitly changes them:
+The system preserves these bound APIs:
 
 - `t`;
 - `css` and `css.raw`;

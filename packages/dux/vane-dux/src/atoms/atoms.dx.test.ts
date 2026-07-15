@@ -11,9 +11,10 @@ import { describe, expect, it } from 'vitest'
 const project = duxProject()
 
 const defineFixture = `
-import { createSystem } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vane-dux'
 
-const { defineAtoms, t } = createSystem({
+const de = createEngine()
+const { defineAtoms, t } = de.createSystem({
   tokens: { space: { sm: '8px', md: '16px' }, color: { brand: '#635bff' } },
   conditions: { md: '@media (min-width: 768px)' },
 })

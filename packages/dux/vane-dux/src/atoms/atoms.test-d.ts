@@ -4,8 +4,8 @@
  * are typed to the subset the atoms declare.
  */
 
-import { createSystem, unsafe } from '@mszr/vane-dux'
 import { describe, it } from 'vitest'
+import { createSystem, unsafe } from '../test-support/legacy'
 
 // The type plane never executes — these calls are shapes, not effects.
 const { defineAtoms, t } = createSystem({

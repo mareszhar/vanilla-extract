@@ -155,11 +155,9 @@ export type {
   VaneNativeSchemePolicy,
   VaneSchemeAxisOptions,
 } from './system/axes'
-export { aria, container, data, media, schemeIs, supports } from './system/conditions'
-
 export type { VaneBaseConditionName, VaneCondition, VaneConditionArm, VaneConditionInput } from './system/conditions'
 
-export { createSystem, VANE_DEFAULT_LAYERS } from './system/createSystem'
+export { VANE_DEFAULT_LAYERS } from './system/createSystem'
 
 export type {
   VaneBoundSystem,
@@ -194,7 +192,6 @@ export type {
 
 // ─── Tokens: the graph, liveness, schemes, checks, themes (phase 1) ──────────
 
-export { check } from './tokens/checks'
 export type {
   VaneChannelOperation,
   VaneColorChannel,
@@ -209,10 +206,7 @@ export type {
   VaneOklchFunction,
   VanePredefinedColorSpace,
 } from './tokens/color'
-export { defineTokens } from './tokens/graph'
-export { scale } from './tokens/scale'
 export type { VaneLinearScaleOptions, VaneModularScaleOptions, VaneScale } from './tokens/scale'
-export { theme } from './tokens/theme'
 export type {
   VaneAuthoredColor,
   VaneAuthoredInterpolatedColor,
@@ -235,7 +229,6 @@ export type {
   VaneHueInterpolation,
   VaneInterpolatedColor,
   VaneInvalidRuntimeValuePolicy,
-  VaneLiveOverrides,
   VaneModeOf,
   VaneNamesOf,
   VanePolarColorSpace,
@@ -243,7 +236,6 @@ export type {
   VaneRuntimeValidationMode,
   VaneStandardSchemaIssue,
   VaneStandardSchemaV1,
-  VaneThemeOverrides,
   VaneTokenBranchHandle,
   VaneTokenBuilder,
   VaneTokenCase,
@@ -272,51 +264,9 @@ export type {
   VaneVarsOf,
 } from './tokens/types'
 
-// ─── CSS values: the default internal engine's compatibility adapters ───────
+// ─── CSS values: canonical public contracts and types ──────────────────
 
 export type { VaneCustomProperty, VaneCustomPropertyOptions } from './values/customProperty'
-export {
-  alpha,
-  defaultAngle as angle,
-  calc,
-  defaultChannel as channel,
-  clamp,
-  color,
-  colorMix,
-  defaultCustomProperty as customProperty,
-  darken,
-  defaultDefineCssOperation as defineCssOperation,
-  defaultDefineCssValue as defineCssValue,
-  desaturate,
-  displayP3,
-  defaultFlex as flex,
-  fluid,
-  defaultFrequency as frequency,
-  grid,
-  hsl,
-  hwb,
-  defaultInteger as integer,
-  interpolate,
-  lab,
-  lch,
-  legibleOn,
-  defaultLength as length,
-  lighten,
-  max,
-  min,
-  mix,
-  defaultNumber as number,
-  oklab,
-  oklch,
-  defaultPercent as percent,
-  defaultRawValue as rawValue,
-  defaultResolution as resolution,
-  rgb,
-  rotate,
-  saturate,
-  scheme,
-  defaultTime as time,
-} from './values/defaultEngine'
 export type { VaneCanonicalCoreConstructors, VaneCoreConstructors } from './values/defaultEngine'
 export type {
   VaneCssOperationDefinition,

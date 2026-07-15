@@ -1,6 +1,6 @@
-import type { VaneEnginePlugin } from '@mszr/vane-dux'
-import { createEngine, defineEnginePlugin, defineTokens } from '@mszr/vane-dux'
+import type { VaneEnginePlugin } from '../test-support/legacy'
 import { describe, expectTypeOf, it } from 'vitest'
+import { createEngine, defineEnginePlugin, defineTokens } from '../test-support/legacy'
 
 describe('canonical engine types', () => {
   it('keeps configuration, modules, systems, and extension namespaces exact', () => {

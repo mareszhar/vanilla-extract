@@ -1,20 +1,9 @@
 updated: 2026-07-14
-status: target spec — Phase 1 foundation, Phase 2 engine exposure, and Phase 3 token integration implemented
+status: canonical implemented specification
 
-# vane-dux next — spec: typed CSS values
+# vane-dux — spec: typed CSS values
 
-This is the foundation of the refactor. Tokens, CSS properties, ports, runtime setters, atoms, keyframes, plugins, and interchange all consume the same value language.
-
-## Implementation ledger
-
-| Contract | Current asset | Target state |
-| --- | --- | --- |
-| General serialized CSS values | `VaneCssValue`/`CssValue` compatibility adapter | Typed expression IR implemented; remove the adapter when canonical engines replace root helpers. |
-| Color expression graph | Rich color-specific behavior on common nodes | Common dependency/serialization/support protocol and Phase 3 representation-aware token references implemented. |
-| Math values | Common operation/function nodes | Dimension compatibility and typed arithmetic requirements implemented. |
-| Raw strings | Accepted in CSS/token/port lanes | Preserve as ergonomic first-class input with parsing/audit policy. |
-| Data-type brands | Open `VaneCssDataType` plus self/system value brands | Implemented and performance-gated. |
-| Custom values | Public `defineCssValue`/`defineCssOperation` | Implemented and dogfooded by units and Grid. |
+Tokens, CSS properties, ports, runtime setters, atoms, keyframes, plugins, and interchange consume one typed value language.
 
 ## 1. Core representation
 

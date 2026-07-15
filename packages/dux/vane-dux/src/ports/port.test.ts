@@ -4,10 +4,10 @@
  * of [dux-spec-ports.md], asserted directly.
  */
 
-import { createSystem, angle as cssAngle, oklch, ports, VaneError } from '@mszr/vane-dux'
 import { restorePort } from '@mszr/vane-dux/runtime'
 import { definePrismSystem, emit } from '@test'
 import { describe, expect, it } from 'vitest'
+import { createSystem, angle as cssAngle, oklch, ports, VaneError } from '../test-support/legacy'
 
 describe('port() declaration', () => {
   it('creates a handle with a hashed name under the system prefix', () => {

@@ -1,11 +1,11 @@
-updated: 2026-07-14
-status: spec — current implementation contract (Phase 6 common-value/validation migration accepted)
+updated: 2026-07-15
+status: canonical implemented specification
 
 # vane-dux — spec: ports
 
 A port is a component/style-owned, typed, defaulted CSS custom property. It is the framework-neutral boundary for per-instance runtime values. Mutable tokens own design-system decisions for one system root; ports own inputs published by one style or component.
 
-The current runtime-boundary law lives in [dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port); the next architecture's explicit ownership split lives in [next/dux-patterns.md §9](./next/dux-patterns.md#9-runtime-ownership-is-explicit). This document owns port declaration, serialization, validation, publication, and SSR behavior.
+The runtime-boundary law lives in [dux-patterns.md §4](./dux-patterns.md#4-the-runtime-boundary-is-a-port), and explicit ownership lives in [dux-patterns.md §9](./dux-patterns.md#9-runtime-ownership-is-explicit). This document owns port declaration, serialization, validation, publication, and SSR behavior.
 
 ## Implementation status
 
@@ -56,7 +56,7 @@ Contract:
 - the retired `as` option does not bolt units onto numbers—write `ds.port(ds.angle.deg(0))`, then set another angle value or CSS angle string;
 - interpolation yields `var(--…, <serialized default>)`, so the authored CSS is complete without a runtime write;
 - the system's common serializer handles strings, finite numbers, values, expressions, token references, and other ports;
-- `.type` exposes the canonical CSS data type; `.kind` remains coarse compatibility metadata for the current manifest;
+- `.type` exposes the canonical CSS data type; `.kind` is coarse metadata for adapters that do not consume the full type;
 - the export/filename transform supplies the debug label; `label` is a rare manual override;
 - `.describe()` and `.deprecated()` mutate the shared declaration metadata that crosses the build/app boundary.
 

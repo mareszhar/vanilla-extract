@@ -1,5 +1,5 @@
 updated: 2026-07-15
-status: spec — contracts settled, implemented (phases 6 + 8)
+status: canonical implemented specification
 
 # vane-dux — spec: vue + nuxt
 
