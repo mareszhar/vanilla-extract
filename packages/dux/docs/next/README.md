@@ -1,5 +1,5 @@
-updated: 2026-07-14
-status: target documentation hub — phases 0–6 accepted; phase 7 is next
+updated: 2026-07-15
+status: target documentation hub — phases 0–8 accepted; phase 9 promotion is next
 
 # vane-dux next — documentation hub
 
@@ -40,7 +40,9 @@ When a target document conflicts with a current document, the target document go
 - Phase 4 is accepted: immutable staged axes, root-anchored trigger locality, exact modes/cases, group roots, registration, deterministic token sublayers, mutable-address reservations, guarded native scheme output, and emission provenance pass their evidence planes.
 - Phase 5 is accepted: explicit custom-property writes, runtime-bound mutable base/mode/case handles, validation, semantic snapshots, SSR root projection, zero-rewrite hydration, and HMR reconciliation pass their evidence planes.
 - Phase 6 is accepted: ports share the common serializer and validation boundary; recipe/Vue projections, typed property aliases, callable scales, interpolation/fluid values, optional elevation/BEM plugins, and the pattern/utility split pass their evidence planes.
-- Phase 7 is next: make the new semantic foundation fully explainable, auditable, portable, and DTCG-aware.
+- Phase 7 is accepted: manifest v2, `ds.explain()`, audits, devtools/agent projections, resolved and authored DTCG interchange, and plugin codecs share one provenance model.
+- Phase 8 is accepted: integration, packaging, canonical documentation examples, optimizer survival, and the rebuilt Prism/comparison demos pass the permanent matrix.
+- Phase 9 is next: promote the implemented target documents, remove transitional/current-contract ambiguity, rehearse release without publishing, and make the evidence-backed alpha decision.
 
 The detailed checklist and acceptance evidence live in the [implementation plan](./dux-implementation-plan.md). The [current baseline](./dux-current-baseline.md) remains the immutable pre-refactor comparison point rather than a rolling description of the new implementation.
 

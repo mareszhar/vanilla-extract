@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@mszr/vane-dux": ["../../../vane-dux/dist/index.d.mts"],
+      "@mszr/vane-dux/preset": ["../../../vane-dux/dist/preset.d.mts"],
+      "@mszr/vane-dux/runtime": ["../../../vane-dux/dist/runtime.d.mts"]
+    },
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["./*.ts"]
+}

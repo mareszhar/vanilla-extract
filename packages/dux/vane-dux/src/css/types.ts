@@ -8,7 +8,7 @@
  */
 
 import type * as CSS from 'csstype'
-import type { VaneColor } from '../tokens/types'
+import type { VaneAuthoredColor, VaneColor } from '../tokens/types'
 import type { VaneCssValue, VaneTokenInput } from '../values/types'
 
 type CSSTypeProperties = CSS.Properties<number | (string & {})>
@@ -33,7 +33,7 @@ export interface VaneVarReference {
  * design — the token map guides, it never gates.
  */
 export type VaneStyleValue<P extends VaneCssPropertyName = VaneCssPropertyName>
-  = CSSTypeProperties[P] | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue
+  = CSSTypeProperties[P] | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneAuthoredColor | VaneCssValue
 
 /** A property-first condition map: `color: { base: …, hover: … }`. */
 export type VanePropertyArms<C extends string, V> = { base?: V } & { [K in C]?: V }
@@ -56,8 +56,9 @@ type VaneRuleScalar
     | VaneVarReference
     | VaneTokenInput
     | VaneColor<any>
+    | VaneAuthoredColor
     | VaneCssValue
-    | readonly (string | number | VaneVarReference | VaneTokenInput | VaneCssValue)[]
+    | readonly (string | number | VaneVarReference | VaneTokenInput | VaneAuthoredColor | VaneCssValue)[]
     | undefined
 
 /** Custom properties are plain keys; the escape audit sees them, `vars` ceremony doesn't exist. */
@@ -209,7 +210,7 @@ export type VaneFontFaceRule
 
 // ─── The bound authoring functions ───────────────────────────────────────────
 
-export type VaneRawValue = string | number | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneCssValue
+export type VaneRawValue = string | number | VaneVarReference | VaneTokenInput | VaneColor<any> | VaneAuthoredColor | VaneCssValue
 
 interface VaneCssMembers<C extends string, L extends string> {
   /** Full platform-property lane, even when the primary alias policy is aliases-only. */

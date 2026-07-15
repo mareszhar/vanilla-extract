@@ -92,6 +92,8 @@ export interface VaneEnginePlugin<
   Added extends object,
   RequiredConstructors extends object = VaneCanonicalCoreConstructors<VaneLengthUnit>,
 > extends VaneExtensionIdentity {
+  /** Type-only carrier used to diagnose missing earlier namespaces at `.use()`. */
+  readonly __vaneRequiredConstructors?: RequiredConstructors
   readonly setup: (engine: VaneEngine<RequiredConstructors, VaneTokenPolicy, VaneAxisDefinitions>) => Added
   /** Optional authored-DTCG bridges for opaque values owned by this plugin. */
   readonly dtcg?: readonly VaneDtcgCodec[]
@@ -164,14 +166,9 @@ export interface VaneEngineMethods<
     <const AddedAliases extends VanePropertyAliasMap>(
       plugin: VanePropertyAliasPlugin<AddedAliases, 'aliases-only'>,
     ): VaneStrictAliasedEngine<Constructors & VanePropertyAliasContribution<AddedAliases, 'aliases-only'>, TokenPolicy, Axes, AddedAliases>
-    <
-      const Added extends object,
-      RequiredConstructors extends object,
-    >(
-      plugin: Constructors extends RequiredConstructors
-        ? VaneEnginePlugin<Added, RequiredConstructors>
-        : never,
-    ): VaneEngine<Constructors & Added, TokenPolicy, Axes>
+    <const Plugin extends VaneEnginePluginShape>(
+      plugin: Plugin & VaneEnginePluginCompatibility<Constructors, NonNullable<Plugin['__vaneRequiredConstructors']>>,
+    ): VaneEngine<Constructors & ReturnType<Plugin['setup']>, TokenPolicy, Axes>
   }
   readonly extend: {
     <const Added extends object>(
@@ -220,6 +217,25 @@ export interface VaneStrictAliasedEngineMethods<
 
 type VaneAxisContributionGuard<Current extends VaneAxisDefinitions, Added extends VaneAxisDefinitions> = {
   readonly [Name in keyof Added]: Name extends keyof Current ? never : Added[Name]
+}
+
+type VaneMissingEngineRequirement<Current extends object, Required extends object> = {
+  [Name in keyof Required]: Name extends keyof Current
+    ? Current[Name] extends Required[Name] ? never : Name
+    : Name
+}[keyof Required]
+
+type VaneEnginePluginCompatibility<Current extends object, Required extends object>
+  = string extends keyof Current | keyof Required
+    ? unknown
+    : [VaneMissingEngineRequirement<Current, Required>] extends [never]
+        ? unknown
+        : { readonly 'Plugin requires an unavailable engine namespace': VaneMissingEngineRequirement<Current, Required> }
+
+interface VaneEnginePluginShape extends VaneExtensionIdentity {
+  readonly __vaneRequiredConstructors?: object
+  readonly setup: (...args: never[]) => object
+  readonly dtcg?: readonly VaneDtcgCodec[]
 }
 
 export type VaneEngine<
@@ -489,9 +505,8 @@ function materializeEngine<
     use: <
       const Added extends object,
       RequiredConstructors extends object,
-    >(plugin: Constructors extends RequiredConstructors
-      ? VaneEnginePlugin<Added, RequiredConstructors>
-      : never) => {
+    >(plugin: VaneEnginePlugin<Added, RequiredConstructors>
+      & VaneEnginePluginCompatibility<Constructors, RequiredConstructors>) => {
       validateIdentity(plugin)
       const installed = kernel.extensions.find(extension => extension.id === plugin.id.trim())
       if (installed) {

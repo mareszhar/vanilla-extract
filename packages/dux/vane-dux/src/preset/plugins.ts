@@ -1,9 +1,14 @@
 /** Optional conventions expressed entirely through the public engine-plugin contract. */
 
-import type { VaneEnginePlugin } from '../engine/createEngine'
-import type { VaneAuthoredColor, VaneColorish } from '../tokens/types'
-import type { VaneUnitValue } from '../values/units'
-import { defineEnginePlugin } from '../engine/createEngine'
+import type {
+  VaneAuthoredColor,
+  VaneCanonicalCoreConstructors,
+  VaneColorish,
+  VaneEngine,
+  VaneEnginePlugin,
+  VaneUnitValue,
+} from '@mszr/vane-dux'
+import { defineEnginePlugin } from '@mszr/vane-dux'
 
 export interface VaneBemOptions {
   /** Design-system base step in CSS pixels. */
@@ -17,7 +22,13 @@ export interface VaneBemPluginApi {
   readonly bem: <const Step extends number>(step: Step) => VaneUnitValue<'length', 'rem'>
 }
 
-export function bemPlugin(options: VaneBemOptions): VaneEnginePlugin<VaneBemPluginApi> {
+interface VaneBemRequirements {
+  readonly length: {
+    readonly rem: <const Value extends number>(value: Value) => VaneUnitValue<'length', 'rem'>
+  }
+}
+
+export function bemPlugin(options: VaneBemOptions): VaneEnginePlugin<VaneBemPluginApi, object> {
   finitePositive(options.base, 'bem base')
   const targetPx = options.targetPx ?? 16
   finitePositive(targetPx, 'bem targetPx')
@@ -27,9 +38,12 @@ export function bemPlugin(options: VaneBemOptions): VaneEnginePlugin<VaneBemPlug
     id: 'org.vane-dux.plugin.bem',
     version: 1,
     fingerprint,
-    setup: engine => ({
-      bem: step => engine.length.rem(round(step * options.base / targetPx)),
-    }),
+    setup: (engine) => {
+      const core = engine as unknown as VaneEngine<VaneBemRequirements>
+      return {
+        bem: step => core.length.rem(round(step * options.base / targetPx)),
+      }
+    },
   })
 }
 
@@ -48,12 +62,14 @@ export interface VaneElevationPluginApi {
   readonly elevation: <Base extends VaneColorish>(base: Base, position: number) => VaneAuthoredColor
 }
 
+type VaneElevationRequirements = Pick<VaneCanonicalCoreConstructors, 'mix' | 'oklch' | 'scheme'>
+
 const DEFAULT_ELEVATION_CURVE: VaneElevationCurve = Object.freeze({
   id: 'vane-default-linear-v1',
   resolve: (position: number, scheme: 'light' | 'dark') => scheme === 'light' ? 0.99 - 0.91 * position : 0.13 + 0.86 * position,
 })
 
-export function elevationPlugin(options: VaneElevationPluginOptions = {}): VaneEnginePlugin<VaneElevationPluginApi> {
+export function elevationPlugin(options: VaneElevationPluginOptions = {}): VaneEnginePlugin<VaneElevationPluginApi, object> {
   const tint = options.tint ?? 0.04
   factor(tint, 'elevation tint')
   const curve = options.curve ?? DEFAULT_ELEVATION_CURVE
@@ -64,16 +80,19 @@ export function elevationPlugin(options: VaneElevationPluginOptions = {}): VaneE
     id: 'org.vane-dux.plugin.elevation',
     version: 1,
     fingerprint: JSON.stringify({ tint, curve: curve.id }),
-    setup: engine => ({
-      elevation: (base, position) => {
-        factor(position, 'elevation position')
-        const neutral = engine.scheme({
-          light: engine.oklch(curve.resolve(position, 'light'), 0, 0),
-          dark: engine.oklch(curve.resolve(position, 'dark'), 0, 0),
-        })
-        return engine.mix(neutral, base, tint)
-      },
-    }),
+    setup: (engine) => {
+      const core = engine as unknown as VaneEngine<VaneElevationRequirements>
+      return {
+        elevation: (base, position) => {
+          factor(position, 'elevation position')
+          const neutral = core.scheme({
+            light: core.oklch(curve.resolve(position, 'light'), 0, 0),
+            dark: core.oklch(curve.resolve(position, 'dark'), 0, 0),
+          })
+          return core.mix(neutral, base, tint)
+        },
+      }
+    },
   })
 }
 

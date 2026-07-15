@@ -1,10 +1,11 @@
-// The spec's progress bar ([dux-spec-ports.md §1]): the runtime boundary is
-// two typed ports; everything else compiles away.
+import { ds } from '../design/system.style'
 
-export const fraction = port(0)
-export const tint = port(t.color.brand)
+const t = ds.t
 
-export const track = css({
+export const fraction = ds.port(0)
+export const tint = ds.port(t.color.brand)
+
+export const track = ds.css({
   background: t.color.surface,
   border: `1px solid ${t.color.border}`,
   borderRadius: t.radius.pill,
@@ -12,9 +13,9 @@ export const track = css({
   overflow: 'hidden',
 })
 
-export const fill = css({
+export const fill = ds.css({
   inlineSize: `calc(${fraction} * 100%)`,
   background: tint,
   blockSize: '100%',
-  motionOk: { transition: 'inline-size 200ms ease' },
+  motionOk: { transition: `inline-size ${t.duration.quick} ${t.ease.ui}` },
 })

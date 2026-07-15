@@ -1,17 +1,30 @@
-// The Prism system — conditions and layers bound to the token graph
-// ([dux-spec-css.md §1]). Preset conditions add breakpoints, container sizes,
-// and headless states; `cardWide` shows a custom container condition beside them.
-import { container, createSystem } from '@mszr/vane-dux'
 import { presetConditions } from '@mszr/vane-dux/preset'
-import { t } from './tokens.style'
+import { de } from './engine'
+import { foundationTokens } from './foundations.tokens'
+import { effectTokens, paletteTokens } from './palette.tokens'
 
-export const { css, recipe, anatomy, keyframes, globalCss, port, theme } = createSystem({
-  tokens: t,
+const tokens = de
+  .defineTokens()
+  .compose(paletteTokens)
+  .compose(effectTokens)
+  .compose(foundationTokens)
+
+/** The one finalized Prism system; style modules need only this export. */
+export const ds = de.createSystem({
   prefix: 'prism',
+  root: '#prism-studio',
+  tokens,
   conditions: {
     ...presetConditions(),
-    cardWide: container('card', '(min-width: 26rem)'),
+    previewWide: de.container('application', '(min-width: 44rem)'),
+    previewRoomy: de.container('application', '(min-width: 58rem)'),
+    supportsBackdrop: de.supports('(backdrop-filter: blur(1px))'),
+  },
+  audit: {
+    escapes: 'warn',
+    unusedTokens: 'warn',
+    ambiguousAxes: 'warn',
   },
 })
 
-export { t }
+export type PrismSystem = typeof ds

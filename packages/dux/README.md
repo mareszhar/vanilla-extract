@@ -14,8 +14,8 @@ This is the dux maintainer area inside the **vanilla-extract** fork.
 
 - `vane-dux/` — the publishable package, `@mszr/vane-dux`
 - `docs/` — the vision, language, patterns, domain specs, and maintainer manual that drive it
-- `sandbox/demo-main/` — the Prism Nuxt demo (flagship)
-- `sandbox/demo-comparisons/` — the same components in SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux
+- `sandbox/demo-main/` — the Prism Nuxt design-system studio (flagship)
+- `sandbox/demo-comparisons/` — one parity-friendly dispatch-card workflow in SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux
 - `scripts/` — maintainer automation
 
 ## Start here

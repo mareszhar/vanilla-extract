@@ -1,10 +1,11 @@
-// The spec's button ([dux-spec-recipes.md §1–2]): variants, a toggle, a
-// compound arm, and a published port — classes and runtime style API in one
-// export. `recipe`, `port`, and `t` arrive through the module's auto-imports.
+import { focusRing } from '@mszr/vane-dux/preset'
+import { ds } from '../design/system.style'
 
-const paddingX = port(t.space.md)
+const t = ds.t
 
-export const button = recipe({
+const paddingX = ds.port(t.space.md)
+
+export const button = ds.recipe({
   ports: { paddingX },
   base: {
     ...t.text.body,
@@ -15,12 +16,12 @@ export const button = recipe({
     paddingBlock: t.space.sm,
     border: 'none',
     borderRadius: t.radius.sm,
-    fontFamily: t.font.sans,
+    fontFamily: t.font.family,
     cursor: 'pointer',
     fontWeight: 600,
     boxShadow: '0 1px 0 oklch(0 0 0 / 0.06)',
-    motionOk: { transition: `background ${t.duration.fast} ease, border-color ${t.duration.fast} ease, transform ${t.duration.fast} ease` },
-    focusVisible: { outline: `2px solid ${t.color.brand}`, outlineOffset: '2px' },
+    motionOk: { transition: `background ${t.duration.quick} ${t.ease.ui}, border-color ${t.duration.quick} ${t.ease.ui}, transform ${t.duration.quick} ${t.ease.ui}` },
+    ...focusRing({ color: t.color.brand }),
     active: { transform: 'translateY(1px)' },
     disabled: { opacity: 0.5, cursor: 'not-allowed' },
   },
@@ -32,14 +33,14 @@ export const button = recipe({
         hover: { background: t.color.brandHover },
       },
       ghost: {
-        background: t.color.surfaceRaised,
+        background: t.color.surface,
         color: t.color.ink,
         border: `1px solid ${t.color.border}`,
         hover: { background: t.color.brandSoft, borderColor: t.color.brand },
       },
     },
     size: {
-      sm: { ...t.text.small, ...paddingX.set(t.space.sm), paddingBlock: t.space.xs },
+      sm: { ...t.text.detail, ...paddingX.set(t.space.sm), paddingBlock: t.space.xs },
       md: {},
     },
   },

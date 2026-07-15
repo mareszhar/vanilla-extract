@@ -6,9 +6,9 @@
  * where the compiler is listening. Documented with their CSS so they teach.
  */
 
-import type { VaneVarReference } from '@mszr/vane-dux'
+import type { VaneTokenInput, VaneVarReference } from '@mszr/vane-dux'
 
-type VaneSpaceValue = string | number | VaneVarReference
+type VaneSpaceValue = string | number | VaneVarReference | VaneTokenInput
 
 export interface VanePatternsConfig<Space extends Record<string, VaneSpaceValue>> {
   /** Your system's bound `css` — patterns compile through it, one class per shape. */

@@ -1,25 +1,25 @@
-// The spec's dialog ([dux-spec-recipes.md §3]): an anatomy styles named parts
-// as one unit, open/closed are the preset's headless-state conditions, and
-// motion runs only under `motionOk`.
+import { ds } from '../design/system.style'
 
-const fade = keyframes({
+const t = ds.t
+
+const fade = ds.keyframes({
   from: { opacity: 0 },
   to: { opacity: 1 },
 })
 
-const rise = keyframes({
+const rise = ds.keyframes({
   from: { opacity: 0, transform: 'translateY(12px) scale(0.98)' },
   to: { opacity: 1, transform: 'translateY(0) scale(1)' },
 })
 
-export const dialog = anatomy({
+export const dialog = ds.anatomy({
   parts: ['backdrop', 'positioner', 'content', 'title', 'close'],
   base: {
     backdrop: {
       position: 'fixed',
       inset: 0,
       background: t.color.scrim,
-      open: { motionOk: { animation: `${fade} ${t.duration.fast} ease-out` } },
+      open: { motionOk: { animation: `${fade} ${t.duration.quick} ${t.ease.ui}` } },
     },
     positioner: {
       position: 'fixed',
@@ -33,10 +33,10 @@ export const dialog = anatomy({
       gap: t.space.sm,
       inlineSize: 'min(100%, 26rem)',
       padding: t.space.lg,
-      background: t.color.surfaceRaised,
+      background: t.color.overlay,
       border: `1px solid ${t.color.border}`,
       borderRadius: t.radius.md,
-      open: { motionOk: { animation: `${rise} ${t.duration.normal} ease-out` } },
+      open: { motionOk: { animation: `${rise} ${t.duration.deliberate} ${t.ease.ui}` } },
     },
     title: { ...t.text.title, margin: 0 },
     close: { justifySelf: 'end' },

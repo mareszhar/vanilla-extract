@@ -1,9 +1,9 @@
-// A container-query card ([dux-spec-css.md §3]): the wrapper declares the
-// `card` container; `cardWide` is the system's named condition over it. The
-// wrapper is user-resizable so the query is felt, not explained.
+import { ds } from '../design/system.style'
 
-export const frame = css({
-  containerName: 'card',
+const t = ds.t
+
+export const frame = ds.css({
+  containerName: 'application',
   containerType: 'inline-size',
   resize: 'horizontal',
   overflow: 'auto',
@@ -16,7 +16,7 @@ export const frame = css({
   background: t.color.surface,
 })
 
-export const card = css({
+export const card = ds.css({
   display: 'flex',
   flexDirection: 'column',
   gap: t.space.sm,
@@ -24,10 +24,10 @@ export const card = css({
   background: t.color.surfaceRaised,
   border: '1px solid transparent',
   borderRadius: t.radius.md,
-  cardWide: { flexDirection: 'row', alignItems: 'center', gap: t.space.md },
+  previewWide: { flexDirection: 'row', alignItems: 'center', gap: t.space.md },
 })
 
-export const swatch = css({
+export const swatch = ds.css({
   flexShrink: 0,
   inlineSize: t.space.xl,
   blockSize: t.space.xl,
@@ -36,6 +36,6 @@ export const swatch = css({
   border: `1px solid ${t.color.brand}`,
 })
 
-export const cardTitle = css({ ...t.text.title, margin: 0, color: t.color.ink })
+export const cardTitle = ds.css({ ...t.text.title, margin: 0, color: t.color.ink })
 
-export const cardBody = css({ ...t.text.small, margin: 0, color: t.color.inkMuted })
+export const cardBody = ds.css({ ...t.text.body, margin: 0, color: t.color.inkMuted })

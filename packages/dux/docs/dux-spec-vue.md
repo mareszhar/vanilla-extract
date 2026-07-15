@@ -1,4 +1,4 @@
-updated: 2026-07-09
+updated: 2026-07-15
 status: spec — contracts settled, implemented (phases 6 + 8)
 
 # vane-dux — spec: vue + nuxt
@@ -123,9 +123,9 @@ export default defineNuxtConfig({
 
 **Contract details.**
 
-- Wires the `/vite` plugin (manifest emission included); auto-imports the system's exported bound functions and `t` (detected from the configured file), plus `propsOf`/`usePorts`/`useAnatomy` and the runtime helpers (`applyTheme`, `setScheme`, `ports`).
+- Wires the `/vite` plugin (manifest emission included); auto-imports the configured system module's serializable exports, plus `propsOf`/`usePorts`/`useAnatomy` and the generic runtime helpers (`ports`, `setCustomProperty`, `setCustomProperties`). A bound `ds.runtime`/`ds.runtimeProps` factory is exported from the system module and therefore follows the same import/auto-import path as the system it belongs to; no second global token-update dialect is introduced.
 - **Auto-imports reach `*.style.ts` too.** The two-imports-per-style-file tax (`css` + `t`) is exactly where auto-imports matter most, so the module extends them into evaluated style modules, not just app code — an esbuild `inject` shim resolves unbound identifiers to the system module, explicit imports stay untouched, and files the system itself imports are skipped (a file upstream of the system cannot use its bindings). Plain-Vite users pass the same thing as the `/vite` plugin's `autoImports` option; the explicit imports always remain valid (and are what library code ships with).
-- **Importing the system module from app code is legal.** `t` and theme classes cross the boundary as data; the bound authoring functions cross as build-plane stubs that throw the lane redirect if called — never a poisoned module, never a silent no-op.
+- **Importing the system module from app code is legal.** Token handles, override classes, runtime factories, and SSR projection helpers cross as serializable contracts; bound authoring functions cross as build-plane stubs that throw the lane redirect if called — never a poisoned module, never a silent no-op.
 - Nuxt DevTools tab: the token browser (values per scheme, liveness, usage counts), recipe/anatomy inspector, ports, conditions, and the escape inventory, with click-through to the `.style.ts` source. It embeds the manifest view the `/vite` plugin serves at `/__vane/` in dev — one implementation serves plain Vite and Nuxt alike ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)).
 - Adoption slope contract: one component in an existing Nuxt app can adopt vane-dux with the module + one `.style.ts` file — no migration, no global buy-in.
 
@@ -139,7 +139,7 @@ export default defineNuxtConfig({
 
 - **HMR:** editing a `.style.ts` hot-swaps the emitted CSS without a full reload or component state loss. The mechanics live in the `/vite` plugin (landed with phase 4): stable virtual CSS ids swap the style tag in place, style modules self-accept, an edit to a bundled dependency (a token file) hot-updates every style module built on it, and only an export-shape change costs a full reload. This phase locks the contract end-to-end in the Nuxt demos — a regression here is a release blocker.
 - **SSR:** static styles ship as stylesheets; port values as inline style; no FOUC, no hydration style mismatch, no per-request collection.
-- **Scheme flash:** SSR of a user-forced scheme uses the cookie + `data-scheme` recipe shipped with the module as a plugin ([dux-spec-tokens.md §3](./dux-spec-tokens.md#3-schemes)): the `vane-scheme` cookie is the state, the `html` attribute follows it reactively, and toggling is one line — `useCookie('vane-scheme').value = 'dark'` (clear it to follow the OS preference). The standard dance no zero-runtime system escapes, shipped rather than left to users.
+- **Mutable-token/mode flash:** persist application settings or `runtime.snapshot()` in a cookie/server payload, pass the snapshot through the exported `ds.runtimeProps()` projection when rendering the declared root, and bind `ds.runtime(root, { initial: snapshot })` on mount. The first SSR paint already contains the mode attributes and opaque slot values; hydration validates the same semantic addresses without rewriting them. The module's small `vane-scheme` HTML-cookie adapter remains available for the common document-root light/dark case, but custom roots and multi-axis systems use their own bound runtime rather than a global theme registry.
 
 ---
 

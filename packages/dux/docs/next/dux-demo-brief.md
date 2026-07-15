@@ -1,5 +1,5 @@
-updated: 2026-07-14
-status: target showcase brief — Phase 8; implementation intentionally deferred until the public surface is stable
+updated: 2026-07-15
+status: implemented Phase 8 showcase contract — maintained as integration evidence
 
 # vane-dux next — flagship and comparison demo brief
 
@@ -90,3 +90,15 @@ The rebuilt flagship is complete only when:
 10. the source reads as an exemplary vane codebase a serious adopter would enjoy learning from.
 
 Visual polish remains a real acceptance criterion, but it follows truthful capability, accessibility, and integration evidence. The flagship should feel aspirational because vane makes the implementation coherent—not because the demo conceals bespoke styling outside the system.
+
+## 7. Implemented evidence
+
+The Phase 8 rebuild follows this brief without turning its art direction into architecture:
+
+- [`sandbox/demo-main`](../../sandbox/demo-main) is the Nuxt + Vue + Pug Prism system studio. One engine composes palette/effect/foundation modules; public elevation and BEM plugins, scheme/density/elevation/motion axes, sparse shadow cases, mutable hue/radius/font values, typed ports, atoms/patterns, container/media responsiveness, a local custom property, raw `@starting-style`, and build-generated `ds.explain()` facts all style one credible application canvas.
+- The studio persists semantic settings in a cookie, projects a runtime snapshot into SSR root props, binds the same snapshot at hydration, and resets through `$unset()`/mode clearing. Private mutable slot names are asserted only at the output boundary; the UI explains semantic paths and branches.
+- [`sandbox/demo-comparisons`](../../sandbox/demo-comparisons) is the deliberately smaller dispatch-card workflow across scoped SFC CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux. The peer implementations were refreshed against linked official documentation and share content, state, variants, progress, explicit scheme, and responsive acceptance checks.
+- [`tests/demos.spec.ts`](../../tests/demos.spec.ts) locks computed runtime decisions, SSR first paint and persistence, keyboard/focus-visible behavior, labels/landmarks, reduced motion, 320px zoom-equivalent/independent-container/desktop compositions, optimizer-preserved light/dark behavior in every comparison lane, runtime isolation, registrations, and console/resource cleanliness.
+- [`tests/dev/nuxt-dev.spec.ts`](../../tests/dev/nuxt-dev.spec.ts) locks repeated styled first paint, dependency-token HMR without reload, runtime override survival, and exactly one reload for an export-shape change. [`scripts/dev-lifecycle.ts`](../../scripts/dev-lifecycle.ts) proves repeated Nuxt start/stop releases both HTTP and HMR ports.
+
+The historical hidden Phase 4/5 probes remain focused browser fixtures below the polished page. They preserve difficult cascade/runtime coverage without forcing those mechanics into the visible product story.

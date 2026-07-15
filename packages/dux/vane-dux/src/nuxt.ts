@@ -67,9 +67,11 @@ export default defineNuxtModule<VaneNuxtOptions>({
       }
     }
 
-    // The overlay composables and runtime helpers ride auto-imports too.
+    // Framework composables and generic explicit-target runtime helpers ride
+    // auto-imports. System-bound runtime factories come from the configured
+    // system module, preserving one engine → system dialect in app code.
     addImportsSources({ from: '@mszr/vane-dux/vue', imports: ['propsOf', 'useAnatomy', 'usePorts'] })
-    addImportsSources({ from: '@mszr/vane-dux/runtime', imports: ['applyTheme', 'setScheme', 'ports'] })
+    addImportsSources({ from: '@mszr/vane-dux/runtime', imports: ['ports', 'setCustomProperties', 'setCustomProperty'] })
 
     // TypeScript cannot natively connect an inferred mapped token handle back
     // to its object-literal definition for rename-symbol. The bundled plugin

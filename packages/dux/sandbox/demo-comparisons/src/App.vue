@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ButtonIntent, ButtonSize } from '@prism/domain'
 import type { ComponentPublicInstance } from 'vue'
-import { applyTheme, setScheme } from '@mszr/vane-dux/runtime'
 import { buttonIntents, buttonSizes, progress } from '@prism/domain'
 import { computed, markRaw, reactive, ref, watchEffect } from 'vue'
 import ExtractButton from './lanes/extract/PrismButton.vue'
@@ -16,7 +15,7 @@ import SfcProgress from './lanes/sfc/PrismProgress.vue'
 import TailwindButton from './lanes/tailwind/PrismButton.vue'
 import TailwindCard from './lanes/tailwind/PrismCard.vue'
 import TailwindProgress from './lanes/tailwind/PrismProgress.vue'
-import { t } from './lanes/vane/system.style'
+import { bindVaneRuntime } from './lanes/vane/system.style'
 import VaneButton from './lanes/vane/PrismButton.vue'
 import VaneCard from './lanes/vane/PrismCard.vue'
 import VaneProgress from './lanes/vane/PrismProgress.vue'
@@ -28,17 +27,24 @@ const value = ref(progress.initial)
 const scheme = ref<'auto' | 'light' | 'dark'>('auto')
 const brand = ref('#635bff')
 const vaneLane = ref<HTMLElement>()
+let vaneRuntime: ReturnType<typeof bindVaneRuntime> | undefined
 const interactions = reactive<Record<string, number>>({})
 const lastInteraction = ref('No interactions yet')
 
 watchEffect(() => {
-  setScheme(document.documentElement, scheme.value === 'auto' ? null : scheme.value)
+  if (scheme.value === 'auto')
+    document.documentElement.removeAttribute('data-scheme')
+  else
+    document.documentElement.setAttribute('data-scheme', scheme.value)
   document.documentElement.style.setProperty('--demo-brand', brand.value)
 })
 
 watchEffect(() => {
-  if (vaneLane.value)
-    applyTheme(vaneLane.value, t, { color: { brand: brand.value } })
+  if (!vaneLane.value)
+    return
+
+  vaneRuntime ??= bindVaneRuntime(vaneLane.value)
+  vaneRuntime.t.color.brand.$set(brand.value)
 })
 
 function setLaneElement(id: string, element: Element | ComponentPublicInstance | null) {
@@ -110,15 +116,15 @@ const lanes = [
   <main class="shell">
     <header class="hero">
       <p class="eyebrow">Prism · controlled comparison</p>
-      <h1>One interface.<br>Five styling models.</h1>
-      <p class="lede">The same decisions and behavior in every lane. Change one control, then inspect where each model stores the work.</p>
+      <h1>One dispatch card.<br>Five styling models.</h1>
+      <p class="lede">The same small workflow, variants, live progress, and design-system change in every lane—implemented with each tool's current official idioms.</p>
     </header>
 
     <section class="control-panel" aria-labelledby="controls-title">
       <div class="control-head">
         <div>
           <p class="section-kicker">Shared state</p>
-          <h2 id="controls-title">Test controls</h2>
+          <h2 id="controls-title">Shared workflow controls</h2>
         </div>
         <p class="status" aria-live="polite">
           {{ lastInteraction }} · {{ totalInteractions }} total
@@ -159,7 +165,7 @@ const lanes = [
           <input v-model="brand" type="color" aria-label="Live vane-dux brand color">
         </label>
       </div>
-      <p class="control-note">Brand changes are intentionally scoped to vane-dux: the other four lanes compiled their palette in.</p>
+      <p class="control-note">Scheme and component decisions exercise every lane. Brand is intentionally scoped to vane-dux: it demonstrates a mutable seed re-deriving the graph without a mirrored JavaScript palette.</p>
     </section>
 
     <section class="matrix" aria-label="Styling model comparison">
@@ -169,6 +175,7 @@ const lanes = [
         :ref="element => setLaneElement(lane.id, element)"
         class="lane"
         :data-lane="lane.id"
+        :data-scheme="scheme === 'auto' ? undefined : scheme"
       >
         <header class="lane-head">
           <span class="lane-index">{{ lane.index }}</span>
@@ -180,9 +187,17 @@ const lanes = [
 
         <p class="lane-note">{{ lane.note }}</p>
 
-        <div class="lane-demo">
+        <div class="lane-demo" aria-label="Dispatch card workflow">
+          <div class="dispatch-head">
+            <div>
+              <span class="demo-label">Priority queue</span>
+              <strong class="dispatch-title">Resolve Prism rollout</strong>
+            </div>
+            <span class="dispatch-state">{{ value >= 80 ? 'ready' : 'in progress' }}</span>
+          </div>
+
           <div class="demo-block">
-            <span class="demo-label">Button</span>
+            <span class="demo-label">Primary action</span>
             <component
               :is="lane.button"
               :intent="intent"
@@ -190,18 +205,18 @@ const lanes = [
               :pill="pill"
               @click="interact(lane.id, 'button')"
             >
-              {{ interactions[lane.id] ? `Refracted ${interactions[lane.id]}×` : 'Refract' }}
+              {{ interactions[lane.id] ? `Dispatched ${interactions[lane.id]}×` : 'Dispatch' }}
             </component>
           </div>
 
           <div class="demo-block card-block">
-            <span class="demo-label">Card</span>
+            <span class="demo-label">Supporting content</span>
             <component :is="lane.card" @action="interact(lane.id, 'card')" />
           </div>
 
           <div class="demo-block">
             <div class="demo-label-row">
-              <span class="demo-label">Progress</span>
+              <span class="demo-label">Rollout progress</span>
               <span class="demo-value">{{ value }}%</span>
             </div>
             <component :is="lane.progress" :value="value" />

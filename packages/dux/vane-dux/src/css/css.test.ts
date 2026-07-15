@@ -122,6 +122,16 @@ describe('createSystem', () => {
 })
 
 describe('css() diagnostics', () => {
+  it('accepts CSS-wide keywords for shorthand properties', () => {
+    const { css } = emit(() => {
+      const { css } = definePrismSystem()
+      css({ font: 'inherit', animation: 'revert-layer' }, 'wide-keywords')
+    })
+
+    expect(css).toContain('font: inherit;')
+    expect(css).toContain('animation: revert-layer;')
+  })
+
   it('an invalid value is one diagnostic naming the property and the reason', () => {
     const error = expectVaneError(
       () => emit(() => {

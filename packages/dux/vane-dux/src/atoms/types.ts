@@ -9,12 +9,13 @@
 
 import type { VaneCssPropertyName, VaneNestedRule, VaneVarReference } from '../css/types'
 import type { VaneNoInput, VanePrettify } from '../recipes/types'
-import type { VaneCssValue } from '../values/types'
+import type { VaneAuthoredColor } from '../tokens/types'
+import type { VaneCssValue, VaneTokenInput } from '../values/types'
 
 // ─── The definition side ─────────────────────────────────────────────────────
 
 /** One value a property map may hold: a CSS literal, or a token handle. */
-export type VaneAtomValue = string | number | VaneVarReference | VaneCssValue
+export type VaneAtomValue = string | number | VaneVarReference | VaneTokenInput | VaneAuthoredColor | VaneCssValue
 
 /** A property's declared values: a literal list, or a token-keyed map (`gap: t.space`). */
 export type VaneAtomValues = readonly (string | number)[] | Record<string, VaneAtomValue>

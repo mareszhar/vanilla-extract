@@ -4,11 +4,11 @@
 
 vane-dux replaces the CSS-preprocessor stack with the tooling code has had for a decade: autocomplete, real types, rename-symbol, find-references, instant diagnostics. It builds on [vanilla-extract](https://vanilla-extract.style)'s proven build-time compiler and asks one question of every surface: *what would feel most delightful to use?*
 
-> **Status:** pre-release hardening — the public surface is implemented and exercised by runtime, type, editor-DX, output, integration, and browser tests. Publication waits on the release gate in the workspace docs; this README describes the current contract, not a stability promise.
+> **Status:** pre-release integration hardening — the canonical engine → system surface is implemented and exercised by runtime, type, editor-DX, output, integration, packaging, and browser tests. Publication waits on the release gate in the workspace docs; this README describes the current contract, not a stability promise.
 
 ## Start here
 
-Two files and a config line to a button that looks good in **both schemes** — dark mode included, no second palette. The complete interaction lab lives in `sandbox/demo-main`.
+Two files and a config line to a button that looks good in **both schemes** — dark mode included, no second palette. The complete Prism design-system studio lives in `sandbox/demo-main`.
 
 ```TS
 // nuxt.config.ts — or add the /vite plugin in vite.config.ts
@@ -77,7 +77,7 @@ That's it. `propsOf` projects the recipe's variant space straight into the props
 
 🌗 **Schemes fall out, not pile up** — light/dark is a value pair inside a token (`light-dark()`), and elevation-based surfaces derive both modes from one number. Adding dark mode touches token definitions only — zero component edits.
 
-🎨 **User theming with zero recomputation** — mark a token `.live()`, call `applyTheme(el, t, { color: { brand: picked } })`, and every surface, hover, tint, and text pairing re-derives in the browser's cascade. No JS color math at runtime — and only declared live inputs are accepted, at the type level.
+🎨 **Runtime tuning with zero recomputation** — declare a value-agnostic mutable token, bind the finalized system to its real cascade root, and call `runtime.t.color.brand.$set(picked)`. Every surface, hover, tint, and text pairing re-derives in CSS; `$unset()` restores the authored value. No JS color math and no stylesheet patching.
 
 ⚓ **Ports: the runtime boundary, typed** — a port is a declared, defaulted CSS variable a style exposes as its public runtime interface. One primitive covers reactive component styling (`v-bind()` done right), parent→child theming (`:deep()` retired), consumer theming of shipped libraries, and dynamic utility values.
 
@@ -118,7 +118,7 @@ One package, a framework-agnostic core, thin overlays on top.
 | Entrypoint | What it is |
 | --- | --- |
 | `@mszr/vane-dux` | `createEngine()` → engine-bound token modules and `de.createSystem()` → `ds.t`, styling APIs, and the configured value constructors |
-| `@mszr/vane-dux/runtime` | the tree-shakeable live plane: `applyTheme`, `setScheme`, port helpers |
+| `@mszr/vane-dux/runtime` | the tree-shakeable live plane: explicit-target custom-property setters, runtime restoration, and port helpers |
 | `@mszr/vane-dux/vite` | the Vite plugin: evaluates `*.style.ts`, emits CSS + the manifest |
 | `@mszr/vane-dux/vue` | `propsOf`, `usePorts`, `useAnatomy` |
 | `@mszr/vane-dux/nuxt` | the Nuxt module: auto-imports (style files included), SSR polish, DevTools |
@@ -127,7 +127,7 @@ One package, a framework-agnostic core, thin overlays on top.
 
 ## Going further
 
-The preset is a furnished room, not the house. Hand-roll the token graph when you're ready — derivations, liveness, and legibility checks included:
+The preset is a furnished room, not the house. Hand-roll the token graph when you're ready — derivations, mutability, axes, and legibility checks included:
 
 ```TS
 // design/engine.ts
@@ -142,7 +142,10 @@ import { de } from './engine'
 
 export const palette = de.defineTokens({
   color: {
-    brand: de.oklch(0.58, 0.2, 285).live(),                // user-themeable at runtime
+    brand: de.token.color({
+      val: de.oklch(0.58, 0.2, 285),
+      mutable: true,                                      // runtime-addressable input
+    }),
     surfacePlane: de.scheme({ light: de.oklch(0.96, 0, 0), dark: de.oklch(0.16, 0, 0) }),
     inkPlane: de.scheme({ light: de.oklch(0.14, 0, 0), dark: de.oklch(0.94, 0, 0) }),
   },
@@ -153,8 +156,8 @@ export const palette = de.defineTokens({
     color: {
       surface: de.mix(color.surfacePlane, color.brand, 0.04), // explicit graph edge
       ink: de.mix(color.inkPlane, color.brand, 0.04),
-      brandSoft: de.alpha(color.brand, 0.12),                 // live in the browser
-      brandHover: color.brand.lighten(0.06),
+      brandSoft: de.alpha(color.brand, 0.12),                 // CSS-reactive by default
+      brandHover: de.lighten(color.brand, 0.06),
       onBrand: de.legibleOn(color.brand),                     // checked at build (APCA)
     },
   }))
@@ -167,7 +170,9 @@ Large systems split without a parallel module API—the same builder is useful a
 ```TS
 // palette.tokens.ts
 export const palette = de.defineTokens({
-  color: { brand: de.oklch(0.58, 0.2, 285).live() },
+  color: {
+    brand: de.token.color({ val: de.oklch(0.58, 0.2, 285), mutable: true }),
+  },
 }).derive(({ color }) => ({
   color: { brandSoft: de.alpha(color.brand, 0.12) },
 }))
@@ -184,6 +189,28 @@ export const ds = de.createSystem({
 ```
 
 Composition is immutable, rejects duplicate leaf paths at the `.compose()` call, and keeps rename-symbol connected from the contributing source module through `ds.t` consumers.
+
+Mutable values cross through a root-bound runtime, not a global registry or stylesheet lookup. Export the serializable runtime factory from the system module:
+
+```TS
+// design/system.style.ts
+export const studioRuntime = ds.runtime
+export const studioRuntimeProps = ds.runtimeProps
+```
+
+```TS
+// app code — the target must match the system's declared root (`:root` here)
+const runtime = studioRuntime(document.documentElement)
+
+runtime.t.color.brand.$set('oklch(62% 0.2 210)')
+runtime.t.color.brand.$unset() // authored CSS wins again
+runtime.setMode('density', 'compact')
+
+const snapshot = runtime.snapshot()
+const ssrProps = studioRuntimeProps(snapshot)
+```
+
+Snapshots contain semantic token paths and authored branch addresses, never private slot names. `runtimeProps()` projects a validated snapshot into root attributes and inline custom properties for SSR; binding with the same snapshot hydrates without rewriting the first paint.
 
 ## Coming from hail-styl
 

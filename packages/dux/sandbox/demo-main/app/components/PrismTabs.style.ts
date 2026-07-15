@@ -1,7 +1,9 @@
-// Tabs as an anatomy — the headless-state happy path ([dux-spec-recipes.md §5]):
-// `selected` is the preset's `[data-selected]` condition, one bare key.
+import { focusRing } from '@mszr/vane-dux/preset'
+import { ds } from '../design/system.style'
 
-export const tabs = anatomy({
+const t = ds.t
+
+export const tabs = ds.anatomy({
   parts: ['root', 'list', 'trigger', 'panel'],
   base: {
     root: { display: 'grid', gap: t.space.sm },
@@ -14,7 +16,7 @@ export const tabs = anatomy({
       inlineSize: 'fit-content',
     },
     trigger: {
-      ...t.text.small,
+      ...t.text.label,
       paddingInline: t.space.md,
       paddingBlock: t.space.xs,
       border: 'none',
@@ -22,10 +24,11 @@ export const tabs = anatomy({
       background: 'transparent',
       color: t.color.inkMuted,
       cursor: 'pointer',
-      fontFamily: t.font.sans,
-      motionOk: { transition: `background ${t.duration.fast} ease, color ${t.duration.fast} ease` },
+      fontFamily: t.font.family,
+      motionOk: { transition: `background ${t.duration.quick} ${t.ease.ui}, color ${t.duration.quick} ${t.ease.ui}` },
       hoverFocus: { color: t.color.ink },
       selected: { background: t.color.brand, color: t.color.onBrand },
+      ...focusRing({ color: t.color.brand }),
     },
     panel: { ...t.text.body, color: t.color.inkMuted, margin: 0 },
   },

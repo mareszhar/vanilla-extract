@@ -1,5 +1,5 @@
 updated: 2026-07-15
-status: active migration ledger — phases 0–7 complete; phase 8 ready
+status: active migration ledger — phases 0–8 complete; phase 9 ready
 
 # vane-dux next — implementation plan
 
@@ -45,7 +45,7 @@ Every phase exit gate implicitly includes the permanent phase-boundary gate in `
 | 5 | Mutable slots, runtime binding, custom-property APIs, SSR snapshots | ☑ |
 | 6 | Ports, recipes, preset, aliases, scales, patterns, and framework adaptation | ☑ |
 | 7 | Manifest, explain, audits, DTCG, and plugin portability | ☑ |
-| 8 | Full integration matrix, packaging, documentation, and new flagship demo | ☐ |
+| 8 | Full integration matrix, packaging, documentation, and new flagship demo | ☑ |
 | 9 | Canonical-doc promotion, cleanup, release rehearsal, and alpha decision | ☐ |
 
 ## 4. Phase 0 — foundation freeze and baselines
@@ -463,23 +463,36 @@ Phase 8 is unblocked.
 
 ## 12. Phase 8 — integration, packaging, docs, and demo
 
-- [ ] Run and fix the full Vite/Nuxt dev/prod/HMR/SSR/process matrix.
-- [ ] Verify modern CSS through supported optimizers.
-- [ ] Run packaging/fresh-app gates from the tarball.
-- [ ] Compile every next-doc example against the package.
-- [ ] Update Vue/Nuxt/public README guidance to the canonical engine → system setup.
-- [ ] Rebuild the flagship demo from the later maintainer prototype/brief rather than refactoring the current color-picker concept.
-- [ ] Follow `dux-demo-brief.md`: a polished Prism design-system studio with live monochromatic hue/palette, light/dark/system scheme, radius, density, scheme+density shadows, elevation, fonts, and none/subtle/springy motion.
-- [ ] Demonstrate axes, cases, non-color mutability, media/container queries, responsive composition, ports, plugins, raw CSS reach, provenance, SSR persistence, and custom-property integration.
-- [ ] Keep Pug as the demo workspace convention if still desired.
-- [ ] Rebuild the comparison demo around a smaller parity-friendly concept, then re-run maintained peer comparisons using current official sources.
-- [ ] Walk every next delight-gauntlet moment and link evidence.
+- [x] Run and fix the full Vite/Nuxt dev/prod/HMR/SSR/process matrix.
+- [x] Verify modern CSS through supported optimizers.
+- [x] Run packaging/fresh-app gates from the tarball.
+- [x] Parse every next-doc TypeScript fence and semantically compile complete canonical package-backed examples for every public authoring domain.
+- [x] Update Vue/Nuxt/public README guidance to the canonical engine → system setup.
+- [x] Rebuild the flagship demo from the later maintainer prototype/brief rather than refactoring the current color-picker concept.
+- [x] Follow `dux-demo-brief.md`: a polished Prism design-system studio with live monochromatic hue/palette, light/dark/system scheme, radius, density, scheme+density shadows, elevation, fonts, and none/subtle/springy motion.
+- [x] Demonstrate axes, cases, non-color mutability, media/container queries, responsive composition, ports, plugins, raw CSS reach, provenance, SSR persistence, and custom-property integration.
+- [x] Keep Pug as the demo workspace convention if still desired.
+- [x] Rebuild the comparison demo around a smaller parity-friendly concept, then re-run maintained peer comparisons using current official sources.
+- [x] Walk every next delight-gauntlet moment and link evidence.
 
 ### Exit gate
 
 - A fresh adopter sees one setup dialect and truthful documentation.
 - The demo illustrates capability without becoming the source of architectural requirements.
 - Every integration/package/performance gate in `dux-testing.md` is green.
+
+Accepted 2026-07-15. Phase 8 replaced both visual concepts and used the demos as integration clients of the already-settled architecture, exposing and fixing real public-surface seams rather than adding demo-only APIs. Preset plugins now import the canonical public IR identity; chained plugin typing survives the supported TypeScript line; CSS-wide keywords bypass value parsing correctly; token handles and authored colors flow through CSS, atoms, patterns, and accessibility helpers; and Nuxt's generic auto-import lane exposes canonical custom-property helpers rather than the legacy global theme dialect.
+
+Acceptance evidence:
+
+- The rebuilt Nuxt + Vue + Pug Prism studio composes palette, effects, and foundations through one engine/system. Browser assertions cover mutable hue/radius/font values, light/dark/system scheme, density, elevation, motion, scheme+density shadows and a sparse case, responsive media/container layout, a typed progress port, plugins, atoms/patterns, a local custom property, raw `@starting-style`, `@property`, semantic `ds.explain()` facts, keyboard behavior, reset, and cookie-backed SSR snapshot persistence without first-paint flash.
+- The smaller comparison fixture implements one dispatch-card flow in current scoped SFC CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux idioms. Its README links the official sources reviewed on 2026-07-15; production browser tests prove every optimized lane changes scheme semantically and the Vane seed rederives live.
+- `pnpm run validate` is green: lint; SDK/demo types and builds; 99 parsed next-doc TypeScript fences plus 7 complete package-backed domain fixtures; 71 SDK files / 531 tests / zero type errors; clean audit; optimizer survival; production Playwright 6/6; development/HMR Playwright 1/1; and two Nuxt start/stop cycles releasing HTTP and HMR listeners.
+- `pnpm run fresh:smoke` packs the actual 18-file, 199.8 kB tarball and passes strict TypeScript 5.8 Vite and Nuxt installs, typechecks, production builds, HTTP, HMR, and cleanup with no workspace alias. The desktop sandbox reproduced its known native-watcher `EMFILE` constraint; the required unsandboxed gate passed, and maintained polling/dynamic-port discovery prevents ordinary duplicate-watcher/port pressure.
+- `pnpm run bench:baseline` verifies all three generated fixtures. The Phase-8 large graph remains inside the permanent budget at 2.22s cold typecheck, 2,217,790 instantiations, 579,740 kB reported memory, 447,372 B declarations, 2.84ms CSS completion, 0.11ms runtime completion, 5.40ms rename, and 4.95s build. CSS/JS/manifest output sizes and runtime/root bundles remain effectively unchanged from the accepted Phase-7 baseline.
+- The permanent 15-moment evidence map lives in `dux-testing.md`; the implemented showcase contract and exact browser/HMR artifacts live in `dux-demo-brief.md`. Public README and Vue/Nuxt guidance teach only the canonical engine → system, bound-runtime, token-override/custom-property vocabulary.
+
+Phase 9 is unblocked.
 
 ## 13. Phase 9 — promotion and cleanup
 

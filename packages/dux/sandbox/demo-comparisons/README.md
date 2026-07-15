@@ -1,6 +1,6 @@
-# Prism controlled comparison
+# Prism dispatch-card comparison
 
-Button, Card, and Progress implemented five ways on one page: Vue SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux. Every lane receives the same state and content from `@prism/domain`, so the comparison is about authoring models—not accidental visual drift.
+One small polished dispatch-card workflow implemented five ways: Vue SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux. Every lane receives the same state and content from `@prism/domain`, so the comparison is about authoring models—not accidental visual drift or the flagship's much larger feature set.
 
 ## Run
 
@@ -16,9 +16,9 @@ Vite serves the app at `http://localhost:5173` by default. This demo uses Vite w
 
 - Change intent, size, and pill: every lane resolves the same finite variant choice.
 - Move progress: SFC uses `v-bind()`, Tailwind and Panda use inline style, vanilla-extract uses `createVar` plumbing, and vane-dux uses a typed port.
-- Click every Refract and card action button: the shared status and per-lane count confirm that each demo control is functional.
+- Click every Dispatch and card action button: the shared status and per-lane count confirm that each demo control is functional.
 - Change scheme: all lanes follow the same platform `color-scheme` axis.
-- Change brand: only the vane-dux lane changes by design. Its live brand input re-derives hover, surface, border, and ink values in CSS; the other lanes compiled their palettes.
+- Change brand: only the vane-dux lane changes by design. Its root-bound runtime writes one mutable token slot; hover, surface, border, and ink values re-derive in CSS. The other lanes compiled their palettes.
 - Inspect `index.html`: cascade-layer order is declared before any stylesheet because five styling systems share the page.
 
 ## Study map
@@ -27,5 +27,16 @@ Vite serves the app at `http://localhost:5173` by default. This demo uses Vite w
 - `src/lanes/tailwind` — theme variables and utility maps.
 - `panda.config.ts`, `src/lanes/panda` — config/codegen and generated `css()` calls.
 - `src/lanes/extract` — vanilla-extract tokens, recipes, and dynamic variables.
-- `src/lanes/vane` — a typed graph, recipe, and port. The elevation helper names `color.brand` explicitly instead of reading hidden global color controls.
+- `src/lanes/vane` — the canonical engine → module → system flow, a public elevation plugin, a CSS-reactive token graph, recipe, typed port, and bound runtime.
 - `src/shell.css` — comparison chrome only; no lane depends on it for component styling.
+
+## Official-source review
+
+Reviewed 2026-07-15. Each peer lane follows the current first-party shape relevant to this deliberately small comparison:
+
+- Vue: scoped SFC CSS and reactive `v-bind()` custom properties — [SFC CSS features](https://vuejs.org/api/sfc-css-features).
+- Tailwind CSS v4: `@theme` variables plus utility classes — [theme variables](https://tailwindcss.com/docs/theme).
+- Panda CSS: colocated atomic `cva()` recipes and generated token/property functions — [recipes](https://panda-css.com/docs/concepts/recipes).
+- vanilla-extract: build-time `recipe()` variants plus `createVar`/`assignInlineVars` for runtime values — [recipes](https://vanilla-extract.style/documentation/packages/recipes/) and [dynamic](https://vanilla-extract.style/documentation/packages/dynamic/).
+
+The comparison does not declare a winner from line count. Its durable questions are where design decisions live, what the editor can prove, what runtime work remains, what CSS ships, and how a cross-cutting change propagates.

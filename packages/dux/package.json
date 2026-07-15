@@ -16,7 +16,7 @@
     "typecheck": "pnpm run sdk:typecheck && pnpm run sdk:build && pnpm run demo:typecheck",
     "test": "pnpm run sdk:test",
     "audit": "tsx scripts/audit.ts",
-    "validate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run audit && pnpm run demo:e2e",
+    "validate": "pnpm run lint && pnpm run typecheck && pnpm run docs:examples && pnpm run test && pnpm run audit && pnpm run demo:e2e",
     "val": "pnpm run validate",
 
     "sdk:dev": "pnpm --dir vane-dux exec obuild --stub",
@@ -29,6 +29,8 @@
     "bench:fixtures:check": "tsx scripts/generate-benchmarks.ts --check",
     "bench:resolution": "tsx scripts/benchmark-resolution.ts",
     "bench:baseline": "pnpm run sdk:build && pnpm run bench:fixtures:check && tsx scripts/benchmark.ts",
+    "docs:examples": "tsx scripts/check-doc-examples.ts",
+    "css:optimizer:check": "tsx scripts/check-built-css.ts",
 
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
@@ -37,7 +39,7 @@
     "demo:e2e:prod": "playwright test",
     "demo:e2e:dev": "playwright test --config playwright.dev.config.ts",
     "demo:dev:lifecycle": "tsx scripts/dev-lifecycle.ts",
-    "demo:e2e": "pnpm run sdk:build && pnpm run demo:build && pnpm run demo:e2e:prod && pnpm run demo:e2e:dev && pnpm run demo:dev:lifecycle",
+    "demo:e2e": "pnpm run sdk:build && pnpm run demo:build && pnpm run css:optimizer:check && pnpm run demo:e2e:prod && pnpm run demo:e2e:dev && pnpm run demo:dev:lifecycle",
     "fresh:smoke": "tsx scripts/fresh-smoke.ts",
 
     "publish:sdk:dry-run": "tsx scripts/publish.ts dry-run",

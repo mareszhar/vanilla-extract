@@ -95,15 +95,17 @@ test('Nuxt dev keeps first paint styled and HMR deterministic', async ({ page })
     expect(stylesheetResponses.filter(response => response.status >= 400)).toEqual([])
 
     const loadsBeforeHmr = await loadCount(page)
-    const select = page.getByLabel('Intent')
-    expect(await page.locator('html').evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('')
-    await expect(page.getByLabel('Pick the brand color')).toHaveValue('#735fe9')
-    await expect(select).toHaveCSS('border-radius', '6px')
+    const root = page.locator('#prism-studio')
+    const hue = page.getByRole('slider', { name: 'Palette hue' })
+    const metric = page.locator('article').filter({ hasText: '12,480' })
+    expect(await root.evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('')
+    await expect(hue).toHaveValue('285')
+    await expect(metric).toHaveCSS('border-radius', '14px')
 
-    expect(originalTokens).toContain('radius: { sm: \'6px\'')
-    await writeFile(tokensFile, originalTokens.replace('radius: { sm: \'6px\'', 'radius: { sm: \'14px\''))
+    expect(originalTokens).toContain('val: de.length.px(14)')
+    await writeFile(tokensFile, originalTokens.replace('val: de.length.px(14)', 'val: de.length.px(18)'))
 
-    await expect(select).toHaveCSS('border-radius', '14px')
+    await expect(metric).toHaveCSS('border-radius', '18px')
     expect(await loadCount(page)).toBe(loadsBeforeHmr)
 
     await page.evaluate(() => {
@@ -118,7 +120,7 @@ test('Nuxt dev keeps first paint styled and HMR deterministic', async ({ page })
     await expect(page.locator('#phase5-primary')).toHaveCSS('background-color', 'rgb(220, 60, 90)')
     expect(await loadCount(page)).toBe(loadsBeforeHmr)
 
-    const shapeProbe = '\nexport const __vaneHmrShapeProbe = css({ opacity: 1 })\n'
+    const shapeProbe = '\nexport const __vaneHmrShapeProbe = ds.css({ opacity: 1 })\n'
     await writeFile(appStyleFile, `${originalAppStyle}${shapeProbe}`)
 
     await expect.poll(() => loadCount(page)).toBe(loadsBeforeHmr + 1)

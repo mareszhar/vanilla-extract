@@ -1,28 +1,38 @@
-// The vane-dux lane's decisions — not mirrored values, *derivations*: one
-// live seed and elevation positions; hovers, tints, pairings, and both
-// schemes fall out, and the theme picker can re-derive them all at runtime.
-import { alpha, createSystem, defineTokens, legibleOn, oklch } from '@mszr/vane-dux'
-import { elevation } from '@mszr/vane-dux/preset'
+import { createEngine } from '@mszr/vane-dux'
+import { elevationPlugin } from '@mszr/vane-dux/preset'
 
-export const { t, css, recipe, port, theme } = createSystem({
-  tokens: defineTokens({
-    color: {
-      brand: oklch(0.58, 0.2, 285).live().describe('The seed. The theme picker owns this at runtime.'),
-    },
-    space: { xs: '4px', sm: '8px', md: '16px', lg: '24px' },
-    radius: { sm: '6px', md: '10px', pill: '999px' },
-    duration: { fast: '120ms', normal: '200ms' },
-  })
-    .derive(({ color }) => ({
-      color: {
-        brandSoft: alpha(color.brand, 0.12),
-        onBrand: legibleOn(color.brand),
-        surface: elevation(color.brand, 0.03),
-        border: elevation(color.brand, 0.2),
-        inkMuted: elevation(color.brand, 0.62),
-        ink: elevation(color.brand, 0.94),
-      },
-    }))
-    .derive(({ color }) => ({ color: { brandHover: color.brand.mix(color.ink, 0.12) } })),
-  prefix: 'prism',
+/** The comparison lane uses the same public engine → module → system flow. */
+const de = createEngine().use(elevationPlugin({ tint: 0.04 }))
+
+const tokens = de.defineTokens({
+  color: {
+    brand: de.token.color({
+      val: de.oklch(0.58, 0.2, 285),
+      mutable: true,
+      description: 'One runtime seed; every dependent color stays CSS-reactive.',
+    }),
+  },
+  space: { xs: de.length.px(4), sm: de.length.px(8), md: de.length.px(16), lg: de.length.px(24) },
+  radius: { sm: de.length.px(6), md: de.length.px(10), pill: de.length.px(999) },
+  duration: { fast: de.time.ms(120), normal: de.time.ms(200) },
 })
+  .derive(({ color }) => ({
+    color: {
+      brandSoft: de.alpha(color.brand, 0.12),
+      onBrand: de.legibleOn(color.brand),
+      surface: de.elevation(color.brand, 0.03),
+      border: de.elevation(color.brand, 0.2),
+      inkMuted: de.elevation(color.brand, 0.62),
+      ink: de.elevation(color.brand, 0.94),
+    },
+  }))
+  .derive(({ color }) => ({ color: { brandHover: de.mix(color.brand, color.ink, 0.12) } }))
+
+const ds = de.createSystem({
+  tokens,
+  prefix: 'compare',
+  root: '[data-lane="vane"]',
+})
+
+export const { css, port, recipe, t } = ds
+export const bindVaneRuntime = ds.runtime

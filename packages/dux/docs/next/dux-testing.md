@@ -1,4 +1,4 @@
-updated: 2026-07-14
+updated: 2026-07-15
 status: permanent verification strategy — applies during and after the refactor
 
 # vane-dux — testing and benchmarks
@@ -63,7 +63,7 @@ Strict Vite and Nuxt apps install the packed package with no repository aliases,
 
 Keep a focused Nuxt flagship and a small comparison/integration fixture. The flagship may be rebuilt later; architecture completion never depends on its visual concept.
 
-Phase 8 follows the separate [demo brief](./dux-demo-brief.md). Until the rebuilt flagship and comparison fixture replace their evidence, the existing demos remain phase-boundary regression gates rather than templates to migrate literally.
+Phase 8 follows the separate [demo brief](./dux-demo-brief.md). The rebuilt Prism studio and dispatch-card comparison are the maintained browser fixtures; their visual concepts are replaceable, while the computed-style, accessibility, SSR, HMR, optimizer, and process assertions remain permanent gates.
 
 ## 3. Value conformance
 
@@ -286,11 +286,13 @@ The current workspace commands remain the starting point:
 pnpm run sdk:typecheck
 pnpm run sdk:test
 pnpm run sdk:build
+pnpm run docs:examples
 pnpm run bench:fixtures:check
 pnpm run bench:resolution
 pnpm run bench:baseline
 pnpm run demo:typecheck
 pnpm run demo:build
+pnpm run css:optimizer:check
 pnpm run demo:e2e
 pnpm run fresh:smoke
 pnpm run audit
@@ -298,6 +300,17 @@ pnpm run validate
 ```
 
 The refactor may add benchmark/conformance/doc-test commands; it must not weaken the existing gate.
+
+### 9.1 Documentation and optimizer honesty
+
+`pnpm run docs:examples` performs two complementary checks:
+
+- every TypeScript fence in `docs/next/` is parsed as TypeScript, including deliberately partial object/array fragments used to specify one local shape;
+- one complete public-package fixture per documented authoring domain is semantically typechecked against built declarations under `docs/next/examples/`.
+
+A snippet presented as a standalone copyable example must be mirrored by a complete package-backed fixture; partial or intentionally rejected examples remain syntax fixtures and must be labeled by their surrounding prose. Parsing fragments as standalone programs with invented `any` declarations would make the number larger while weakening the evidence, so the gate reports both counts explicitly.
+
+`pnpm run css:optimizer:check` inspects both production artifacts for registrations, relative color/modern color math, mutable slots, container rules, raw future rules, and framework layers. Playwright then asserts computed scheme behavior after optimization so string survival cannot conceal a semantic rewrite.
 
 ## 10. Maintained DX comparison
 
@@ -328,6 +341,22 @@ Permanent comparative questions:
 
 ## 11. Delight-gauntlet evidence
 
-Each gauntlet moment in the next vision maps to a named test/fixture before promotion. The implementation plan owns the temporary ledger; after promotion, test names and docs links become the stable evidence map.
+| # | Moment | Durable evidence |
+| --- | --- | --- |
+| 1 | Rename across modules and consumers | [`tokens.rename.test.ts`](../../vane-dux/src/tokens/tokens.rename.test.ts) and [`tokens.modules.dx.test.ts`](../../vane-dux/src/tokens/tokens.modules.dx.test.ts). |
+| 2 | Add a scheme axis without component edits | Phase-4 type/output fixtures plus the computed light/dark probes in [`demos.spec.ts`](../../tests/demos.spec.ts). |
+| 3 | Live-tune brand and rederive in CSS | Prism hue and comparison Vane-lane assertions in [`demos.spec.ts`](../../tests/demos.spec.ts); no JavaScript palette mirror exists in the studio. |
+| 4 | Live-tune a non-color value | Prism radius/font controls and compact density computed-style assertions in [`demos.spec.ts`](../../tests/demos.spec.ts). |
+| 5 | Sparse multi-axis intersection | [`tokens.phase4.out.test.ts`](../../vane-dux/src/tokens/tokens.phase4.out.test.ts) and Prism's scheme + density shadow explanation. |
+| 6 | Override a published component contract | [`port.out.test.ts`](../../vane-dux/src/ports/port.out.test.ts) and the port-driven Prism progress component. |
+| 7 | Style typed headless states | [`css.dx.test.ts`](../../vane-dux/src/css/css.dx.test.ts), recipe/anatomy fixtures, and keyboard-tested Prism tabs/dialog. |
+| 8 | Bind reactive state through a typed port | [`port.test-d.ts`](../../vane-dux/src/ports/port.test-d.ts), `usePorts` fixtures, and both live Prism progress bars. |
+| 9 | Use CSS vane does not yet model | [`css.out.test.ts`](../../vane-dux/src/css/css.out.test.ts), Prism's scoped `@starting-style`, and the optimizer-survival gate. |
+| 10 | Trace a rendered declaration | [`introspect.introspect.test.ts`](../../vane-dux/src/introspect/introspect.test.ts) and Prism's build-produced `ds.explain()` provenance cards. |
+| 11 | Export standard and authored DTCG | [`dtcg.test.ts`](../../vane-dux/src/introspect/dtcg.test.ts), including resolved projection and portable authored round trips. |
+| 12 | Extend values through the public engine | [`createEngine.test.ts`](../../vane-dux/src/engine/createEngine.test.ts) and [`preset/plugins.test.ts`](../../vane-dux/src/preset/plugins.test.ts); the flagship uses both public optional plugins. |
+| 13 | SSR persisted runtime state without flash | Prism response-HTML/first-paint/reload assertions in [`demos.spec.ts`](../../tests/demos.spec.ts) and snapshot reconciliation fixtures. |
+| 14 | Install the tarball in strict Vite and Nuxt | [`fresh-smoke.ts`](../../scripts/fresh-smoke.ts), which packs and installs without workspace aliases before type/build/lifecycle checks. |
+| 15 | Let an agent self-correct | [`introspect.dx.test.ts`](../../vane-dux/src/introspect/introspect.dx.test.ts), [`audit.test.ts`](../../vane-dux/src/introspect/audit.test.ts), and generated agent context from the same manifest records. |
 
 No gate becomes green from a manual glance alone. Exploratory manual testing is valuable input, not durable proof.

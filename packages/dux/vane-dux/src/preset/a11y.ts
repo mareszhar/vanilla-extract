@@ -5,10 +5,10 @@
  * helper: `forcedColors` is already a preset condition, a bare key away.
  */
 
-import type { VaneVarReference } from '@mszr/vane-dux'
+import type { VaneTokenInput, VaneVarReference } from '@mszr/vane-dux'
 
 /** A colorish declaration value: a CSS literal or a token handle. */
-type VaneA11yColor = string | VaneVarReference
+type VaneA11yColor = string | VaneVarReference | VaneTokenInput
 
 export interface VaneFocusRingOptions {
   /** The ring color; `currentColor` by default. Token-driven: pass `t.color.brand`. */
@@ -28,7 +28,11 @@ export interface VaneFocusRingOptions {
 export function focusRing(options: VaneFocusRingOptions = {}) {
   const color = options.color === undefined
     ? 'currentColor'
-    : typeof options.color === 'string' ? options.color : options.color.var
+    : typeof options.color === 'string'
+      ? options.color
+      : '$var' in options.color
+        ? options.color.$var()
+        : options.color.var
 
   return {
     focusVisible: {

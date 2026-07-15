@@ -44,7 +44,7 @@ function captureBrowserErrors(page: Page): string[] {
   return failures
 }
 
-test('Nuxt interaction lab paints with CSS and every control responds', async ({ page }) => {
+test('Prism studio paints with CSS and projects every system decision', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   const stylesheetResponses: Array<{ url: string, status: number }> = []
   await captureFirstPaint(page)
@@ -63,68 +63,86 @@ test('Nuxt interaction lab paints with CSS and every control responds', async ({
   expect((await page.evaluate(() => window.__vaneFirstPaint))?.background).not.toBe('rgba(0, 0, 0, 0)')
   await expect(page.locator('main')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 
-  const refract = page.getByRole('button', { name: 'Refract', exact: true })
-  const brandInput = page.getByLabel('Pick the brand color')
-  const brandBefore = await refract.evaluate(element => getComputedStyle(element).backgroundColor)
-  expect(await page.locator('html').evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('')
-  await expect(brandInput).toHaveValue('#735fe9')
-  expect(await page.evaluate(() => {
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Pick the brand color"]')!
-    const authored = getComputedStyle(document.documentElement).getPropertyValue('--prism-color-brand')
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')!
-    const pixel = (color: string) => {
-      context.clearRect(0, 0, 1, 1)
-      context.fillStyle = color
-      context.fillRect(0, 0, 1, 1)
-      return [...context.getImageData(0, 0, 1, 1).data]
-    }
+  const root = page.locator('#prism-studio')
+  const hue = page.getByRole('slider', { name: 'Palette hue' })
+  const radius = page.getByRole('slider', { name: 'Radius seed' })
+  const metric = page.locator('article').filter({ hasText: '12,480' })
+  const brandBefore = await root.evaluate(element => getComputedStyle(element).getPropertyValue('--prism-color-brand'))
+  const radiusBefore = await metric.evaluate(element => getComputedStyle(element).borderRadius)
 
-    return pixel(input.value).join(',') === pixel(authored).join(',')
-  })).toBe(true)
-  await brandInput.fill('#d13c63')
-  await expect.poll(() => refract.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(brandBefore)
-  expect(await page.locator('html').evaluate(element => element.style.getPropertyValue('--prism-color-brand'))).toBe('#d13c63')
+  await expect(hue).toHaveValue('285')
+  await hue.fill('180')
+  await expect.poll(() => root.evaluate(element => getComputedStyle(element).getPropertyValue('--prism-color-brand'))).not.toBe(brandBefore)
+  expect(await root.evaluate(element => element.getAttribute('style'))).toMatch(/--prism-v-[\w-]+: oklch\(62% 0\.205 180\)/)
 
-  await refract.click()
-  await expect(page.getByRole('button', { name: 'Refracted 1×', exact: true })).toBeVisible()
-  await expect(page.getByText('Click event received')).toBeVisible()
+  await expect(radius).toHaveValue('14')
+  await radius.fill('4')
+  await expect.poll(() => metric.evaluate(element => getComputedStyle(element).borderRadius)).not.toBe(radiusBefore)
 
-  await page.getByLabel('Pill radius').check()
-  await expect(page.getByText('brand · md · pill')).toBeVisible()
+  await page.getByRole('button', { name: 'dark', exact: true }).click()
+  await expect(root).toHaveAttribute('data-scheme', 'dark')
 
-  await page.getByLabel(/Progress/).fill('84')
-  await expect(page.getByText('84 / 100')).toBeVisible()
+  await page.getByLabel('Density').selectOption('compact')
+  await expect(root).toHaveAttribute('data-density', 'compact')
+  expect(await root.evaluate(element => getComputedStyle(element).getPropertyValue('--prism-space-md').trim())).toBe('.75rem')
 
-  const openDialog = page.getByRole('button', { name: 'Open dialog' })
+  await page.getByLabel('Elevation').selectOption('overlay')
+  await expect(root).toHaveAttribute('data-elevation', 'overlay')
+  await page.getByLabel('Typeface').selectOption('mono')
+  await expect(root).toHaveCSS('font-family', /SFMono-Regular/)
+  await page.getByRole('button', { name: 'springy', exact: true }).click()
+  await expect(root).toHaveAttribute('data-motion', 'springy')
+
+  await page.getByRole('button', { name: 'New report' }).click()
+  await expect(page.getByRole('progressbar').first()).toHaveAttribute('aria-valuenow', '79')
+
+  const openDialog = page.getByRole('button', { name: 'Inspect system' })
   await openDialog.click()
-  const dialog = page.getByRole('dialog', { name: 'An anatomy at work' })
+  const dialog = page.getByRole('dialog', { name: 'One coherent system' })
   await expect(dialog).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toBeHidden()
   await expect(openDialog).toBeFocused()
 
-  const tokensTab = page.getByRole('tab', { name: 'Tokens' })
-  await tokensTab.focus()
+  const axesTab = page.getByRole('tab', { name: 'Axes' })
+  await axesTab.focus()
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { name: 'Recipes' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tabpanel')).toContainText('precompiled classes')
+  await expect(page.getByRole('tab', { name: 'Cases' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel')).toContainText('explicit dark/compact intersection')
 
-  await page.getByRole('button', { name: /Scheme:/ }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-scheme', 'dark')
+  const persisted = await page.reload({ waitUntil: 'networkidle' })
+  const persistedHtml = await persisted!.text()
+  expect(persistedHtml).toContain('data-scheme="dark"')
+  expect(persistedHtml).toContain('data-density="compact"')
+  expect(persistedHtml).toMatch(/--prism-v-[\w-]+:oklch\(62% 0\.205 180\)/)
+  await expect(hue).toHaveValue('180')
+  await expect(root).toHaveAttribute('data-elevation', 'overlay')
+
+  await page.getByRole('button', { name: 'Reset authored defaults' }).click()
+  await expect(hue).toHaveValue('285')
+  await expect(root).not.toHaveAttribute('data-scheme')
+  await expect(root).not.toHaveAttribute('data-density')
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
 
-test('Nuxt lab remains operable and semantically connected at phone and desktop widths', async ({ page }) => {
+test('Prism studio remains operable at phone, widget-container, and desktop widths', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
 
-  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+  for (const viewport of [
+    { width: 320, height: 720 },
+    { width: 820, height: 900 },
+    { width: 1440, height: 900 },
+  ]) {
     await page.setViewportSize(viewport)
     await page.goto('http://127.0.0.1:3100', { waitUntil: 'networkidle' })
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '62')
+    await expect(page.locator('nav[aria-label="Sparrow"]'))
+      .toHaveCSS('display', viewport.width < 700 ? 'none' : 'grid')
+    await expect(page.getByRole('progressbar')).toHaveCount(2)
+    for (const progress of await page.getByRole('progressbar').all())
+      await expect(progress).toHaveAttribute('aria-valuenow', '72')
 
     const semanticFailures = await page.evaluate(() => {
       const ids = [...document.querySelectorAll('[id]')].map(element => element.id)
@@ -143,6 +161,16 @@ test('Nuxt lab remains operable and semantically connected at phone and desktop 
 
     expect(semanticFailures).toEqual({ duplicateIds: [], unnamedButtons: 0, unlabelledInputs: 0 })
   }
+
+  const inspect = page.getByRole('button', { name: 'Inspect system' })
+  await inspect.focus()
+  expect(await inspect.evaluate(element => element.matches(':focus-visible'))).toBe(true)
+  await expect(inspect).toHaveCSS('outline-style', 'solid')
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.reload({ waitUntil: 'networkidle' })
+  const chartBar = page.getByRole('img', { name: 'Engagement increased over twelve weeks' }).locator('span').first()
+  await expect(chartBar).toHaveCSS('animation-name', 'none')
 
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
@@ -246,9 +274,9 @@ test('comparison lanes stay functional, visible, and live-themed', async ({ page
   await expect(lanes).toHaveCount(5)
 
   const laneIds = ['sfc', 'tailwind', 'panda', 'extract', 'vane'] as const
-  await expect(page.getByRole('button', { name: 'Refract', exact: true })).toHaveCount(5)
+  await expect(page.getByRole('button', { name: 'Dispatch', exact: true })).toHaveCount(5)
   for (const lane of laneIds)
-    await page.locator(`[data-lane="${lane}"]`).getByRole('button', { name: 'Refract', exact: true }).click()
+    await page.locator(`[data-lane="${lane}"]`).getByRole('button', { name: 'Dispatch', exact: true }).click()
   await expect(page.getByText(/5 total/)).toBeVisible()
 
   for (const lane of laneIds) {
@@ -256,6 +284,23 @@ test('comparison lanes stay functional, visible, and live-themed', async ({ page
     await expect(progress).toBeVisible()
     const box = await progress.boundingBox()
     expect(box?.height, `${lane} progress must have a real height`).toBeGreaterThan(0)
+  }
+
+  const scheme = page.getByLabel('Scheme')
+  await scheme.selectOption('light')
+  const lightCards = await Promise.all(laneIds.map(lane => page
+    .locator(`[data-lane="${lane}"] .card-block article`)
+    .evaluate(element => getComputedStyle(element).backgroundColor)))
+  await scheme.selectOption('dark')
+  await expect(page.locator('html')).toHaveAttribute('data-scheme', 'dark')
+  const darkCards = await Promise.all(laneIds.map(lane => page
+    .locator(`[data-lane="${lane}"] .card-block article`)
+    .evaluate(element => getComputedStyle(element).backgroundColor)))
+  for (const [index, lane] of laneIds.entries()) {
+    expect(
+      darkCards[index],
+      `${lane} must preserve its scheme pair through the production optimizer`,
+    ).not.toBe(lightCards[index])
   }
 
   const vaneButton = page.locator('[data-lane="vane"] button').first()
