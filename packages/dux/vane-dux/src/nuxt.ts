@@ -1,10 +1,8 @@
 /**
- * The Nuxt module ([dux-spec-vue.md §4]): wires the `/vite` plugin, extends
- * auto-imports to the system's bound functions — in app code *and* inside
- * evaluated style modules, where the two-imports-per-file tax matters most —
- * and ships the SSR scheme recipe (cookie + `data-scheme`), the standard dance
- * no zero-runtime system escapes. One component in an existing Nuxt app can
- * adopt vane-dux with this module and one `.style.ts` file — no migration.
+ * The Nuxt module ([dux-spec-vue.md §4]): wires the `/vite` plugin, injects
+ * the configured system's bound functions into evaluated style modules, and
+ * ships the SSR scheme recipe (cookie + `data-scheme`). It deliberately does
+ * not register application auto-imports; that remains the Nuxt app's choice.
  *
  * The Nuxt DevTools tab is the `/vite` plugin's manifest view (`/__vane/`)
  * embedded — one implementation serves plain Vite and Nuxt alike
@@ -14,16 +12,19 @@
 import type { Plugin, PluginOption } from 'vite'
 import type { VaneAutoImports, VaneViteOptions } from './vite'
 import { readFileSync } from 'node:fs'
-import { addImportsSources, addPluginTemplate, addVitePlugin, defineNuxtModule, resolveAlias } from '@nuxt/kit'
+import { addPluginTemplate, addVitePlugin, defineNuxtModule, resolveAlias } from '@nuxt/kit'
 import { protectRelativeColorSyntax } from './nuxt/postcss'
 import { styleExportNames, vaneDuxPlugin } from './vite'
 
 export interface VaneNuxtOptions extends Omit<VaneViteOptions, 'autoImports'> {
   /**
-   * The system style module (`~/design/system.style.ts`). Its exported bound
-   * functions and `t` become auto-imports — reaching `*.style.ts` files too.
+   * The system style module (`~/design/system.style.ts`). Its exports are
+   * available to the style-module injection shim when `styleAutoImports` is
+   * enabled; application auto-imports are configured by the Nuxt app itself.
    */
   system?: string
+  /** Opt into unbound system exports inside evaluated `*.style.ts` files. */
+  styleAutoImports?: boolean
 }
 
 /**
@@ -54,24 +55,16 @@ export default defineNuxtModule<VaneNuxtOptions>({
   },
   defaults: {},
   setup(options, nuxt) {
-    const { system, ...viteOptions } = options
+    const { system, styleAutoImports = false, ...viteOptions } = options
     let autoImports: VaneAutoImports | undefined
 
-    if (system) {
+    if (system && styleAutoImports) {
       const from = resolveAlias(system, nuxt.options.alias)
       const names = styleExportNames(readSystemModule(from))
 
-      if (names.length > 0) {
-        addImportsSources({ from, imports: names })
+      if (names.length > 0)
         autoImports = { from, names }
-      }
     }
-
-    // Framework composables and generic explicit-target runtime helpers ride
-    // auto-imports. System-bound runtime factories come from the configured
-    // system module, preserving one engine → system dialect in app code.
-    addImportsSources({ from: '@mszr/vane-dux/vue', imports: ['propsOf', 'useAnatomy', 'usePorts'] })
-    addImportsSources({ from: '@mszr/vane-dux/runtime', imports: ['ports', 'setCustomProperties', 'setCustomProperty'] })
 
     // TypeScript cannot natively connect an inferred mapped token handle back
     // to its object-literal definition for rename-symbol. The bundled plugin

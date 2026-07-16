@@ -121,10 +121,22 @@ export default defineNuxtConfig({
 })
 ```
 
+The `styleAutoImports` option is optional and defaults to `false`; enable it only when you want unbound system exports inside `*.style.ts` files.
+Nuxt application auto-imports are intentionally configured by the project: place the chosen re-exports in `app/utils` or `shared/utils`, or omit them entirely when you prefer explicit imports.
+
+For example, a project that wants the full demo surface can make it explicit:
+
+```TS
+// app/utils/vane-dux.ts
+export { ds } from '~/design/system.style'
+export { propsOf, useAnatomy, usePorts } from '@mszr/vane-dux/vue'
+export { ports, setCustomProperties, setCustomProperty } from '@mszr/vane-dux/runtime'
+```
+
 **Contract details.**
 
-- Wires the `/vite` plugin (manifest emission included); auto-imports the configured system module's serializable exports, plus `propsOf`/`usePorts`/`useAnatomy` and the generic runtime helpers (`ports`, `setCustomProperty`, `setCustomProperties`). A bound `ds.runtime`/`ds.runtimeProps` factory is exported from the system module and therefore follows the same import/auto-import path as the system it belongs to; no second global token-update dialect is introduced.
-- **Auto-imports reach `*.style.ts` too.** The two-imports-per-style-file tax (`css` + `t`) is exactly where auto-imports matter most, so the module extends them into evaluated style modules, not just app code — an esbuild `inject` shim resolves unbound identifiers to the system module, explicit imports stay untouched, and files the system itself imports are skipped (a file upstream of the system cannot use its bindings). Plain-Vite users pass the same thing as the `/vite` plugin's `autoImports` option; the explicit imports always remain valid (and are what library code ships with).
+- Wires the `/vite` plugin (manifest emission included) and, when opted in, makes the configured system module available to evaluated `*.style.ts` files through the build-time inject shim. It does not force application auto-imports: projects choose their own `app/utils` or `shared/utils` surface, or use explicit imports.
+- **Style-module auto-imports are opt-in.** When enabled, the two-imports-per-style-file tax (`css` + `t`) disappears: an esbuild `inject` shim resolves unbound identifiers to the system module, explicit imports stay untouched, and files the system itself imports are skipped (a file upstream of the system cannot use its bindings). Plain-Vite users pass the same thing as the `/vite` plugin's `autoImports` option; explicit imports always remain valid.
 - **Importing the system module from app code is legal.** Token handles, override classes, runtime factories, and SSR projection helpers cross as serializable contracts; bound authoring functions cross as build-plane stubs that throw the lane redirect if called — never a poisoned module, never a silent no-op.
 - Nuxt DevTools tab: the token browser (values per scheme, liveness, usage counts), recipe/anatomy inspector, ports, conditions, and the escape inventory, with click-through to the `.style.ts` source. It embeds the manifest view the `/vite` plugin serves at `/__vane/` in dev — one implementation serves plain Vite and Nuxt alike ([dux-spec-introspection.md §2](./dux-spec-introspection.md#2-the-manifest)).
 - Adoption slope contract: one component in an existing Nuxt app can adopt vane-dux with the module + one `.style.ts` file — no migration, no global buy-in.

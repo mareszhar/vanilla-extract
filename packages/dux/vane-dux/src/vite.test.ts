@@ -182,6 +182,41 @@ export function exercise() {
     expect(js).not.toContain('@vanilla-extract')
   })
 
+  it('serializes a whole system for explicit app-side imports', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-system-plane-')))
+    await writeFile(join(root, 'package.json'), '{ "name": "vane-system-plane", "type": "module" }')
+    await writeFile(join(root, 'system.style.ts'), `import { createEngine } from '@mszr/vane-dux'
+const de = createEngine()
+export const ds = de.createSystem({ prefix: 'app', tokens: { space: { sm: '8px' } } })
+`)
+    await writeFile(join(root, 'entry.ts'), `import { ds } from './system.style'
+export const token = ds.t.space.sm
+export const css = ds.css
+export const runtime = ds.runtime
+`)
+
+    const result = await build({
+      configFile: false,
+      logLevel: 'silent',
+      root,
+      plugins: [vaneDuxPlugin({ identifiers: 'debug' })],
+      resolve: { alias: aliases },
+      build: {
+        write: false,
+        minify: false,
+        lib: { entry: join(root, 'entry.ts'), formats: ['es'], fileName: 'entry' },
+      },
+    })
+    const { output } = (Array.isArray(result) ? result[0] : result) as Rollup.RollupOutput
+    const chunk = output.find(item => item.type === 'chunk')
+    const js = chunk?.type === 'chunk' ? chunk.code : ''
+    const bundle = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`)
+
+    expect(bundle.token()).toBe('var(--app-space-sm)')
+    expect(typeof bundle.runtime).toBe('function')
+    expect(() => bundle.css({})).toThrow('[vane] css is build-plane')
+  })
+
   it('writes the manifest beside the CSS — .vane/manifest.json, versioned', async () => {
     // A copy, so the build artifact never lands in the source tree.
     const root = await realpath(await mkdtemp(join(tmpdir(), 'vane-manifest-')))

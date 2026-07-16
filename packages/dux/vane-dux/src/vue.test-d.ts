@@ -11,6 +11,11 @@ import { propsOf, useAnatomy, usePorts } from '@mszr/vane-dux/vue'
 import { definePrismSystem } from '@test'
 import { describe, expectTypeOf, it } from 'vitest'
 
+type IsAny<T> = 0 extends (1 & T) ? true : false
+
+const propsOfMustNotBeAny: false = false as IsAny<typeof propsOf>
+void propsOfMustNotBeAny
+
 // The type plane never executes — these calls are shapes, not effects.
 const { port, anatomy } = definePrismSystem()
 const fraction = port(0)

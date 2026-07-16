@@ -520,6 +520,15 @@ function createSystemInternal<
     layers: Object.freeze([...layers]) as readonly L[number][],
   }
 
+  // A whole system can cross into app code (for example through a project's
+  // explicit Nuxt auto-import surface). Keep build-plane functions callable
+  // while the compiler evaluates this module, but give the exported surface a
+  // serializable wrapper for the app plane. The wrapper restores the same
+  // throwing stub used by individual authoring methods; token handles and
+  // runtime services already carry their own serializers and are preserved.
+  for (const [key, value] of Object.entries(bound))
+    (bound as Record<string, unknown>)[key] = serializableSystemValue(value, key)
+
   Object.defineProperty(bound, VANE_SYSTEM_INTERCHANGE, {
     enumerable: false,
     value: Object.freeze({ graph: resolvedGraph, codecs: Object.freeze([...binding.dtcg]) }),
@@ -574,4 +583,49 @@ function appPlane<F>(fn: F, importName: string, contract: object): F {
     args: [contract as any],
   })
   return fn
+}
+
+function serializableSystemValue(value: unknown, name: string, seen = new WeakMap<object, unknown>()): unknown {
+  if (typeof value === 'function') {
+    if (Object.hasOwn(value, '__recipe__'))
+      return value
+
+    const wrapper = function (this: unknown, ...args: unknown[]): unknown {
+      return Reflect.apply(value, this, args)
+    }
+
+    addFunctionSerializer(wrapper, {
+      importPath: '@mszr/vane-dux/runtime',
+      importName: 'restoreBuildPlane',
+      args: [{ name }],
+    })
+
+    for (const [key, child] of Object.entries(value)) {
+      Object.defineProperty(wrapper, key, {
+        configurable: true,
+        enumerable: true,
+        value: serializableSystemValue(child, `${name}.${key}`),
+      })
+    }
+
+    return wrapper
+  }
+
+  if (Array.isArray(value))
+    return value.map((child, index) => serializableSystemValue(child, `${name}[${index}]`, seen))
+
+  if (typeof value !== 'object' || value === null || Object.getPrototypeOf(value) !== Object.prototype)
+    return value
+
+  const existing = seen.get(value)
+  if (existing !== undefined)
+    return existing
+
+  const clone: Record<string, unknown> = {}
+  seen.set(value, clone)
+
+  for (const [key, child] of Object.entries(value))
+    clone[key] = serializableSystemValue(child, `${name}.${key}`, seen)
+
+  return Object.freeze(clone)
 }
