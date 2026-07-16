@@ -15,8 +15,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 const duxDir = join(fileURLToPath(new URL('.', import.meta.url)), '..')
-const packageDir = join(duxDir, 'vane-dux')
-const root = mkdtempSync(join(tmpdir(), 'vane-fresh-'))
+const packageDir = join(duxDir, 'vanity')
+const root = mkdtempSync(join(tmpdir(), 'vanity-fresh-'))
 const plainDir = join(root, 'plain-vite')
 const nuxtDir = join(root, 'nuxt-app')
 
@@ -246,10 +246,10 @@ async function main(): Promise<void> {
   write(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - plain-vite\n  - nuxt-app\n')
 
   write(join(plainDir, 'package.json'), JSON.stringify({
-    name: 'vane-fresh-plain',
+    name: 'vanity-fresh-plain',
     private: true,
     type: 'module',
-    dependencies: { '@mszr/vane-dux': packedDependency },
+    dependencies: { '@mszr/vanity': packedDependency },
     devDependencies: { typescript: '5.8.3', vite: '8.1.3' },
   }, null, 2))
   write(join(plainDir, 'tsconfig.json'), JSON.stringify({
@@ -260,17 +260,17 @@ async function main(): Promise<void> {
       moduleResolution: 'Bundler',
       target: 'ES2022',
       lib: ['ES2022', 'DOM'],
-      plugins: [{ name: '@mszr/vane-dux/typescript' }],
+      plugins: [{ name: '@mszr/vanity/typescript' }],
     },
     include: ['src'],
   }, null, 2))
   write(join(plainDir, 'vite.config.ts'), `import { defineConfig } from 'vite'
-import { vaneDuxPlugin } from '@mszr/vane-dux/vite'
+import { vanityPlugin } from '@mszr/vanity/vite'
 
-export default defineConfig({ plugins: [vaneDuxPlugin()] })
+export default defineConfig({ plugins: [vanityPlugin()] })
 `)
   write(join(plainDir, 'index.html'), '<main id="app"></main><script type="module" src="/src/main.ts"></script>\n')
-  write(join(plainDir, 'src/engine.ts'), `import { createEngine } from '@mszr/vane-dux'
+  write(join(plainDir, 'src/engine.ts'), `import { createEngine } from '@mszr/vanity'
 
 export const de = createEngine()
 `)
@@ -290,30 +290,30 @@ export const ds = de.createSystem({ tokens: de.defineTokens().compose(palette) }
 
 export const card = ds.css({ color: ds.t.color.brand, background: ds.t.color.brandSoft, padding: ds.length.rem(1) })
 `)
-  write(join(plainDir, 'src/main.ts'), `import { VANE_CSS_CAPABILITIES } from '@mszr/vane-dux/capabilities'
+  write(join(plainDir, 'src/main.ts'), `import { VANITY_CSS_CAPABILITIES } from '@mszr/vanity/capabilities'
 import { card } from './card.style'
 
-document.querySelector('#app')!.innerHTML = '<button class="' + card + '" data-color="' + VANE_CSS_CAPABILITIES.oklch.maturity + '">Fresh Vite</button>'
+document.querySelector('#app')!.innerHTML = '<button class="' + card + '" data-color="' + VANITY_CSS_CAPABILITIES.oklch.maturity + '">Fresh Vite</button>'
 `)
 
   write(join(nuxtDir, 'package.json'), JSON.stringify({
-    name: 'vane-fresh-nuxt',
+    name: 'vanity-fresh-nuxt',
     private: true,
     type: 'module',
-    dependencies: { '@mszr/vane-dux': packedDependency, 'nuxt': '4.4.8', 'vue': '3.5.39' },
+    dependencies: { '@mszr/vanity': packedDependency, 'nuxt': '4.4.8', 'vue': '3.5.39' },
     devDependencies: { 'typescript': '5.8.3', 'vue-tsc': '3.2.0' },
   }, null, 2))
   write(join(nuxtDir, 'tsconfig.json'), '{ "extends": "./.nuxt/tsconfig.json" }\n')
   write(join(nuxtDir, 'nuxt.config.ts'), `export default defineNuxtConfig({
-  modules: ['@mszr/vane-dux/nuxt'],
-  vane: { system: '~/design/system.style.ts' },
+  modules: ['@mszr/vanity/nuxt'],
+  vanity: { system: '~/design/system.style.ts' },
   devtools: { enabled: false },
   compatibilityDate: '2026-07-10',
   watchers: { chokidar: { usePolling: true, interval: 100 } },
   vite: { server: { watch: { usePolling: true, interval: 100 } } },
 })
 `)
-  write(join(nuxtDir, 'app/design/engine.ts'), `import { createEngine } from '@mszr/vane-dux'
+  write(join(nuxtDir, 'app/design/engine.ts'), `import { createEngine } from '@mszr/vanity'
 
 export const de = createEngine()
 `)

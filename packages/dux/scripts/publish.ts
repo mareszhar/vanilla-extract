@@ -1,5 +1,5 @@
 /**
- * The release pipeline ([dux-workspace.md §8]) — house release machinery:
+ * The release pipeline ([vanity-workspace.md §8]) — house release machinery:
  *
  *   pnpm run publish:sdk:dry-run          gate + packaging rehearsal
  *   pnpm run publish:sdk:<patch|minor|major>   the release
@@ -7,14 +7,14 @@
  *
  * One shared gate (the complete `pnpm run validate`) runs once, with a
  * content-keyed receipt so a resumed release doesn't re-verify unchanged
- * inputs. `VANE_FORCE_VERIFY=1` ignores the receipt; the deliberately awkward
- * `VANE_UNSAFE_PUBLISH_SKIP_CHECKS=1` skips the gate outright.
+ * inputs. `VANITY_FORCE_VERIFY=1` ignores the receipt; the deliberately awkward
+ * `VANITY_UNSAFE_PUBLISH_SKIP_CHECKS=1` skips the gate outright.
  *
  * Failure before `npm publish` restores the manifest and records nothing.
  * Once published, the bump is permanent and the remaining steps ride a
- * resumable release record (gitignored, `.dux/release.json`): registry
+ * resumable release record (gitignored, `.vanity/release.json`): registry
  * propagation → release commit + tag → subtree squash-push to the public
- * repo (`VANE_MIRROR_REMOTE` overrides the default remote).
+ * repo (`VANITY_MIRROR_REMOTE` overrides the default remote).
  */
 
 import { execSync, spawnSync } from 'node:child_process'
@@ -26,13 +26,13 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const duxDir = join(fileURLToPath(new URL('.', import.meta.url)), '..')
-const packageDir = join(duxDir, 'vane-dux')
+const packageDir = join(duxDir, 'vanity')
 const manifestPath = join(packageDir, 'package.json')
-const stateDir = join(duxDir, '.dux')
+const stateDir = join(duxDir, '.vanity')
 const receiptPath = join(stateDir, 'verify-receipt.json')
 const releasePath = join(stateDir, 'release.json')
 
-const MIRROR_REMOTE = process.env.VANE_MIRROR_REMOTE ?? 'git@github.com:mareszhar/vane-dux.git'
+const MIRROR_REMOTE = process.env.VANITY_MIRROR_REMOTE ?? 'git@github.com:mareszhar/vanity.git'
 const MIRROR_BRANCH = 'main'
 
 // ─── Small process helpers ───────────────────────────────────────────────────
@@ -59,7 +59,7 @@ function fail(message: string): never {
 
 // ─── The shared gate ─────────────────────────────────────────────────────────
 
-/** The inputs that decide the gate: the committed dux tree plus any working-tree drift. */
+/** The inputs that decide the gate: the committed Vanity tree plus any working-tree drift. */
 function contentKey(): string {
   const tree = run(`git rev-parse HEAD:packages/dux`, { quiet: true })
   // The tracked diff covers staged/unstaged edits, deletions, renames, and
@@ -80,14 +80,14 @@ function contentKey(): string {
 }
 
 function gate(): void {
-  if (process.env.VANE_UNSAFE_PUBLISH_SKIP_CHECKS === '1') {
-    console.log('⚠ VANE_UNSAFE_PUBLISH_SKIP_CHECKS=1 — the gate was skipped, on your head be it')
+  if (process.env.VANITY_UNSAFE_PUBLISH_SKIP_CHECKS === '1') {
+    console.log('⚠ VANITY_UNSAFE_PUBLISH_SKIP_CHECKS=1 — the gate was skipped, on your head be it')
     return
   }
 
   const key = contentKey()
 
-  if (process.env.VANE_FORCE_VERIFY !== '1' && existsSync(receiptPath)) {
+  if (process.env.VANITY_FORCE_VERIFY !== '1' && existsSync(receiptPath)) {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf-8')) as { key?: string, at?: string }
 
     if (receipt.key === key) {
@@ -137,14 +137,14 @@ function writeRelease(state: ReleaseState): void {
 // ─── The subtree mirror ──────────────────────────────────────────────────────
 
 /**
- * Push the tracked `vane-dux/` subtree to the public repo as one squashed
+ * Push the tracked `vanity/` subtree to the public repo as one squashed
  * commit on top of its history — the mirror is the package face, the fork
  * stays the development home.
  */
 function pushMirror(message: string): void {
-  step(`mirror: squash-push vane-dux/ → ${MIRROR_REMOTE}`)
+  step(`mirror: squash-push vanity/ → ${MIRROR_REMOTE}`)
 
-  const workDir = join(tmpdir(), `vane-mirror-${Date.now()}`)
+  const workDir = join(tmpdir(), `vanity-mirror-${Date.now()}`)
   mkdirSync(workDir, { recursive: true })
 
   try {
@@ -160,10 +160,10 @@ function pushMirror(message: string): void {
   for (const entry of run(`git -C ${workDir} ls-files`, { quiet: true }).split('\n').filter(Boolean))
     rmSync(join(workDir, entry), { force: true })
 
-  const files = run('git ls-files -- vane-dux', { quiet: true }).split('\n').filter(Boolean)
+  const files = run('git ls-files -- vanity', { quiet: true }).split('\n').filter(Boolean)
 
   for (const file of files) {
-    const target = join(workDir, file.replace(/^vane-dux\//, ''))
+    const target = join(workDir, file.replace(/^vanity\//, ''))
     mkdirSync(dirname(target), { recursive: true })
     writeFileSync(target, readFileSync(join(duxDir, file)))
   }
@@ -246,7 +246,7 @@ function finishRelease(state: ReleaseState): void {
     step('release commit + tag')
     run(`git add ${manifestPath}`, { quiet: true })
     run(`git commit -m ${JSON.stringify(`🔖 release v${state.version}`)}`)
-    run(`git tag vane-dux@${state.version}`)
+    run(`git tag vanity@${state.version}`)
     state.committed = true
     writeRelease(state)
   }
@@ -258,15 +258,15 @@ function finishRelease(state: ReleaseState): void {
   }
 
   rmSync(releasePath, { force: true })
-  console.log(`\n✓ released @mszr/vane-dux v${state.version}`)
-  console.log('  (the fork itself is not pushed — push the dux branch when ready)')
+  console.log(`\n✓ released @mszr/vanity v${state.version}`)
+  console.log('  (the fork itself is not pushed — push the integration branch when ready)')
 }
 
 function waitForRegistry(version: string): void {
   const deadline = Date.now() + 120_000
 
   for (;;) {
-    const probe = spawnSync('npm', ['view', `@mszr/vane-dux@${version}`, 'version'], { encoding: 'utf-8' })
+    const probe = spawnSync('npm', ['view', `@mszr/vanity@${version}`, 'version'], { encoding: 'utf-8' })
 
     if (probe.stdout.trim() === version) {
       console.log('✓ version visible on the registry')
@@ -296,7 +296,7 @@ switch (command) {
     release(command)
     break
   case 'subtree':
-    pushMirror('🚚 sync vane-dux subtree')
+    pushMirror('🚚 sync vanity subtree')
     break
   default:
     fail(`unknown command '${command}' — use dry-run, patch, minor, major, or subtree`)

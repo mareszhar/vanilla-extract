@@ -21,7 +21,7 @@ interface CandidateMeasurement {
 }
 
 const duxDir = join(fileURLToPath(new URL('.', import.meta.url)), '..')
-const outputDir = join(duxDir, '.dux/benchmarks/resolution')
+const outputDir = join(duxDir, '.vanity/benchmarks/resolution')
 
 rmSync(outputDir, { recursive: true, force: true })
 mkdirSync(outputDir, { recursive: true })

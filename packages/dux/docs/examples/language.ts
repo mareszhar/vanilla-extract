@@ -1,4 +1,4 @@
-import { createEngine } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vanity'
 
 export const de = createEngine()
   .axes(({ axis, data, defaultMode, scheme }) => ({

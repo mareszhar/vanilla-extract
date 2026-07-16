@@ -1,8 +1,8 @@
 {
-  "name": "vane-benchmark-large",
+  "name": "vanity-benchmark-large",
   "type": "module",
   "private": true,
   "dependencies": {
-    "@mszr/vane-dux": "link:../../../vane-dux"
+    "@mszr/vanity": "link:../../../vanity"
   }
 }

@@ -1,22 +1,22 @@
 /**
  * `@prism/domain` — the Prism design decisions and demo content, as data.
  *
- * The comparison lanes ([dux-workspace.md §2]) all implement the same
+ * The comparison lanes ([vanity-workspace.md §2]) all implement the same
  * components from this one source, so the study compares *authoring models*,
- * never accidentally-different designs. The values mirror what the vane-dux
+ * never accidentally-different designs. The values mirror what the vanity
  * lane derives from its token graph (`demo-main/app/design/tokens.style.ts`):
- * vane computes them from a seed + elevation positions; every other lane gets
+ * vanity computes them from a seed + elevation positions; every other lane gets
  * them precomputed, because that is exactly the difference under study.
  */
 
-/** A scheme pair, precomputed — the vane preset derives these from an explicit base + elevation. */
+/** A scheme pair, precomputed — the vanity preset derives these from an explicit base + elevation. */
 export interface SchemePair {
   light: string
   dark: string
 }
 
 export const color = {
-  /** The brand seed. vane marks it `.live()`; other lanes hard-code it. */
+  /** The brand seed. vanity marks it `.live()`; other lanes hard-code it. */
   brand: 'oklch(0.58 0.2 285)',
   /** `brand.mix(ink, 0.12)` — precomputed for the lanes without color math. */
   brandHover: {

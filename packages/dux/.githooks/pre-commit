@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# dux commit guard: lint staged dux changes before Git records the commit.
+# Vanity commit guard: lint staged Vanity changes before Git records the commit.
 #
 # Installed by scripts/install-git-hooks.ts through:
 #   git config core.hooksPath packages/dux/.githooks
@@ -10,10 +10,10 @@ set -eu
 # per worktree. It exits quickly for commits that do not touch packages/dux.
 
 repo_root="$(git rev-parse --show-toplevel)"
-dux_root="$repo_root/packages/dux"
+workspace_root="$repo_root/packages/dux"
 should_lint=0
 
-if [ ! -d "$dux_root" ]; then
+if [ ! -d "$workspace_root" ]; then
   exit 0
 fi
 
@@ -32,5 +32,5 @@ if [ "$should_lint" -ne 1 ]; then
   exit 0
 fi
 
-echo "[vane-dux pre-commit] running pnpm run lint"
-(cd "$dux_root" && pnpm run lint)
+echo "[vanity pre-commit] running pnpm run lint"
+(cd "$workspace_root" && pnpm run lint)

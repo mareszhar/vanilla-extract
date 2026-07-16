@@ -1,4 +1,4 @@
-import { createEngine, exportDesignTokens, importDesignTokens } from '@mszr/vane-dux'
+import { createEngine, exportDesignTokens, importDesignTokens } from '@mszr/vanity'
 
 const de = createEngine().axes(({ scheme }) => ({ scheme: scheme({ locality: 'root' }) }))
 const tokens = de.defineTokens({

@@ -5,9 +5,9 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "@mszr/vane-dux": ["../../vane-dux/dist/index.d.mts"],
-      "@mszr/vane-dux/preset": ["../../vane-dux/dist/preset.d.mts"],
-      "@mszr/vane-dux/runtime": ["../../vane-dux/dist/runtime.d.mts"]
+      "@mszr/vanity": ["../../vanity/dist/index.d.mts"],
+      "@mszr/vanity/preset": ["../../vanity/dist/preset.d.mts"],
+      "@mszr/vanity/runtime": ["../../vanity/dist/runtime.d.mts"]
     },
     "strict": true,
     "noEmit": true,

@@ -15,7 +15,7 @@ export default antfu(
       '**/.nuxt/**',
       '**/.output/**',
       '**/.turbo/**',
-      '**/.dux/**',
+      '**/.vanity/**',
       '**/__references__/**',
     ],
   },
@@ -71,15 +71,15 @@ export default antfu(
   },
   {
     files: [
-      'vane-dux/src/index.ts',
-      'vane-dux/src/diagnostics.ts',
-      'vane-dux/src/atoms/**',
-      'vane-dux/src/tokens/**',
-      'vane-dux/src/system/**',
-      'vane-dux/src/css/**',
-      'vane-dux/src/ports/**',
-      'vane-dux/src/recipes/**',
-      'vane-dux/src/internal/**',
+      'vanity/src/index.ts',
+      'vanity/src/diagnostics.ts',
+      'vanity/src/atoms/**',
+      'vanity/src/tokens/**',
+      'vanity/src/system/**',
+      'vanity/src/css/**',
+      'vanity/src/ports/**',
+      'vanity/src/recipes/**',
+      'vanity/src/internal/**',
     ],
     ignores: ['**/*.test.ts', '**/*.test-d.ts'],
     rules: {
@@ -98,7 +98,7 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/runtime.ts'],
+    files: ['vanity/src/runtime.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
@@ -110,7 +110,7 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/vite.ts'],
+    files: ['vanity/src/vite.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: frameworkImports,
@@ -118,7 +118,7 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/vue.ts'],
+    files: ['vanity/src/vue.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: ['vite', '@nuxt/*', './vite', './nuxt'],
@@ -126,7 +126,7 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/nuxt.ts'],
+    files: ['vanity/src/nuxt.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: ['vue', './vue'],
@@ -134,7 +134,7 @@ export default antfu(
     },
   },
   {
-    files: ['vane-dux/src/preset.ts', 'vane-dux/src/preset/**'],
+    files: ['vanity/src/preset.ts', 'vanity/src/preset/**'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [

@@ -1,4 +1,4 @@
-# vane-dux scale benchmarks
+# vanity scale benchmarks
 
 The checked-in `generated/` fixtures are deterministic consumer projects for the pre-refactor and next implementations. They keep stable token/module/consumer shapes while the generator's dialect evolves with the public API.
 
@@ -14,6 +14,6 @@ pnpm run bench:fixtures:check  # fail when checked-in fixtures drift
 pnpm run bench:baseline        # build SDK and record all current metrics
 ```
 
-Machine-readable results go to the ignored `.dux/benchmarks/current.json`. Accepted human baselines live in `docs/dux-benchmarks.md`; transient machine and cache noise does not belong in version control.
+Machine-readable results go to the ignored `.vanity/benchmarks/current.json`. Accepted human baselines live in `docs/vanity-benchmarks.md`; transient machine and cache noise does not belong in version control.
 
 The current dialect uses the canonical engine/token-module APIs and scales from two to four environmental axes. The corpus includes native color-scheme output, color-agnostic axis fixtures, and sparse cross-axis cases at representative module intervals; editor measurements cover axis and case completion alongside token/style paths. Mutable-runtime and snapshot overhead join these same fixture identities in Phase 5, with earlier baselines retained as “not representable” rather than fabricated as zero.

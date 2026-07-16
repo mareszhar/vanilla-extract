@@ -1,6 +1,6 @@
 # Prism dispatch-card comparison
 
-One small polished dispatch-card workflow implemented five ways: Vue SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vane-dux. Every lane receives the same state and content from `@prism/domain`, so the comparison is about authoring models—not accidental visual drift or the flagship's much larger feature set.
+One small polished dispatch-card workflow implemented five ways: Vue SFC scoped CSS, Tailwind, Panda, raw vanilla-extract, and vanity. Every lane receives the same state and content from `@prism/domain`, so the comparison is about authoring models—not accidental visual drift or the flagship's much larger feature set.
 
 ## Run
 
@@ -15,10 +15,10 @@ Vite serves the app at `http://localhost:5173` by default. This demo uses Vite w
 ## Test it
 
 - Change intent, size, and pill: every lane resolves the same finite variant choice.
-- Move progress: SFC uses `v-bind()`, Tailwind and Panda use inline style, vanilla-extract uses `createVar` plumbing, and vane-dux uses a typed port.
+- Move progress: SFC uses `v-bind()`, Tailwind and Panda use inline style, vanilla-extract uses `createVar` plumbing, and vanity uses a typed port.
 - Click every Dispatch and card action button: the shared status and per-lane count confirm that each demo control is functional.
 - Change scheme: all lanes follow the same platform `color-scheme` axis.
-- Change brand: only the vane-dux lane changes by design. Its root-bound runtime writes one mutable token slot; hover, surface, border, and ink values re-derive in CSS. The other lanes compiled their palettes.
+- Change brand: only the vanity lane changes by design. Its root-bound runtime writes one mutable token slot; hover, surface, border, and ink values re-derive in CSS. The other lanes compiled their palettes.
 - Inspect `index.html`: cascade-layer order is declared before any stylesheet because five styling systems share the page.
 
 ## Study map
@@ -27,7 +27,7 @@ Vite serves the app at `http://localhost:5173` by default. This demo uses Vite w
 - `src/lanes/tailwind` — theme variables and utility maps.
 - `panda.config.ts`, `src/lanes/panda` — config/codegen and generated `css()` calls.
 - `src/lanes/extract` — vanilla-extract tokens, recipes, and dynamic variables.
-- `src/lanes/vane` — the canonical engine → module → system flow, a public elevation plugin, a CSS-reactive token graph, recipe, typed port, and bound runtime.
+- `src/lanes/vanity` — the canonical engine → module → system flow, a public elevation plugin, a CSS-reactive token graph, recipe, typed port, and bound runtime.
 - `src/shell.css` — comparison chrome only; no lane depends on it for component styling.
 
 ## Official-source review

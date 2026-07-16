@@ -1,5 +1,5 @@
 import { color, duration, font, lightDark, radius, space } from '@prism/domain'
-// The raw vanilla-extract lane — the substrate vane-dux builds on, driven
+// The raw vanilla-extract lane — the substrate vanity builds on, driven
 // directly. Typed properties and real evaluation, but tokens are a string
 // bag (no derivations — hover/soft values are hand-mirrored from
 // @prism/domain), variants come from a separate recipes package, and the

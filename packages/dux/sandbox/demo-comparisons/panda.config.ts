@@ -11,7 +11,7 @@ export default defineConfig({
   // Panda's default layer names (base, utilities, …) collide with Tailwind's
   // in this five-stack app; @layer order is global and first-declaration-wins,
   // so shared names interleave the two frameworks. Namespacing by hand is the
-  // workaround — the vane-dux lane nests under its prefix automatically.
+  // workaround — the vanity lane nests under its prefix automatically.
   layers: {
     reset: 'panda-reset',
     base: 'panda-base',

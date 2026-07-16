@@ -106,9 +106,9 @@ interface PluginModule {
 const require = createRequire(import.meta.url)
 const duxDir = join(fileURLToPath(new URL('.', import.meta.url)), '..')
 const fixturesRoot = join(duxDir, 'benchmarks/generated')
-const artifactsRoot = join(duxDir, '.dux/benchmarks')
+const artifactsRoot = join(duxDir, '.vanity/benchmarks')
 const declarationsRoot = join(artifactsRoot, 'declarations')
-const plugin = (require(resolve(duxDir, 'vane-dux/typescript.cjs')) as (modules: { typescript: typeof ts }) => PluginModule)({ typescript: ts })
+const plugin = (require(resolve(duxDir, 'vanity/typescript.cjs')) as (modules: { typescript: typeof ts }) => PluginModule)({ typescript: ts })
 
 function command(command: string, args: string[], cwd = duxDir): CommandMeasurement {
   const start = performance.now()
@@ -273,12 +273,12 @@ function declarationMeasurement(scale: BenchmarkScale, root: string): ScaleMeasu
 
 function buildMeasurement(root: string): ScaleMeasurement['build'] {
   const dist = join(root, 'dist')
-  const vane = join(root, '.vane')
+  const vanity = join(root, '.vanity')
   rmSync(dist, { recursive: true, force: true })
-  rmSync(vane, { recursive: true, force: true })
+  rmSync(vanity, { recursive: true, force: true })
   const measured = command('pnpm', [
     '--dir',
-    join(duxDir, 'vane-dux'),
+    join(duxDir, 'vanity'),
     'exec',
     'vite',
     'build',
@@ -290,7 +290,7 @@ function buildMeasurement(root: string): ScaleMeasurement['build'] {
   const cssText = css.map(path => readFileSync(path)).reduce((all, next) => Buffer.concat([all, next]), Buffer.alloc(0))
   const js = filesBelow(dist).filter(path => ['.js', '.mjs'].includes(extname(path)))
   const jsText = js.map(path => readFileSync(path)).reduce((all, next) => Buffer.concat([all, next]), Buffer.alloc(0))
-  const manifest = join(vane, 'manifest.json')
+  const manifest = join(vanity, 'manifest.json')
   return {
     cssBytes: cssText.byteLength,
     cssGzipBytes: gzipSync(cssText).byteLength,
@@ -305,10 +305,10 @@ function measureScale(scale: BenchmarkScale): ScaleMeasurement {
   const root = join(fixturesRoot, scale.name)
   const buildInfo = join(artifactsRoot, `${scale.name}.tsbuildinfo`)
   const packageScope = join(root, 'node_modules/@mszr')
-  const packageLink = join(packageScope, 'vane-dux')
+  const packageLink = join(packageScope, 'vanity')
   mkdirSync(packageScope, { recursive: true })
   if (!existsSync(packageLink))
-    symlinkSync(relative(packageScope, join(duxDir, 'vane-dux')), packageLink, 'dir')
+    symlinkSync(relative(packageScope, join(duxDir, 'vanity')), packageLink, 'dir')
   rmSync(buildInfo, { force: true })
 
   console.log(`• ${scale.name}: cold typecheck`)
@@ -345,8 +345,8 @@ const result: BenchmarkResult = {
     typescript: ts.version,
   },
   package: {
-    rootBytes: statSync(join(duxDir, 'vane-dux/dist/index.mjs')).size,
-    runtimeBytes: statSync(join(duxDir, 'vane-dux/dist/runtime.mjs')).size,
+    rootBytes: statSync(join(duxDir, 'vanity/dist/index.mjs')).size,
+    runtimeBytes: statSync(join(duxDir, 'vanity/dist/runtime.mjs')).size,
   },
   protocol: 1,
   scales: benchmarkScales.map(measureScale),

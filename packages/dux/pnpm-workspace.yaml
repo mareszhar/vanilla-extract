@@ -8,7 +8,7 @@ trustPolicyExclude:
   # chokidar 4.x dropped provenance attestation; required by @pandacss/node (demo-comparisons)
   - chokidar
 packages:
-  - vane-dux
+  - vanity
   - sandbox/fixtures
   - sandbox/demo-main
   - sandbox/demo-comparisons

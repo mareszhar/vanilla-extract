@@ -1,5 +1,5 @@
-import { createEngine } from '@mszr/vane-dux'
-import { setCustomProperties, setCustomProperty } from '@mszr/vane-dux/runtime'
+import { createEngine } from '@mszr/vanity'
+import { setCustomProperties, setCustomProperty } from '@mszr/vanity/runtime'
 
 const de = createEngine().axes(({ scheme }) => ({ scheme: scheme() }))
 const tokens = de.defineTokens({

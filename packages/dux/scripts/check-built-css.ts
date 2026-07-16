@@ -35,7 +35,7 @@ requirePattern(main, /oklch\(from var\(--prism-color-brand/, 'relative-color der
 requirePattern(main, /color-mix\(in oklab,light-dark\(/, 'native light-dark inside color-mix')
 requirePattern(main, /--prism-v-[a-z0-9-]+/, 'opaque mutable slots')
 
-requirePattern(comparison, /@layer compare\.tokens\.base/, 'vane token layers beside peer layers')
+requirePattern(comparison, /@layer compare\.tokens\.base/, 'vanity token layers beside peer layers')
 requirePattern(comparison, /@layer panda-(?:tokens|utilities)/, 'Panda layers')
 requirePattern(comparison, /@layer theme/, 'Tailwind theme layer')
 requirePattern(comparison, /oklch\(from var\(--compare-color-brand/, 'comparison relative-color derivation')

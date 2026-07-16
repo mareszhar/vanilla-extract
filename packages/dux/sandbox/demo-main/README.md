@@ -1,6 +1,6 @@
 # Prism interaction lab
 
-The flagship Nuxt demo for `@mszr/vane-dux`. It is a functional test bench, not a component gallery: every visible control changes state, and every section exercises a distinct library contract.
+The flagship Nuxt demo for `@mszr/vanity`. It is a functional test bench, not a component gallery: every visible control changes state, and every section exercises a distinct library contract.
 
 ## Run
 
@@ -14,7 +14,7 @@ Nuxt serves the app at `http://localhost:3000` by default.
 
 ## What it proves
 
-- Initial SSR HTML links every generated stylesheet successfully—no missing `.vane.css` requests or unstyled first paint.
+- Initial SSR HTML links every generated stylesheet successfully—no missing `.vanity.css` requests or unstyled first paint.
 - The brand picker writes one live token; hover colors, surfaces, borders, and inks re-derive through CSS.
 - The scheme control persists through the Nuxt module’s cookie recipe, so SSR and hydration agree.
 - Button variants resolve to precompiled recipe classes.
@@ -30,4 +30,4 @@ Nuxt serves the app at `http://localhost:3000` by default.
 - `app/design/tokens.style.ts` — composes both modules and owns the final prefix/emission.
 - `app/design/system.style.ts` — conditions and authoring functions bound once.
 - `app/components/*.style.ts` — recipes, anatomy, ports, and container-query examples.
-- `app/app.style.ts` — the demo shell, authored through vane-dux itself.
+- `app/app.style.ts` — the demo shell, authored through vanity itself.

@@ -1,8 +1,8 @@
-import { vaneDuxPlugin } from '@mszr/vane-dux/vite'
+import { vanityPlugin } from '@mszr/vanity/vite'
 // Five styling stacks, one app: Tailwind rides its Vite plugin, Panda rides
-// PostCSS (postcss.config.cjs), and vaneDuxPlugin serves both the vane-dux
+// PostCSS (postcss.config.cjs), and vanityPlugin serves both the vanity
 // lane (*.style.ts) and the raw vanilla-extract lane (*.css.ts) — coexistence
-// is the point ([dux-vision.md §7]).
+// is the point ([vanity-vision.md §7]).
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import AutoImport from 'unplugin-auto-import/vite'
@@ -14,7 +14,7 @@ export default defineConfig({
       imports: [
         'vue',
         {
-          from: '@mszr/vane-dux/vue',
+          from: '@mszr/vanity/vue',
           imports: ['propsOf', 'usePorts'],
         },
       ],
@@ -23,6 +23,6 @@ export default defineConfig({
     }),
     vue(),
     tailwindcss(),
-    vaneDuxPlugin(),
+    vanityPlugin(),
   ],
 })

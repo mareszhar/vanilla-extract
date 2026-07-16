@@ -1,5 +1,5 @@
-import { createEngine, propertyAliases } from '@mszr/vane-dux'
-import { definePatterns } from '@mszr/vane-dux/preset'
+import { createEngine, propertyAliases } from '@mszr/vanity'
+import { definePatterns } from '@mszr/vanity/preset'
 
 const de = createEngine().use(propertyAliases({ py: 'paddingBlock' }, { expose: 'both' }))
 const tokens = de.defineTokens({

@@ -18,12 +18,14 @@ export const dialog = ds.anatomy({
     backdrop: {
       position: 'fixed',
       inset: 0,
+      zIndex: 20,
       background: t.color.scrim,
       open: { motionOk: { animation: `${fade} ${t.duration.quick} ${t.ease.ui}` } },
     },
     positioner: {
       position: 'fixed',
       inset: 0,
+      zIndex: 21,
       display: 'grid',
       placeItems: 'center',
       padding: t.space.md,
@@ -36,6 +38,7 @@ export const dialog = ds.anatomy({
       background: t.color.overlay,
       border: `1px solid ${t.color.border}`,
       borderRadius: t.radius.md,
+      boxShadow: t.shadow.panel,
       open: { motionOk: { animation: `${rise} ${t.duration.deliberate} ${t.ease.ui}` } },
     },
     title: { ...t.text.title, margin: 0 },

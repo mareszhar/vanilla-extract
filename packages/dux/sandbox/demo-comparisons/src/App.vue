@@ -37,9 +37,9 @@ main.shell
           option(value="light") light
           option(value="dark") dark
       label.control.brand-control
-        span Live brand
-        input(v-model="brand" type="color" aria-label="Live vane-dux brand color")
-    p.control-note Scheme and component decisions exercise every lane. Brand is intentionally scoped to vane-dux: it demonstrates a mutable seed re-deriving the graph without a mirrored JavaScript palette.
+        span Live brand hue #[strong {{ brandHue }}°]
+        input(v-model.number="brandHue" type="range" min="0" max="360" aria-label="Live vanity brand hue")
+    p.control-note Scheme and component decisions exercise every lane. Brand is intentionally scoped to vanity: it demonstrates a mutable seed re-deriving the graph without a mirrored JavaScript palette.
 
   section.matrix(aria-label="Styling model comparison")
     article.lane(
@@ -53,7 +53,7 @@ main.shell
         span.lane-index {{ lane.index }}
         div
           h2 {{ lane.name }}
-          span.live-badge(v-if="lane.id === 'vane'") live graph
+          span.live-badge(v-if="lane.id === 'vanity'") live graph
 
       p.lane-note {{ lane.note }}
 
@@ -103,19 +103,20 @@ import SfcProgress from './lanes/sfc/PrismProgress.vue'
 import TailwindButton from './lanes/tailwind/PrismButton.vue'
 import TailwindCard from './lanes/tailwind/PrismCard.vue'
 import TailwindProgress from './lanes/tailwind/PrismProgress.vue'
-import VaneButton from './lanes/vane/PrismButton.vue'
-import VaneCard from './lanes/vane/PrismCard.vue'
-import VaneProgress from './lanes/vane/PrismProgress.vue'
-import { bindVaneRuntime } from './lanes/vane/system.style'
+import VanityButton from './lanes/vanity/PrismButton.vue'
+import VanityCard from './lanes/vanity/PrismCard.vue'
+import VanityProgress from './lanes/vanity/PrismProgress.vue'
+import { bindVanityRuntime } from './lanes/vanity/system.style'
 
 const intent = ref<ButtonIntent>('brand')
 const size = ref<ButtonSize>('md')
 const pill = ref(false)
 const value = ref(progress.initial)
 const scheme = ref<'auto' | 'light' | 'dark'>('auto')
-const brand = ref('#635bff')
-const vaneLane = ref<HTMLElement>()
-let vaneRuntime: ReturnType<typeof bindVaneRuntime> | undefined
+const brandHue = ref(285)
+const brand = computed(() => `oklch(58% 0.2 ${brandHue.value})`)
+const vanityLane = ref<HTMLElement>()
+let vanityRuntime: ReturnType<typeof bindVanityRuntime> | undefined
 const interactions = reactive<Record<string, number>>({})
 const lastInteraction = ref('No interactions yet')
 
@@ -128,16 +129,16 @@ watchEffect(() => {
 })
 
 watchEffect(() => {
-  if (!vaneLane.value)
+  if (!vanityLane.value)
     return
 
-  vaneRuntime ??= bindVaneRuntime(vaneLane.value)
-  vaneRuntime.t.color.brand.$set(brand.value)
+  vanityRuntime ??= bindVanityRuntime(vanityLane.value)
+  vanityRuntime.t.color.brand.$set(brand.value)
 })
 
 function setLaneElement(id: string, element: Element | ComponentPublicInstance | null) {
-  if (id === 'vane' && element instanceof HTMLElement)
-    vaneLane.value = element
+  if (id === 'vanity' && element instanceof HTMLElement)
+    vanityLane.value = element
 }
 
 function interact(id: string, source: 'button' | 'card') {
@@ -189,13 +190,13 @@ const lanes = [
     progress: markRaw(ExtractProgress),
   },
   {
-    id: 'vane',
+    id: 'vanity',
     index: '05',
-    name: 'vane-dux',
+    name: 'vanity',
     note: 'One live seed; explicit graph edges keep every dependent color in sync.',
-    button: markRaw(VaneButton),
-    card: markRaw(VaneCard),
-    progress: markRaw(VaneProgress),
+    button: markRaw(VanityButton),
+    card: markRaw(VanityCard),
+    progress: markRaw(VanityProgress),
   },
 ] as const
 </script>

@@ -3,11 +3,11 @@ import { expect, test } from '@playwright/test'
 
 declare global {
   interface Window {
-    __vaneFirstPaint?: {
+    __vanityFirstPaint?: {
       background: string
       display: string
     }
-    __phase5StyleWrites?: number
+    __runtimeFixtureStyleWrites?: number
   }
 }
 
@@ -22,7 +22,7 @@ async function captureFirstPaint(page: Page): Promise<void> {
       }
 
       const style = getComputedStyle(main)
-      window.__vaneFirstPaint = { background: style.backgroundColor, display: style.display }
+      window.__vanityFirstPaint = { background: style.backgroundColor, display: style.display }
     }
 
     requestAnimationFrame(inspect)
@@ -33,8 +33,8 @@ function captureBrowserErrors(page: Page): string[] {
   const failures: string[] = []
 
   page.on('console', (message) => {
-    if (message.type() === 'error')
-      failures.push(`console: ${message.text()}`)
+    if (message.type() === 'error' || message.type() === 'warning')
+      failures.push(`console ${message.type()}: ${message.text()}`)
   })
   page.on('pageerror', error => failures.push(`page: ${error.message}`))
   page.on('requestfailed', (request) => {
@@ -58,22 +58,49 @@ test('Prism studio paints with CSS and projects every system decision', async ({
 
   expect(stylesheetResponses.length).toBeGreaterThan(0)
   expect(stylesheetResponses.filter(response => response.status >= 400)).toEqual([])
-  expect(stylesheetResponses.some(response => response.url.includes('.vane.css'))).toBe(false)
-  expect(await page.evaluate(() => window.__vaneFirstPaint)).toMatchObject({ display: 'block' })
-  expect((await page.evaluate(() => window.__vaneFirstPaint))?.background).not.toBe('rgba(0, 0, 0, 0)')
+  expect(stylesheetResponses.some(response => response.url.includes('.vanity.css'))).toBe(false)
+  expect(await page.evaluate(() => window.__vanityFirstPaint)).toMatchObject({ display: 'block' })
+  expect((await page.evaluate(() => window.__vanityFirstPaint))?.background).not.toBe('rgba(0, 0, 0, 0)')
   await expect(page.locator('main')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 
   const root = page.locator('#prism-studio')
   const hue = page.getByRole('slider', { name: 'Palette hue' })
   const radius = page.getByRole('slider', { name: 'Radius seed' })
   const metric = page.locator('article').filter({ hasText: '12,480' })
+  const application = page.getByRole('region', { name: 'Responsive Sparrow application preview' })
+  const brandAction = page.getByRole('button', { name: 'New report' })
   const brandBefore = await root.evaluate(element => getComputedStyle(element).getPropertyValue('--prism-color-brand'))
   const radiusBefore = await metric.evaluate(element => getComputedStyle(element).borderRadius)
+
+  await expect(hue).toHaveCount(1)
+  expect(await hue.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('linear-gradient')
+
+  await page.evaluate(() => {
+    Math.random = () => 0
+  })
+  await page.getByRole('button', { name: 'Randomize system' }).click()
+  await expect(hue).toHaveValue('0')
+  await expect(radius).toHaveValue('2')
+  await expect(root).toHaveAttribute('data-density', 'compact')
+  await expect(root).toHaveAttribute('data-elevation', 'flat')
+  await expect(root).toHaveAttribute('data-motion', 'none')
+  await expect(page.getByRole('progressbar').first()).toHaveAttribute('aria-valuenow', '38')
+  await page.getByRole('button', { name: 'Reset authored defaults' }).click()
 
   await expect(hue).toHaveValue('285')
   await hue.fill('180')
   await expect.poll(() => root.evaluate(element => getComputedStyle(element).getPropertyValue('--prism-color-brand'))).not.toBe(brandBefore)
   expect(await root.evaluate(element => element.getAttribute('style'))).toMatch(/--prism-v-[\w-]+: oklch\(62% 0\.205 180\)/)
+  const chartBackground = await page
+    .getByRole('img', { name: 'Engagement increased over twelve weeks' })
+    .locator('span')
+    .first()
+    .evaluate(element => getComputedStyle(element).backgroundImage)
+  expect(chartBackground).toContain('180')
+  expect(await brandAction.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return style.color !== style.backgroundColor && style.color !== 'rgba(0, 0, 0, 0)'
+  })).toBe(true)
 
   await expect(radius).toHaveValue('14')
   await radius.fill('4')
@@ -81,10 +108,19 @@ test('Prism studio paints with CSS and projects every system decision', async ({
 
   await page.getByRole('button', { name: 'dark', exact: true }).click()
   await expect(root).toHaveAttribute('data-scheme', 'dark')
+  await expect(root).toHaveCSS('color-scheme', 'dark')
+  const darkCanvas = await application.evaluate(element => getComputedStyle(element).backgroundColor)
+  await page.getByRole('button', { name: 'light', exact: true }).click()
+  await expect(root).toHaveAttribute('data-scheme', 'light')
+  await expect(root).toHaveCSS('color-scheme', 'light')
+  await expect.poll(() => application.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(darkCanvas)
+  await page.getByRole('button', { name: 'dark', exact: true }).click()
 
+  const layoutBeforeDensity = await application.evaluate(element => getComputedStyle(element).gridTemplateColumns)
   await page.getByLabel('Density').selectOption('compact')
   await expect(root).toHaveAttribute('data-density', 'compact')
   expect(await root.evaluate(element => getComputedStyle(element).getPropertyValue('--prism-space-md').trim())).toBe('.75rem')
+  await expect.poll(() => application.evaluate(element => getComputedStyle(element).gridTemplateColumns)).not.toBe(layoutBeforeDensity)
 
   await page.getByLabel('Elevation').selectOption('overlay')
   await expect(root).toHaveAttribute('data-elevation', 'overlay')
@@ -100,6 +136,10 @@ test('Prism studio paints with CSS and projects every system decision', async ({
   await openDialog.click()
   const dialog = page.getByRole('dialog', { name: 'One coherent system' })
   await expect(dialog).toBeFocused()
+  await expect(dialog).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await expect(dialog).not.toHaveCSS('padding-left', '0px')
+  const backdrop = dialog.locator('..').locator('xpath=preceding-sibling::div[1]')
+  await expect(backdrop).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toBeHidden()
   await expect(openDialog).toBeFocused()
@@ -122,6 +162,7 @@ test('Prism studio paints with CSS and projects every system decision', async ({
   await expect(hue).toHaveValue('285')
   await expect(root).not.toHaveAttribute('data-scheme')
   await expect(root).not.toHaveAttribute('data-density')
+  await expect(page.getByText(/Devon|Priya|Aisha|Tomas/)).toHaveCount(0)
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
 
@@ -175,13 +216,14 @@ test('Prism studio remains operable at phone, widget-container, and desktop widt
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
 
-test('Phase 4 axes preserve root locality, case order, registration, and element-local scheme', async ({ page }) => {
+test('axis fixture preserves root locality, case order, registration, and element-local scheme', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('http://127.0.0.1:3100', { waitUntil: 'networkidle' })
+  expect(browserErrors, browserErrors.join('\n')).toEqual([])
 
-  const group = page.locator('[data-phase4-group]')
-  const light = page.locator('#phase4-light')
-  const dark = page.locator('#phase4-dark')
+  const group = page.locator('[data-axis-fixture-group]')
+  const light = page.locator('#axis-fixture-light')
+  const dark = page.locator('#axis-fixture-dark')
 
   await expect(light).toHaveCSS('padding-top', '16px')
   await expect(light).toHaveCSS('border-top-width', '1px')
@@ -206,62 +248,72 @@ test('Phase 4 axes preserve root locality, case order, registration, and element
           return []
         }
       })
-      .some(rule => rule.cssText.includes('@property --phase4-probe-inset'))
+      .some(rule => rule.cssText.includes('@property --axis-fixture-probe-inset'))
     return registered
   })).toBe(true)
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
 
-test('Phase 5 runtime preserves SSR paint, semantic resets, widget isolation, and shadow hosts', async ({ page }) => {
+test('runtime fixture preserves SSR paint, semantic resets, widget isolation, and shadow hosts', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.addInitScript(() => {
-    window.__phase5StyleWrites = 0
+    window.__runtimeFixtureStyleWrites = 0
     const original = CSSStyleDeclaration.prototype.setProperty
     CSSStyleDeclaration.prototype.setProperty = function (name, value, priority) {
-      if (name.startsWith('--phase5-v-'))
-        window.__phase5StyleWrites = (window.__phase5StyleWrites ?? 0) + 1
+      if (name.startsWith('--runtime-fixture-v-'))
+        window.__runtimeFixtureStyleWrites = (window.__runtimeFixtureStyleWrites ?? 0) + 1
       return original.call(this, name, value, priority)
     }
   })
   const response = await page.goto('http://127.0.0.1:3100', { waitUntil: 'networkidle' })
   const html = await response!.text()
   expect(html).toContain('data-scheme="dark"')
-  expect(html).toMatch(/--phase5-v-[\w-]+:rgb\(110 70 210\)/)
+  expect(html).toMatch(/--runtime-fixture-v-[\w-]+:oklch\(55% 0\.19 295\)/)
 
-  const primary = page.locator('#phase5-primary')
-  const sibling = page.locator('#phase5-sibling')
-  await expect(primary).toHaveCSS('background-color', 'rgb(40, 190, 170)')
-  await expect(sibling).toHaveCSS('background-color', 'rgb(180, 50, 100)')
-  await expect(page.locator('#phase5-document')).toHaveCSS('background-color', 'rgb(70, 80, 90)')
-  expect(await page.locator('#phase5-svg').evaluate(element => getComputedStyle(element).fill)).toBe('rgb(240, 90, 20)')
-  expect(await page.evaluate(() => window.__phase5StyleWrites)).toBe(0)
+  const primary = page.locator('#runtime-fixture-primary')
+  const sibling = page.locator('#runtime-fixture-sibling')
+  const initialDark = await primary.evaluate(element => getComputedStyle(element).backgroundColor)
+  const authoredBase = await sibling.evaluate(element => getComputedStyle(element).backgroundColor)
+  expect(initialDark).not.toBe(authoredBase)
+  expect(await page.locator('#runtime-fixture-document').evaluate(element => getComputedStyle(element).backgroundColor))
+    .not
+    .toBe('rgba(0, 0, 0, 0)')
+  expect(await page.locator('#runtime-fixture-svg').evaluate(element => getComputedStyle(element).fill)).not.toBe('none')
+  expect(await page.evaluate(() => window.__runtimeFixtureStyleWrites)).toBe(0)
 
-  await page.evaluate(() => window.__phase5!.setDark('rgb(20 120 240)'))
-  await expect(primary).toHaveCSS('background-color', 'rgb(20, 120, 240)')
-  await expect(sibling).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+  await page.evaluate(() => window.__runtimeFixture!.setDark('oklch(62% 0.2 240)'))
+  await expect.poll(() => primary.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(initialDark)
+  expect(await sibling.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(authoredBase)
 
-  await page.evaluate(() => window.__phase5!.unsetDark())
-  await expect(primary).toHaveCSS('background-color', 'rgb(110, 70, 210)')
-  await page.evaluate(() => window.__phase5!.unsetBase())
-  await expect(primary).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+  await page.evaluate(() => window.__runtimeFixture!.unsetDark())
+  const baseOverride = await primary.evaluate(element => getComputedStyle(element).backgroundColor)
+  expect(baseOverride).not.toBe(initialDark)
+  expect(baseOverride).not.toBe(authoredBase)
+  await page.evaluate(() => window.__runtimeFixture!.unsetBase())
+  await expect.poll(() => primary.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(authoredBase)
 
-  await page.evaluate(() => window.__phase5!.setDensity('compact'))
+  await page.evaluate(() => window.__runtimeFixture!.setDensity('compact'))
   await expect(primary).toHaveCSS('padding-top', '8px')
   const compactShadow = await primary.evaluate(element => getComputedStyle(element).boxShadow)
-  await page.evaluate(() => window.__phase5!.setCase('none'))
+  await page.evaluate(() => window.__runtimeFixture!.setCase('none'))
   await expect(primary).toHaveCSS('box-shadow', 'none')
-  await page.evaluate(() => window.__phase5!.unsetCase())
+  await page.evaluate(() => window.__runtimeFixture!.unsetCase())
   expect(await primary.evaluate(element => getComputedStyle(element).boxShadow)).toBe(compactShadow)
 
-  await page.evaluate(() => window.__phase5!.setShadowBase('rgb(0 210 240)'))
-  expect(await page.locator('[data-phase5-root]').nth(2).evaluate((host) => {
+  const shadowHost = page.locator('[data-runtime-fixture-root]').nth(2)
+  const shadowBefore = await shadowHost.evaluate((host) => {
     const probe = host.shadowRoot!.querySelector('#probe')!
     return getComputedStyle(probe).backgroundColor
-  })).toBe('rgb(0, 210, 240)')
-  await expect(sibling).toHaveCSS('background-color', 'rgb(180, 50, 100)')
+  })
+  await page.evaluate(() => window.__runtimeFixture!.setShadowBase('oklch(72% 0.16 200)'))
+  expect(await shadowHost.evaluate((host) => {
+    const probe = host.shadowRoot!.querySelector('#probe')!
+    return getComputedStyle(probe).backgroundColor
+  })).not.toBe(shadowBefore)
+  expect(await sibling.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(authoredBase)
 
-  const snapshot = await page.evaluate(() => window.__phase5!.snapshot()) as any
-  expect(JSON.stringify(snapshot)).not.toContain('--phase5-v-')
+  const snapshot = await page.evaluate(() => window.__runtimeFixture!.snapshot()) as any
+  expect(JSON.stringify(snapshot)).not.toContain('--runtime-fixture-v-')
   expect(snapshot.overrides.every((entry: any) => Array.isArray(entry.token) && typeof entry.address.kind === 'string')).toBe(true)
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })
@@ -273,7 +325,7 @@ test('comparison lanes stay functional, visible, and live-themed', async ({ page
   const lanes = page.locator('[data-lane]')
   await expect(lanes).toHaveCount(5)
 
-  const laneIds = ['sfc', 'tailwind', 'panda', 'extract', 'vane'] as const
+  const laneIds = ['sfc', 'tailwind', 'panda', 'extract', 'vanity'] as const
   await expect(page.getByRole('button', { name: 'Dispatch', exact: true })).toHaveCount(5)
   for (const lane of laneIds)
     await page.locator(`[data-lane="${lane}"]`).getByRole('button', { name: 'Dispatch', exact: true }).click()
@@ -303,13 +355,13 @@ test('comparison lanes stay functional, visible, and live-themed', async ({ page
     ).not.toBe(lightCards[index])
   }
 
-  const vaneButton = page.locator('[data-lane="vane"] button').first()
-  const before = await vaneButton.evaluate(element => getComputedStyle(element).backgroundColor)
-  await page.getByLabel('Live vane-dux brand color').fill('#d13c63')
-  await expect.poll(() => vaneButton.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(before)
+  const vanityButton = page.locator('[data-lane="vanity"] button').first()
+  const before = await vanityButton.evaluate(element => getComputedStyle(element).backgroundColor)
+  await page.getByLabel('Live vanity brand hue').fill('345')
+  await expect.poll(() => vanityButton.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(before)
 
-  await vaneButton.hover()
-  const hover = await vaneButton.evaluate(element => getComputedStyle(element).backgroundColor)
+  await vanityButton.hover()
+  const hover = await vanityButton.evaluate(element => getComputedStyle(element).backgroundColor)
   expect(hover).not.toBe(before)
   expect(browserErrors, browserErrors.join('\n')).toEqual([])
 })

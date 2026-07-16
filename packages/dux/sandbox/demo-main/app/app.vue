@@ -7,7 +7,7 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
         span(:class="s.brandMark" aria-hidden="true") ◈
         div(:class="s.brandText")
           p(:class="s.brandName") Prism
-          p(:class="s.brandTagline") system studio · vane-dux
+          p(:class="s.brandTagline") system studio · vanity
 
       p(:class="s.controlsHeading") Live decisions
       div(:class="s.controlStack")
@@ -17,13 +17,12 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
             output(:class="s.controlValue") {{ settings.hue }}°
           input(
             v-model.number="settings.hue"
-            :class="s.range"
+            :class="s.hueSlider"
             type="range"
             min="0"
             max="360"
             aria-label="Palette hue"
           )
-          span(:class="s.hueRamp" aria-hidden="true")
 
         div(:class="s.controlGroup")
           span(:class="s.controlLabel") Appearance
@@ -78,6 +77,7 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
             ) {{ option }}
 
       footer(:class="s.railFooter")
+        button(:class="s.randomizeButton" type="button" @click="randomizeSystem") Randomize system
         button(:class="s.resetButton" type="button" @click="reset") Reset authored defaults
         p(:class="s.railNote") Persisted in a cookie and projected through the runtime snapshot before first paint.
 
@@ -157,17 +157,17 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
 
                 article(:class="s.panel")
                   header(:class="s.panelHead")
-                    h2(:class="s.panelTitle") Recent conversations
+                    h2(:class="s.panelTitle") Active workstreams
                     button(:class="s.resetButton" type="button") View all
                   div(:class="s.table")
-                    div(v-for="person in people" :key="person.email" :class="s.tableRow")
+                    div(v-for="stream in workstreams" :key="stream.channel" :class="s.tableRow")
                       div(:class="s.person")
-                        span(:class="s.avatar" aria-hidden="true") {{ person.initials }}
+                        span(:class="s.avatar" aria-hidden="true") {{ stream.mark }}
                         span(:class="s.personText")
-                          strong(:class="s.personName") {{ person.name }}
-                          span(:class="s.personEmail") {{ person.email }}
-                      span(:class="s.badge") {{ person.status }}
-                      strong(:class="s.amount") {{ person.amount }}
+                          strong(:class="s.personName") {{ stream.subject }}
+                          span(:class="s.personEmail") {{ stream.channel }}
+                      span(:class="s.badge") {{ stream.status }}
+                      strong(:class="s.amount") {{ stream.volume }}
 
               aside(:class="s.dashboardSide")
                 article(:class="s.panel")
@@ -184,13 +184,13 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
                   div(:class="s.activity")
                     div(:class="s.activityItem")
                       span(:class="s.activityDot" aria-hidden="true")
-                      p(:class="s.activityCopy") #[span(:class="s.activityStrong") Devon Marsh] started a new conversation.
+                      p(:class="s.activityCopy") #[span(:class="s.activityStrong") Product feedback] received a new conversation.
                     div(:class="s.activityItem")
                       span(:class="s.activityDot" aria-hidden="true")
                       p(:class="s.activityCopy") Automation routed 3 tickets to Billing.
                     div(:class="s.activityItem")
                       span(:class="s.activityDot" aria-hidden="true")
-                      p(:class="s.activityCopy") #[span(:class="s.activityStrong") Priya Foster] shared the weekly report.
+                      p(:class="s.activityCopy") #[span(:class="s.activityStrong") Weekly report] was shared with the workspace.
 
         section(:class="[s.inspector, s.rawReach]" aria-labelledby="provenance-title")
           header(:class="s.inspectorHead")
@@ -207,8 +207,8 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
 
           PrismTabs(:items="inspectorTabs")
 
-  Phase4Fixture
-  Phase5Fixture
+  AxisFixture
+  RuntimeFixture
 
   PrismDialog(:open="dialogOpen" @close="dialogOpen = false")
     template(#title) One coherent system
@@ -268,11 +268,11 @@ let runtime: ReturnType<typeof s.studioRuntime> | undefined
 
 const navItems = ['Overview', 'Inbox', 'Automations', 'Reports', 'Settings'] as const
 const chartPoints = [34, 48, 43, 61, 56, 72, 66, 81, 75, 88, 83, 96]
-const people = [
-  { initials: 'DM', name: 'Devon Marsh', email: 'devon@sparrow.co', amount: '$3,820', status: 'complete' },
-  { initials: 'AK', name: 'Aisha Khan', email: 'aisha@north.dev', amount: '$2,164', status: 'pending' },
-  { initials: 'TV', name: 'Tomás Vidal', email: 'tomas@masa.io', amount: '$1,908', status: 'complete' },
-  { initials: 'PF', name: 'Priya Foster', email: 'priya@fond.co', amount: '$986', status: 'review' },
+const workstreams = [
+  { mark: 'PF', subject: 'Product feedback', channel: '#product-feedback', volume: '184', status: 'healthy' },
+  { mark: 'BQ', subject: 'Billing questions', channel: '#billing', volume: '72', status: 'review' },
+  { mark: 'ON', subject: 'Onboarding', channel: '#onboarding', volume: '48', status: 'healthy' },
+  { mark: 'IR', subject: 'Incident review', channel: '#incidents', volume: '12', status: 'pending' },
 ]
 const inspectorTabs = [
   { label: 'Axes', content: 'Scheme, density, elevation, and motion are ordered environmental dimensions. Components never branch on them.' },
@@ -301,6 +301,27 @@ function choose<Key extends keyof StudioSettings>(key: Key, value: StudioSetting
 function reset(): void {
   settings.value = { ...defaults }
   progress.value = 72
+}
+
+function randomizeSystem(): void {
+  settings.value = {
+    hue: randomInteger(0, 360),
+    radius: randomInteger(2, 24),
+    scheme: randomItem(schemes),
+    density: randomItem(densities),
+    elevation: randomItem(elevations),
+    motion: randomItem(motions),
+    font: randomItem(fonts),
+  }
+  progress.value = randomInteger(38, 96)
+}
+
+function randomItem<const Values extends readonly unknown[]>(values: Values): Values[number] {
+  return values[Math.floor(Math.random() * values.length)]!
+}
+
+function randomInteger(minimum: number, maximum: number): number {
+  return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum
 }
 
 function createSnapshot(state: StudioSettings) {

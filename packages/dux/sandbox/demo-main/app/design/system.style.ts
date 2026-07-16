@@ -1,4 +1,4 @@
-import { presetConditions } from '@mszr/vane-dux/preset'
+import { presetConditions } from '@mszr/vanity/preset'
 import { de } from './engine'
 import { foundationTokens } from './foundations.tokens'
 import { effectTokens, paletteTokens } from './palette.tokens'

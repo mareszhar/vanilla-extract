@@ -1,0 +1,26 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@mszr/vanity": ["./src/index.ts"],
+      "@mszr/vanity/capabilities": ["./src/capabilities.ts"],
+      "@mszr/vanity/runtime": ["./src/runtime.ts"],
+      "@mszr/vanity/preset": ["./src/preset.ts"],
+      "@mszr/vanity/vite": ["./src/vite.ts"],
+      "@mszr/vanity/vue": ["./src/vue.ts"],
+      "@mszr/vanity/nuxt": ["./src/nuxt.ts"],
+      "@test": ["./src/test-support/index.ts"]
+    },
+    "types": ["node"],
+    "outDir": "dist"
+  },
+  "include": [
+    "build.config.ts",
+    "src/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

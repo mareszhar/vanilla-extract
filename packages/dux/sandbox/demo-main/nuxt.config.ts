@@ -1,6 +1,15 @@
+import { vanityNuxtImports } from '@mszr/vanity/nuxt'
+
 export default defineNuxtConfig({
-  modules: ['@mszr/vane-dux/nuxt'],
-  vane: { system: '~/design/system.style.ts' },
+  modules: ['@mszr/vanity/nuxt'],
+  vanity: { system: '~/design/system.style.ts' },
+  components: [{
+    path: '~/components',
+    extensions: ['vue'],
+  }],
+  imports: {
+    presets: [...vanityNuxtImports],
+  },
   compatibilityDate: '2026-07-09',
   devtools: { enabled: false },
   typescript: {

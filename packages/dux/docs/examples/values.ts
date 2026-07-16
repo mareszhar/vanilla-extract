@@ -1,4 +1,4 @@
-import { createEngine } from '@mszr/vane-dux'
+import { createEngine } from '@mszr/vanity'
 
 const de = createEngine()
 const external = de.customProperty('--external-measure', { type: 'length' })

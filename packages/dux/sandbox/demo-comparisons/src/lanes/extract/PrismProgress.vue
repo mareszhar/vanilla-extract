@@ -5,7 +5,7 @@ div(:class="track" role="progressbar" :aria-valuenow="props.value")
 
 <script setup lang="ts">
 // The var + assignInlineVars plumbing, rebuilt per component — the shape
-// vane-dux collapses into port() + usePorts.
+// vanity collapses into port() + usePorts.
 import { assignInlineVars } from '@vanilla-extract/dynamic'
 import { fill, fillFraction, track } from './prism.css'
 

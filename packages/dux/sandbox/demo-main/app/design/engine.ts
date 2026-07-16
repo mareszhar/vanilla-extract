@@ -1,5 +1,5 @@
-import { createEngine } from '@mszr/vane-dux'
-import { bemPlugin, elevationPlugin } from '@mszr/vane-dux/preset'
+import { createEngine } from '@mszr/vanity'
+import { bemPlugin, elevationPlugin } from '@mszr/vanity/preset'
 
 /**
  * Prism's authoring environment. The chain reads as the system's environmental

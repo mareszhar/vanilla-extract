@@ -2,7 +2,7 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "incremental": true,
-    "tsBuildInfoFile": "../../../.dux/benchmarks/medium.tsbuildinfo",
+    "tsBuildInfoFile": "../../../.vanity/benchmarks/medium.tsbuildinfo",
     "types": [
       "node"
     ],

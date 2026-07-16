@@ -33,8 +33,8 @@ for (const file of markdownFiles) {
     const code = fence[1] ?? ''
     const candidates = [
       code,
-      `const __vaneDocExample = ({\n${code}\n})`,
-      `const __vaneDocExample = [\n${code}\n]`,
+      `const __vanityDocExample = ({\n${code}\n})`,
+      `const __vanityDocExample = [\n${code}\n]`,
     ]
     let best: readonly ts.Diagnostic[] | undefined
 

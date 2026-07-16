@@ -1,5 +1,5 @@
 :root {
-  --demo-brand: #635bff;
+  --demo-brand: oklch(0.58 0.2 285);
   color-scheme: light dark;
   font-family:
     Inter,
@@ -173,8 +173,22 @@ select {
 }
 
 .brand-control input {
+  appearance: none;
   width: 100%;
-  padding: 0.3rem;
+  min-height: 0.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    oklch(0.62 0.2 0),
+    oklch(0.62 0.2 60),
+    oklch(0.62 0.2 120),
+    oklch(0.62 0.2 180),
+    oklch(0.62 0.2 240),
+    oklch(0.62 0.2 300),
+    oklch(0.62 0.2 360)
+  );
   cursor: pointer;
 }
 
@@ -208,8 +222,8 @@ select {
   background: light-dark(oklch(0.995 0.003 285), oklch(0.15 0.008 285));
 }
 
-.lane[data-lane='vane'] {
-  border-color: color-mix(in oklab, var(--demo-brand) 48%, light-dark(white, black));
+.lane[data-lane='vanity'] {
+  border-color: color-mix(in oklab, var(--demo-brand) 48%, light-dark(oklch(100% 0 0), oklch(0% 0 0)));
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--demo-brand) 10%, transparent) inset;
 }
 

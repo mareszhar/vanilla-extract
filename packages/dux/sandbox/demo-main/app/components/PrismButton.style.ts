@@ -1,4 +1,4 @@
-import { focusRing } from '@mszr/vane-dux/preset'
+import { focusRing } from '@mszr/vanity/preset'
 import { ds } from '../design/system.style'
 
 const t = ds.t

@@ -137,7 +137,7 @@ function tsconfigSource(scale: BenchmarkScale): string {
     extends: '../../../tsconfig.base.json',
     compilerOptions: {
       incremental: true,
-      tsBuildInfoFile: `../../../.dux/benchmarks/${scale.name}.tsbuildinfo`,
+      tsBuildInfoFile: `../../../.vanity/benchmarks/${scale.name}.tsbuildinfo`,
       types: ['node'],
       noUnusedLocals: false,
       noUnusedParameters: false,
@@ -155,17 +155,17 @@ function declarationConfigSource(scale: BenchmarkScale): string {
       declaration: true,
       emitDeclarationOnly: true,
       noEmit: false,
-      outDir: `../../../.dux/benchmarks/declarations/${scale.name}`,
+      outDir: `../../../.vanity/benchmarks/declarations/${scale.name}`,
     },
   }, null, 2)}\n`
 }
 
 function viteConfigSource(): string {
   return `${header}// eslint-disable-next-line antfu/no-import-dist
-import { vaneDuxPlugin } from '../../../vane-dux/dist/vite.mjs'
+import { vanityPlugin } from '../../../vanity/dist/vite.mjs'
 
 export default {
-  plugins: [vaneDuxPlugin()],
+  plugins: [vanityPlugin()],
 }
 `
 }
@@ -178,7 +178,7 @@ function filesForScale(scale: BenchmarkScale): Map<string, string> {
     scale.axes >= 3 ? '  contrast: axis({ modes: { normal: defaultMode(), high: data(\'contrast\', \'high\') } }),' : undefined,
     scale.axes >= 4 ? '  motion: axis({ modes: { full: defaultMode(), reduced: data(\'motion\', \'reduced\') } }),' : undefined,
   ].filter(Boolean).join('\n')
-  files.set('src/engine.ts', `${header}import { createEngine } from '@mszr/vane-dux'
+  files.set('src/engine.ts', `${header}import { createEngine } from '@mszr/vanity'
 
 export const de = createEngine().axes(({ axis, data, defaultMode, scheme }) => ({
   scheme: scheme({ locality: 'root' }),
@@ -197,11 +197,11 @@ ${optionalAxes}
   files.set('src/main.ts', `${header}import * as showcase from './showcase.style'\n\ndocument.querySelector('#app')!.textContent = String(Object.keys(showcase).length)\n`)
   files.set('index.html', '<main id="app"></main>\n<script type="module" src="/src/main.ts"></script>\n')
   files.set('package.json', `${JSON.stringify({
-    name: `vane-benchmark-${scale.name}`,
+    name: `vanity-benchmark-${scale.name}`,
     type: 'module',
     private: true,
     dependencies: {
-      '@mszr/vane-dux': 'link:../../../vane-dux',
+      '@mszr/vanity': 'link:../../../vanity',
     },
   }, null, 2)}\n`)
   files.set('tsconfig.json', tsconfigSource(scale))
@@ -215,7 +215,7 @@ function existingFiles(root: string, current = root): string[] {
     return []
 
   return readdirSync(current, { withFileTypes: true }).flatMap((entry) => {
-    if (['.vane', 'dist', 'node_modules'].includes(entry.name))
+    if (['.vanity', 'dist', 'node_modules'].includes(entry.name))
       return []
     const path = join(current, entry.name)
     return entry.isDirectory() ? existingFiles(root, path) : [relative(root, path)]

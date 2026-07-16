@@ -23,6 +23,11 @@ export const foundationTokens = de.defineTokens({
     'xl': densityLength(2, 1.5, 3),
     '2xl': densityLength(3, 2, 4),
   },
+  layout: {
+    controlHeight: densityLength(2.5, 2.15, 3),
+    navigationWidth: densityLength(12, 9.5, 14.5),
+    asideWidth: densityLength(16, 13, 19),
+  },
   radius: {
     seed: de.token.length({
       val: de.length.px(14),

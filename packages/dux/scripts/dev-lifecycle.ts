@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     await waitForPortFree(httpPort, output)
     for (const port of claimedHmrPorts)
       await waitForPortFree(port, output, true)
-    process.stdout.write(`[vane-dux] Nuxt dev lifecycle ${cycle}/2 released HTTP and HMR (${claimedHmrPorts.join(', ')}) ports\n`)
+    process.stdout.write(`[vanity] Nuxt dev lifecycle ${cycle}/2 released HTTP and HMR (${claimedHmrPorts.join(', ')}) ports\n`)
   }
 }
 

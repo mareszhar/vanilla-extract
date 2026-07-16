@@ -1,4 +1,4 @@
-import { definePatterns, focusRing, visuallyHidden } from '@mszr/vane-dux/preset'
+import { definePatterns, focusRing, visuallyHidden } from '@mszr/vanity/preset'
 import { ds } from './design/system.style'
 
 const t = ds.t
@@ -24,7 +24,7 @@ const grow = ds.keyframes({
 }, 'grow')
 
 ds.globalCss('*, *::before, *::after', { boxSizing: 'border-box' })
-ds.globalCss('html', { minBlockSize: '100%', background: '#0c0c10' })
+ds.globalCss('html', { minBlockSize: '100%', background: 'oklch(17% 0.012 285)' })
 ds.globalCss('body', { margin: 0, minBlockSize: '100%', minInlineSize: '20rem' })
 ds.globalCss('button, input, select', { font: 'inherit' })
 ds.globalCss('button', { color: 'inherit' })
@@ -145,12 +145,32 @@ export const range = ds.css({
   ...focusRing({ color: t.color.brand }),
 })
 
-export const hueRamp = ds.css({
-  blockSize: '0.45rem',
-  marginBlockStart: '-0.35rem',
-  borderRadius: t.radius.pill,
-  background: 'linear-gradient(90deg, oklch(62% .2 0), oklch(62% .2 60), oklch(62% .2 120), oklch(62% .2 180), oklch(62% .2 240), oklch(62% .2 300), oklch(62% .2 360))',
-  pointerEvents: 'none',
+export const hueSlider = ds.css({
+  'appearance': 'none',
+  'inlineSize': '100%',
+  'blockSize': '0.72rem',
+  'margin': `${t.space.xs} 0`,
+  'borderRadius': t.radius.pill,
+  'background': 'linear-gradient(90deg, oklch(62% .2 0), oklch(62% .2 60), oklch(62% .2 120), oklch(62% .2 180), oklch(62% .2 240), oklch(62% .2 300), oklch(62% .2 360))',
+  'cursor': 'pointer',
+  '&::-webkit-slider-thumb': {
+    appearance: 'none',
+    inlineSize: '1.15rem',
+    blockSize: '1.15rem',
+    border: `3px solid ${t.color.surface}`,
+    borderRadius: '50%',
+    background: t.color.brand,
+    boxShadow: `0 0 0 1px ${t.color.inkMuted}, 0 2px 8px ${t.color.scrim}`,
+  },
+  '&::-moz-range-thumb': {
+    inlineSize: '0.8rem',
+    blockSize: '0.8rem',
+    border: `3px solid ${t.color.surface}`,
+    borderRadius: '50%',
+    background: t.color.brand,
+    boxShadow: `0 0 0 1px ${t.color.inkMuted}, 0 2px 8px ${t.color.scrim}`,
+  },
+  ...focusRing({ color: t.color.brand }),
 })
 
 export const segmented = ds.css({
@@ -193,6 +213,20 @@ export const resetButton = ds.css({
   background: t.color.canvas,
   cursor: 'pointer',
   hover: { borderColor: t.color.brand, color: t.color.brand },
+  ...focusRing({ color: t.color.brand }),
+})
+
+export const randomizeButton = ds.css({
+  minBlockSize: t.layout.controlHeight,
+  border: 0,
+  borderRadius: t.radius.sm,
+  background: t.color.brand,
+  color: t.color.onBrand,
+  fontWeight: 720,
+  cursor: 'pointer',
+  transition: `transform ${t.duration.quick} ${t.ease.ui}, background ${t.duration.quick} ${t.ease.ui}`,
+  hover: { background: t.color.brandHover },
+  active: { transform: 'scale(0.98)' },
   ...focusRing({ color: t.color.brand }),
 })
 
@@ -257,7 +291,7 @@ export const application = ds.css({
   background: t.color.application,
   boxShadow: t.shadow.panel,
   transition: `border-radius ${t.duration.deliberate} ${t.ease.ui}, box-shadow ${t.duration.deliberate} ${t.ease.ui}, background ${t.duration.deliberate} ${t.ease.ui}`,
-  previewWide: { gridTemplateColumns: '12rem minmax(0, 1fr)' },
+  previewWide: { gridTemplateColumns: `${t.layout.navigationWidth} minmax(0, 1fr)` },
 })
 
 export const appNav = ds.css({
@@ -309,7 +343,7 @@ export const dashboard = ds.css({
   display: 'grid',
   gap: t.space.md,
   padding: t.space.md,
-  previewRoomy: { gridTemplateColumns: 'minmax(0, 1.65fr) minmax(16rem, .75fr)', padding: t.space.lg },
+  previewRoomy: { gridTemplateColumns: `minmax(0, 1.65fr) minmax(${t.layout.asideWidth}, .75fr)`, padding: t.space.lg },
 })
 
 export const dashboardMain = ds.css({ display: 'grid', alignContent: 'start', gap: t.space.md, minInlineSize: 0 })
