@@ -1,4 +1,4 @@
-name: dux
+name: vanity
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
       - dux
     paths:
       - 'packages/dux/**'
-      - '.github/workflows/dux.yml'
+      - '.github/workflows/vanity.yml'
   pull_request:
     paths:
       - 'packages/dux/**'
-      - '.github/workflows/dux.yml'
+      - '.github/workflows/vanity.yml'
 
 jobs:
   validate:

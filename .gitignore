@@ -9,8 +9,6 @@ test-results
 .parcel-cache
 .pnpm-store
 .turbo
-.dux
-.vane
 styled-system
 .nuxt
 .output
@@ -22,7 +20,8 @@ coverage
 .idea
 next-env.d.ts
 
-# for dux
+# Vanity's temporary in-fork workspace
 !packages/dux/**/README.md
 __references__
 auto-imports.d.ts
+.vanity
