@@ -1,3 +1,8 @@
+<template lang="pug">
+button(:class="classes")
+  slot
+</template>
+
 <script setup lang="ts">
 // Variants are string maps over utility soup. The maps type-check against the
 // prop union, but every class inside them is an unchecked string — a typo'd
@@ -26,9 +31,3 @@ const classes = computed(() => [
   props.pill ? 'rounded-full' : 'rounded-sm',
 ])
 </script>
-
-<template>
-  <button :class="classes">
-    <slot />
-  </button>
-</template>

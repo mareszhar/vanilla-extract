@@ -1,17 +1,16 @@
+<template lang="pug">
+article.card
+  h3 {{ card.title }}
+  p {{ card.body }}
+  PrismButton(size="sm" @click="emit('action')") {{ card.action }}
+</template>
+
 <script setup lang="ts">
 import { card } from '@prism/domain'
 import PrismButton from './PrismButton.vue'
 
 const emit = defineEmits<{ action: [] }>()
 </script>
-
-<template>
-  <article class="card">
-    <h3>{{ card.title }}</h3>
-    <p>{{ card.body }}</p>
-    <PrismButton size="sm" @click="emit('action')">{{ card.action }}</PrismButton>
-  </article>
-</template>
 
 <style scoped>
 .card {

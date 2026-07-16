@@ -1,13 +1,12 @@
+<template lang="pug">
+button(:class="s.button(props)")
+  slot
+</template>
+
 <script setup lang="ts">
 // One source of truth: the recipe's variant space *is* the props declaration.
 import { propsOf } from '@mszr/vane-dux/vue'
-import { button } from './button.style'
+import * as s from './button.style'
 
-const props = defineProps(propsOf(button))
+const props = defineProps(propsOf(s.button))
 </script>
-
-<template>
-  <button :class="button(props)">
-    <slot />
-  </button>
-</template>

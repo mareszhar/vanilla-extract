@@ -1,3 +1,8 @@
+<template lang="pug">
+button.button(:class="[`intent-${props.intent}`, `size-${props.size}`, { pill: props.pill }]")
+  slot
+</template>
+
 <script setup lang="ts">
 // Variants are class-name conventions; nothing checks that a class exists or
 // that the prop union and the CSS stay in step.
@@ -6,12 +11,6 @@ import './tokens.css'
 
 const props = withDefaults(defineProps<ButtonProps>(), { intent: 'brand', size: 'md', pill: false })
 </script>
-
-<template>
-  <button class="button" :class="[`intent-${props.intent}`, `size-${props.size}`, { pill: props.pill }]">
-    <slot />
-  </button>
-</template>
 
 <style scoped>
 .button {
@@ -23,7 +22,9 @@ const props = withDefaults(defineProps<ButtonProps>(), { intent: 'brand', size: 
   border-radius: var(--sfc-radius-sm);
   font: 400 1rem/1.5 inherit;
   cursor: pointer;
-  transition: background var(--sfc-duration-fast) ease, border-color var(--sfc-duration-fast) ease;
+  transition:
+    background var(--sfc-duration-fast) ease,
+    border-color var(--sfc-duration-fast) ease;
 }
 
 .button:focus-visible {

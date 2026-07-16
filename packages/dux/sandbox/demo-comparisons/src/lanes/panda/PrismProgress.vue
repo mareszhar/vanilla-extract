@@ -1,3 +1,8 @@
+<template lang="pug">
+div(:class="track" role="progressbar" :aria-valuenow="props.value")
+  div(:class="fill" :style="fillStyle")
+</template>
+
 <script setup lang="ts">
 // The reactive width can't cross Panda's static extraction, so it rides an
 // inline style beside the extracted classes.
@@ -21,9 +26,3 @@ const fill = css({
 
 const fillStyle = computed(() => ({ inlineSize: `${props.value}%` }))
 </script>
-
-<template>
-  <div :class="track" role="progressbar" :aria-valuenow="props.value">
-    <div :class="fill" :style="fillStyle" />
-  </div>
-</template>

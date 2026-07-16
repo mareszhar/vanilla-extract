@@ -63,6 +63,12 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^6.0.0
         version: 6.0.7(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+      '@vue/language-plugin-pug':
+        specifier: ^3.2.0
+        version: 3.3.7
+      pug:
+        specifier: ^3.0.3
+        version: 3.0.4
       tailwindcss:
         specifier: ^4.1.0
         version: 4.3.2
@@ -88,6 +94,9 @@ importers:
         specifier: ^3.5.39
         version: 3.5.39(typescript@6.0.3)
     devDependencies:
+      '@vue/language-plugin-pug':
+        specifier: ^3.2.0
+        version: 3.3.7
       pug:
         specifier: ^3.0.3
         version: 3.0.4
@@ -2497,6 +2506,9 @@ packages:
 
   '@vue/language-core@3.3.6':
     resolution: {integrity: sha512-LgBMZAy2sR3cQWknpyaxnI6yBkqDfLBPkbdhwRhQCvzfNJRQXPilgQIrdI/v4ytJ0sAq9bWhaPsjqBqneomJ3Q==}
+
+  '@vue/language-plugin-pug@3.3.7':
+    resolution: {integrity: sha512-iJz3ImczokTATeYj8ixuUFE2ZdZCMLj1WJU5Zt+tV3saT/nG5sqLYPYsu54bYtcert2v2mhXBvsMipKCsSLFmQ==}
 
   '@vue/reactivity@3.5.39':
     resolution: {integrity: sha512-TpsuBJ9gGlZa5d23XcM2y8EXanz9dZeVDQBXRwzy46ItgvM+rWpzs+UVM0wcRLxGvcav0HE5jz2gNL53xlRAog==}
@@ -5976,6 +5988,9 @@ packages:
     resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
     engines: {node: '>=0.10.0'}
 
+  vscode-languageserver-textdocument@1.0.12:
+    resolution: {integrity: sha512-cxWNPesCnQCcMPeenjKKsOCKQZ/L6Tv19DTRIGuLWe32lyzWhihGVJ/rcckZXJxfdKCFvRLS3fpBIsV/ZGX4zA==}
+
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
 
@@ -8632,6 +8647,14 @@ snapshots:
       muggle-string: 0.4.1
       path-browserify: 1.0.1
       picomatch: 4.0.5
+
+  '@vue/language-plugin-pug@3.3.7':
+    dependencies:
+      '@volar/source-map': 2.4.28
+      muggle-string: 0.4.1
+      pug-lexer: 5.0.1
+      pug-parser: 6.0.0
+      vscode-languageserver-textdocument: 1.0.12
 
   '@vue/reactivity@3.5.39':
     dependencies:
@@ -12697,6 +12720,8 @@ snapshots:
       - msw
 
   void-elements@3.1.0: {}
+
+  vscode-languageserver-textdocument@1.0.12: {}
 
   vscode-uri@3.1.0: {}
 

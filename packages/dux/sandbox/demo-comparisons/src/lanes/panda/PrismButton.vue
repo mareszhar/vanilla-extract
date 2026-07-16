@@ -1,3 +1,8 @@
+<template lang="pug">
+button(:class="classes")
+  slot
+</template>
+
 <script setup lang="ts">
 // Panda's cva: typed variants, but the styles must stay statically
 // analyzable — the extractor, not the language, decides what's expressible —
@@ -45,9 +50,3 @@ const button = cva({
 
 const classes = computed(() => button({ intent: props.intent, size: props.size, pill: props.pill }))
 </script>
-
-<template>
-  <button :class="classes">
-    <slot />
-  </button>
-</template>

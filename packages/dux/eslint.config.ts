@@ -8,6 +8,7 @@ export default antfu(
   {
     formatters: true,
     typescript: true,
+    vue: true,
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
@@ -17,6 +18,20 @@ export default antfu(
       '**/.dux/**',
       '**/__references__/**',
     ],
+  },
+  {
+    files: ['**/*.vue'],
+    rules: {
+      // Disable unused-imports linting for Vue files due to Pug template usage detection issues
+      'unused-imports/no-unused-vars': 'off',
+      'unused-imports/no-unused-imports': 'off',
+
+      'vue/block-order': ['error', {
+        order: ['template[lang="pug"]', 'script[setup][lang="ts"]', 'style'],
+      }],
+      'vue/define-macros-order': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
+    },
   },
   {
     files: ['**/*.md'],
@@ -36,6 +51,8 @@ export default antfu(
       'format/prettier': 'off',
       'unused-imports/no-unused-vars': 'off',
       'no-unused-vars': 'off',
+      'vue/padding-line-between-blocks': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
     },
   },
   {
@@ -44,6 +61,12 @@ export default antfu(
       'no-console': 'off',
       'node/prefer-global/process': 'off',
       'antfu/no-top-level-await': 'off',
+    },
+  },
+  {
+    files: ['sandbox/demo-comparisons/**/*.vue'],
+    rules: {
+      'ts/no-use-before-define': 'off',
     },
   },
   {

@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "tsx scripts/install-git-hooks.ts --optional",
     "git:hooks:install": "tsx scripts/install-git-hooks.ts",
+    "prep": "pnpm --dir sandbox/demo-main exec nuxt prepare",
 
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

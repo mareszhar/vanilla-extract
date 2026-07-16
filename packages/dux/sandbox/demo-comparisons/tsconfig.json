@@ -6,5 +6,8 @@
     "plugins": [{ "name": "@mszr/vane-dux/typescript" }],
     "types": ["vite/client"]
   },
+  "vueCompilerOptions": {
+    "plugins": ["@vue/language-plugin-pug"]
+  },
   "include": ["src", "*.ts"]
 }

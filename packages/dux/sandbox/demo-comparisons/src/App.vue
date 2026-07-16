@@ -1,3 +1,93 @@
+<template lang="pug">
+main.shell
+  header.hero
+    p.eyebrow Prism · controlled comparison
+    h1
+      | One dispatch card.
+      br
+      | Five styling models.
+    p.lede The same small workflow, variants, live progress, and design-system change in every lane—implemented with each tool's current official idioms.
+
+  section.control-panel(aria-labelledby="controls-title")
+    .control-head
+      div
+        p.section-kicker Shared state
+        h2#controls-title Shared workflow controls
+      p.status(aria-live="polite") {{ lastInteraction }} · {{ totalInteractions }} total
+
+    .control-grid
+      label.control
+        span Intent
+        select(v-model="intent")
+          option(v-for="option in buttonIntents" :key="option" :value="option") {{ option }}
+      label.control
+        span Size
+        select(v-model="size")
+          option(v-for="option in buttonSizes" :key="option" :value="option") {{ option }}
+      label.control.switch-control
+        span Pill
+        input(v-model="pill" type="checkbox")
+      label.control.control-wide
+        span Progress #[strong {{ value }}%]
+        input(v-model.number="value" type="range" min="0" max="100")
+      label.control
+        span Scheme
+        select(v-model="scheme")
+          option(value="auto") auto
+          option(value="light") light
+          option(value="dark") dark
+      label.control.brand-control
+        span Live brand
+        input(v-model="brand" type="color" aria-label="Live vane-dux brand color")
+    p.control-note Scheme and component decisions exercise every lane. Brand is intentionally scoped to vane-dux: it demonstrates a mutable seed re-deriving the graph without a mirrored JavaScript palette.
+
+  section.matrix(aria-label="Styling model comparison")
+    article.lane(
+      v-for="lane in lanes"
+      :key="lane.id"
+      :ref="element => setLaneElement(lane.id, element)"
+      :data-lane="lane.id"
+      :data-scheme="scheme === 'auto' ? undefined : scheme"
+    )
+      header.lane-head
+        span.lane-index {{ lane.index }}
+        div
+          h2 {{ lane.name }}
+          span.live-badge(v-if="lane.id === 'vane'") live graph
+
+      p.lane-note {{ lane.note }}
+
+      .lane-demo(aria-label="Dispatch card workflow")
+        .dispatch-head
+          div
+            span.demo-label Priority queue
+            strong.dispatch-title Resolve Prism rollout
+          span.dispatch-state {{ value >= 80 ? 'ready' : 'in progress' }}
+
+        .demo-block
+          span.demo-label Primary action
+          component(
+            :is="lane.button"
+            :intent="intent"
+            :size="size"
+            :pill="pill"
+            @click="interact(lane.id, 'button')"
+          )
+            | {{ interactions[lane.id] ? `Dispatched ${interactions[lane.id]}×` : 'Dispatch' }}
+
+        .demo-block.card-block
+          span.demo-label Supporting content
+          component(:is="lane.card" @action="interact(lane.id, 'card')")
+
+        .demo-block
+          .demo-label-row
+            span.demo-label Rollout progress
+            span.demo-value {{ value }}%
+          component(:is="lane.progress" :value="value")
+
+      footer.lane-footer {{ interactions[lane.id] ?? 0 }} interactions received
+</template>
+
 <script setup lang="ts">
 import type { ButtonIntent, ButtonSize } from '@prism/domain'
 import type { ComponentPublicInstance } from 'vue'
@@ -15,10 +105,10 @@ import SfcProgress from './lanes/sfc/PrismProgress.vue'
 import TailwindButton from './lanes/tailwind/PrismButton.vue'
 import TailwindCard from './lanes/tailwind/PrismCard.vue'
 import TailwindProgress from './lanes/tailwind/PrismProgress.vue'
-import { bindVaneRuntime } from './lanes/vane/system.style'
 import VaneButton from './lanes/vane/PrismButton.vue'
 import VaneCard from './lanes/vane/PrismCard.vue'
 import VaneProgress from './lanes/vane/PrismProgress.vue'
+import { bindVaneRuntime } from './lanes/vane/system.style'
 
 const intent = ref<ButtonIntent>('brand')
 const size = ref<ButtonSize>('md')
@@ -111,122 +201,3 @@ const lanes = [
   },
 ] as const
 </script>
-
-<template>
-  <main class="shell">
-    <header class="hero">
-      <p class="eyebrow">Prism · controlled comparison</p>
-      <h1>One dispatch card.<br>Five styling models.</h1>
-      <p class="lede">The same small workflow, variants, live progress, and design-system change in every lane—implemented with each tool's current official idioms.</p>
-    </header>
-
-    <section class="control-panel" aria-labelledby="controls-title">
-      <div class="control-head">
-        <div>
-          <p class="section-kicker">Shared state</p>
-          <h2 id="controls-title">Shared workflow controls</h2>
-        </div>
-        <p class="status" aria-live="polite">
-          {{ lastInteraction }} · {{ totalInteractions }} total
-        </p>
-      </div>
-
-      <div class="control-grid">
-        <label class="control">
-          <span>Intent</span>
-          <select v-model="intent">
-            <option v-for="option in buttonIntents" :key="option" :value="option">{{ option }}</option>
-          </select>
-        </label>
-        <label class="control">
-          <span>Size</span>
-          <select v-model="size">
-            <option v-for="option in buttonSizes" :key="option" :value="option">{{ option }}</option>
-          </select>
-        </label>
-        <label class="control switch-control">
-          <span>Pill</span>
-          <input v-model="pill" type="checkbox">
-        </label>
-        <label class="control control-wide">
-          <span>Progress <strong>{{ value }}%</strong></span>
-          <input v-model.number="value" type="range" min="0" max="100">
-        </label>
-        <label class="control">
-          <span>Scheme</span>
-          <select v-model="scheme">
-            <option value="auto">auto</option>
-            <option value="light">light</option>
-            <option value="dark">dark</option>
-          </select>
-        </label>
-        <label class="control brand-control">
-          <span>Live brand</span>
-          <input v-model="brand" type="color" aria-label="Live vane-dux brand color">
-        </label>
-      </div>
-      <p class="control-note">Scheme and component decisions exercise every lane. Brand is intentionally scoped to vane-dux: it demonstrates a mutable seed re-deriving the graph without a mirrored JavaScript palette.</p>
-    </section>
-
-    <section class="matrix" aria-label="Styling model comparison">
-      <article
-        v-for="lane in lanes"
-        :key="lane.id"
-        :ref="element => setLaneElement(lane.id, element)"
-        class="lane"
-        :data-lane="lane.id"
-        :data-scheme="scheme === 'auto' ? undefined : scheme"
-      >
-        <header class="lane-head">
-          <span class="lane-index">{{ lane.index }}</span>
-          <div>
-            <h2>{{ lane.name }}</h2>
-            <span v-if="lane.id === 'vane'" class="live-badge">live graph</span>
-          </div>
-        </header>
-
-        <p class="lane-note">{{ lane.note }}</p>
-
-        <div class="lane-demo" aria-label="Dispatch card workflow">
-          <div class="dispatch-head">
-            <div>
-              <span class="demo-label">Priority queue</span>
-              <strong class="dispatch-title">Resolve Prism rollout</strong>
-            </div>
-            <span class="dispatch-state">{{ value >= 80 ? 'ready' : 'in progress' }}</span>
-          </div>
-
-          <div class="demo-block">
-            <span class="demo-label">Primary action</span>
-            <component
-              :is="lane.button"
-              :intent="intent"
-              :size="size"
-              :pill="pill"
-              @click="interact(lane.id, 'button')"
-            >
-              {{ interactions[lane.id] ? `Dispatched ${interactions[lane.id]}×` : 'Dispatch' }}
-            </component>
-          </div>
-
-          <div class="demo-block card-block">
-            <span class="demo-label">Supporting content</span>
-            <component :is="lane.card" @action="interact(lane.id, 'card')" />
-          </div>
-
-          <div class="demo-block">
-            <div class="demo-label-row">
-              <span class="demo-label">Rollout progress</span>
-              <span class="demo-value">{{ value }}%</span>
-            </div>
-            <component :is="lane.progress" :value="value" />
-          </div>
-        </div>
-
-        <footer class="lane-footer">
-          {{ interactions[lane.id] ?? 0 }} interactions received
-        </footer>
-      </article>
-    </section>
-  </main>
-</template>

@@ -22,6 +22,8 @@
     "@vanilla-extract/dynamic": "^2.1.5",
     "@vanilla-extract/recipes": "^0.5.7",
     "@vitejs/plugin-vue": "^6.0.0",
+    "@vue/language-plugin-pug": "^3.2.0",
+    "pug": "^3.0.3",
     "tailwindcss": "^4.1.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.3",
