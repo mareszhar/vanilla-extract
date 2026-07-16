@@ -8,7 +8,6 @@ button(:class="classes")
 // prop union, but every class inside them is an unchecked string — a typo'd
 // utility silently styles nothing.
 import type { ButtonProps } from '@prism/domain'
-import { computed } from 'vue'
 
 const props = withDefaults(defineProps<ButtonProps>(), { intent: 'brand', size: 'md', pill: false })
 

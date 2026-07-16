@@ -7,7 +7,6 @@ div(:class="track" role="progressbar" :aria-valuenow="props.value")
 // The var + assignInlineVars plumbing, rebuilt per component — the shape
 // vane-dux collapses into port() + usePorts.
 import { assignInlineVars } from '@vanilla-extract/dynamic'
-import { computed } from 'vue'
 import { fill, fillFraction, track } from './prism.css'
 
 const props = defineProps<{ value: number }>()

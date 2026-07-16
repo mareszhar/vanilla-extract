@@ -6,8 +6,6 @@ div.track(role="progressbar" :aria-valuenow="props.value")
 <script setup lang="ts">
 // `v-bind()` in CSS — the SFC model's reactive-value feature: stringly,
 // SFC-only, invisible to rename and find-references.
-import { computed } from 'vue'
-
 const props = defineProps<{ value: number }>()
 const width = computed(() => `${props.value}%`)
 </script>

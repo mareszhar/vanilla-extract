@@ -90,9 +90,7 @@ main.shell
 
 <script setup lang="ts">
 import type { ButtonIntent, ButtonSize } from '@prism/domain'
-import type { ComponentPublicInstance } from 'vue'
 import { buttonIntents, buttonSizes, progress } from '@prism/domain'
-import { computed, markRaw, reactive, ref, watchEffect } from 'vue'
 import ExtractButton from './lanes/extract/PrismButton.vue'
 import ExtractCard from './lanes/extract/PrismCard.vue'
 import ExtractProgress from './lanes/extract/PrismProgress.vue'

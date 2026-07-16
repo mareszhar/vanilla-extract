@@ -216,7 +216,6 @@ main#prism-studio(ref="root" :class="s.page" :style="initialProps.style" v-bind=
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
 import * as s from './app.style'
 
 type Scheme = 'system' | 'light' | 'dark'

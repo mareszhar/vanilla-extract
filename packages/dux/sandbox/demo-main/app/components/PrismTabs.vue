@@ -23,7 +23,6 @@ div(:class="parts.root")
 </template>
 
 <script setup lang="ts">
-import { ref, useId } from 'vue'
 import * as s from './PrismTabs.style'
 
 const props = defineProps<{ items: { label: string, content: string }[] }>()

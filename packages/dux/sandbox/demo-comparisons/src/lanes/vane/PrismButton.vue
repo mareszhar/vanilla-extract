@@ -5,7 +5,6 @@ button(:class="s.button(props)")
 
 <script setup lang="ts">
 // One source of truth: the recipe's variant space *is* the props declaration.
-import { propsOf } from '@mszr/vane-dux/vue'
 import * as s from './button.style'
 
 const props = defineProps(propsOf(s.button))

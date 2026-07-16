@@ -10,7 +10,6 @@ span#phase5-document(:class="[s.phase5Fixture, s.phase5DocumentProbe]" aria-hidd
 </template>
 
 <script setup lang="ts">
-import { setCustomProperty } from '@mszr/vane-dux/runtime'
 import * as s from './Phase5Fixture.style'
 
 declare global {

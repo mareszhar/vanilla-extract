@@ -6,7 +6,6 @@ div(:class="track" role="progressbar" :aria-valuenow="props.value")
 <script setup lang="ts">
 // The reactive width can't cross Panda's static extraction, so it rides an
 // inline style beside the extracted classes.
-import { computed } from 'vue'
 import { css } from '../../../styled-system/css'
 
 const props = defineProps<{ value: number }>()

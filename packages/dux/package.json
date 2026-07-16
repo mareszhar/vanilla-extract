@@ -8,8 +8,7 @@
   "scripts": {
     "postinstall": "tsx scripts/install-git-hooks.ts --optional",
     "git:hooks:install": "tsx scripts/install-git-hooks.ts",
-    "prep": "pnpm --dir sandbox/demo-main exec nuxt prepare",
-
+    "prep": "pnpm run demo:main:prep && pnpm run demo:comparisons:prep",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "dev": "turbo run dev",
@@ -34,8 +33,10 @@
     "css:optimizer:check": "tsx scripts/check-built-css.ts",
 
     "demo:main": "pnpm --dir sandbox/demo-main run dev",
+    "demo:main:prep": "pnpm --dir sandbox/demo-main run prep",
     "demo:comparisons": "pnpm --dir sandbox/demo-comparisons run dev",
-    "demo:typecheck": "pnpm --dir sandbox/demo-main run typecheck && pnpm --dir sandbox/demo-comparisons run typecheck",
+    "demo:comparisons:prep": "pnpm --dir sandbox/demo-comparisons run prep",
+    "demo:typecheck": "pnpm run demo:prep && pnpm --dir sandbox/demo-main run typecheck && pnpm --dir sandbox/demo-comparisons run typecheck",
     "demo:build": "pnpm --dir sandbox/demo-main run build && pnpm --dir sandbox/demo-comparisons run build",
     "demo:e2e:prod": "playwright test",
     "demo:e2e:dev": "playwright test --config playwright.dev.config.ts",

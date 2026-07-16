@@ -1,4 +1,3 @@
-import { createApp } from 'vue'
 import App from './App.vue'
 // The harness chrome — not a lane.
 import './shell.css'

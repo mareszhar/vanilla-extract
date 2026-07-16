@@ -12,7 +12,6 @@ Teleport(to="body")
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import * as s from './PrismDialog.style'
 
 const props = defineProps({ ...propsOf(s.dialog), open: Boolean })

@@ -8,7 +8,6 @@ button(:class="classes")
 // analyzable — the extractor, not the language, decides what's expressible —
 // and the token types arrive through a codegen artifact directory.
 import type { ButtonProps } from '@prism/domain'
-import { computed } from 'vue'
 import { cva } from '../../../styled-system/css'
 
 const props = withDefaults(defineProps<ButtonProps>(), { intent: 'brand', size: 'md', pill: false })
