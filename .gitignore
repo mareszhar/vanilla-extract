@@ -25,3 +25,4 @@ next-env.d.ts
 # for dux
 !packages/dux/**/README.md
 __references__
+auto-imports.d.ts
